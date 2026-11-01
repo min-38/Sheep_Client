@@ -1,6 +1,6 @@
 import type { Grid } from './raycast.ts'
 
-// 임시 고정 맵. 서버가 맵을 보내기 전까지 씀 (min-38/Sheep_Server#6)
+// 임시 고정 맵. 서버가 맵을 보내기 전까지 씀 (SHEEP-7)
 export const MAP: Grid = [
   [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
   [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
