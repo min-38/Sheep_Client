@@ -1,4 +1,5 @@
 import { castRay, type Grid } from './raycast.ts'
+import { drawSprites, type Thing } from './sprite.ts'
 
 export type Camera = {
   x: number
@@ -18,7 +19,7 @@ const GRASS_HORIZON: RGB = [92, 128, 64]
 const GRASS_NEAR: RGB = [52, 92, 36]
 
 // ImageData를 Uint32Array로 쓸 때의 픽셀 값. 리틀 엔디언이라 ABGR 순서
-const pack = (r: number, g: number, b: number) => ((255 << 24) | (b << 16) | (g << 8) | r) >>> 0
+export const pack = (r: number, g: number, b: number) => ((255 << 24) | (b << 16) | (g << 8) | r) >>> 0
 
 const mix = (p: number, q: number, t: number) => Math.round(p + (q - p) * t)
 const blend = (a: RGB, b: RGB, t: number) => pack(mix(a[0], b[0], t), mix(a[1], b[1], t), mix(a[2], b[2], t))
@@ -35,7 +36,7 @@ export function makeCamera(x: number, y: number, angle: number, fov: number): Ca
   return { x, y, dirX, dirY, planeX: -dirY * plane, planeY: dirX * plane }
 }
 
-export function renderFrame(pixels: Uint32Array, w: number, h: number, grid: Grid, cam: Camera) {
+export function renderFrame(pixels: Uint32Array, w: number, h: number, grid: Grid, cam: Camera, things: readonly Thing[]) {
   const half = h >> 1
   for (let y = 0; y < h; y++) {
     const color = y < half
@@ -46,14 +47,19 @@ export function renderFrame(pixels: Uint32Array, w: number, h: number, grid: Gri
 
   // 투영면까지의 거리(px). 화면 높이 대신 이 값으로 나눠야 16:9에서도 칸이 정사각형으로 보임
   const proj = w / (2 * Math.hypot(cam.planeX, cam.planeY))
+  // 가로줄마다 벽까지의 거리. 스프라이트가 벽 뒤에 있으면 가리는 데 씀
+  const zbuf = new Float64Array(w).fill(Infinity)
   for (let x = 0; x < w; x++) {
     const camX = (2 * x) / w - 1
     const hit = castRay(grid, cam.x, cam.y, cam.dirX + cam.planeX * camX, cam.dirY + cam.planeY * camX)
     if (!hit) continue
+    zbuf[x] = hit.dist
     const lineH = proj / hit.dist
     const top = Math.max(0, Math.floor((h - lineH) / 2))
     const bottom = Math.min(h, Math.ceil((h + lineH) / 2))
     const color = hit.side === 0 ? WALL_X : WALL_Y
     for (let y = top; y < bottom; y++) pixels[y * w + x] = color
   }
+
+  drawSprites(pixels, w, h, zbuf, cam, things)
 }
