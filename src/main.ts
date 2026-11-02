@@ -1,6 +1,8 @@
 import './style.css'
 import { MAP } from './map.ts'
 import { makeCamera, renderFrame } from './render.ts'
+import { makeScarecrowFrames } from './scarecrow.ts'
+import type { Thing } from './sprite.ts'
 import { turn } from './turn.ts'
 
 // 내부 해상도. 이 크기로 그리고 CSS로 확대함 (기술 설계서 렌더링)
@@ -22,6 +24,14 @@ const x = MAP[0].length / 2
 const y = MAP.length / 2
 let angle = 0
 
+// M2 혼자 쏘기용 임시 과녁. 나를 둘러 8개를 세우고, k번째는 나를 보던 데서 k·45° 돌려 8장이 모두 보이게 함
+const scarecrow = makeScarecrowFrames()
+const things: Thing[] = Array.from({ length: 8 }, (_, k) => {
+  const a = (k * Math.PI) / 4
+  const toMe = a + Math.PI
+  return { x: x + 4 * Math.cos(a), y: y + 4 * Math.sin(a), facing: toMe + a, frames: scarecrow }
+})
+
 // 포인터 잠금 중에만 돌림. 잠금 전에는 커서가 화면 밖으로 나가 이동량이 끊김
 canvas.addEventListener('click', () => canvas.requestPointerLock())
 document.addEventListener('mousemove', (e) => {
@@ -29,7 +39,7 @@ document.addEventListener('mousemove', (e) => {
 })
 
 function frame() {
-  renderFrame(pixels, W, H, MAP, makeCamera(x, y, angle, FOV))
+  renderFrame(pixels, W, H, MAP, makeCamera(x, y, angle, FOV), things)
   ctx.putImageData(image, 0, 0)
   requestAnimationFrame(frame)
 }
