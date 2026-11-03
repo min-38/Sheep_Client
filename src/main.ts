@@ -1,6 +1,7 @@
 import './style.css'
 import { MAP } from './map.ts'
 import { makeCamera, renderFrame } from './render.ts'
+import { firstHit, loaded, pull, ROUNDS } from './revolver.ts'
 import { makeScarecrowFrames } from './scarecrow.ts'
 import type { Thing } from './sprite.ts'
 import { turn } from './turn.ts'
@@ -11,6 +12,10 @@ const H = 270
 const FOV = 66
 // 라디안/px. ponytail: 임시 감도. 시스템 기획서 조작의 감도가 정해지면 그 값으로 바꿈
 const SENSITIVITY = 0.003
+// ms. ponytail: 임시 값. 시스템 기획서 리볼버의 발사 간격이 정해지면 그 값으로 바꿈
+const FIRE_INTERVAL = 250
+// 칸. 허수아비 몸 폭(0.45칸)의 절반. ponytail: 임시 값. 시스템 기획서 리볼버의 명중 반지름이 정해지면 그 값으로 바꿈
+const HIT_RADIUS = 0.225
 
 const canvas = document.querySelector<HTMLCanvasElement>('#screen')!
 canvas.width = W
@@ -36,6 +41,24 @@ const things: Thing[] = Array.from({ length: 8 }, (_, k) => {
 canvas.addEventListener('click', () => canvas.requestPointerLock())
 document.addEventListener('mousemove', (e) => {
   if (document.pointerLockElement === canvas) angle = turn(angle, e.movementX, SENSITIVITY)
+})
+
+const ammo = document.querySelector<HTMLOutputElement>('#ammo')!
+let gun = loaded(ROUNDS)
+const showAmmo = () => (ammo.value = '●'.repeat(gun.rounds) + '○'.repeat(ROUNDS - gun.rounds))
+showAmmo()
+
+// ponytail: 임시 쏘기 키(왼쪽 클릭). 시스템 기획서 조작의 쏘기 키가 정해지면 바꿈.
+// 잠금 전 클릭은 잠금만 걸고 쏘지 않음
+canvas.addEventListener('mousedown', (e) => {
+  if (document.pointerLockElement !== canvas || e.button !== 0) return
+  const next = pull(gun, e.timeStamp, FIRE_INTERVAL)
+  if (!next) return
+  gun = next
+  showAmmo()
+  const i = firstHit(MAP, x, y, angle, things, HIT_RADIUS)
+  // 쓰러지는 그림이 생기기 전까지는 맞은 허수아비를 결투장에서 뺌
+  if (i >= 0) things.splice(i, 1)
 })
 
 function frame() {
