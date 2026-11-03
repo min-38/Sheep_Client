@@ -7,7 +7,11 @@
     <title>서부 총잡이</title>
   </head>
   <body>
-    <canvas id="screen" aria-label="게임 화면"></canvas>
+    <div id="game">
+      <canvas id="screen" aria-label="게임 화면"></canvas>
+      <div id="crosshair" aria-hidden="true"></div>
+      <output id="ammo" aria-label="남은 총알"></output>
+    </div>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

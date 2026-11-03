@@ -10,8 +10,46 @@ body {
   place-items: center;
 }
 
-#screen {
+#game {
+  position: relative;
   width: min(100vw, calc(100vh * 16 / 9));
   aspect-ratio: 16 / 9;
+  /* HUD 크기를 cqw로 잡아 화면 폭에 따라 같이 커지게 함 */
+  container-type: inline-size;
+}
+
+#screen {
+  display: block;
+  width: 100%;
+  height: 100%;
   image-rendering: pixelated;
+}
+
+/* HUD는 클릭을 캔버스로 넘겨야 포인터 잠금과 쏘기가 됨 */
+#crosshair,
+#ammo {
+  position: absolute;
+  pointer-events: none;
+}
+
+/* 광선은 화면 가운데 세로줄로 나감 */
+#crosshair {
+  left: 50%;
+  top: 50%;
+  width: 2cqw;
+  aspect-ratio: 1;
+  translate: -50% -50%;
+  background:
+    linear-gradient(#fff, #fff) center / 100% 2px no-repeat,
+    linear-gradient(#fff, #fff) center / 2px 100% no-repeat;
+  filter: drop-shadow(0 0 1px #000);
+}
+
+#ammo {
+  left: 2cqw;
+  bottom: 1.5cqw;
+  color: #f2dfa7;
+  font: 3cqw / 1 sans-serif;
+  letter-spacing: 0.4cqw;
+  text-shadow: 0 0 0.3cqw #000;
 }
