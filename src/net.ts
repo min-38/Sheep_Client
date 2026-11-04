@@ -8,6 +8,8 @@ export type ClientMessage =
   | { type: 'turn'; angle: number }
   // 값을 보냄. 두 번 보내도 결과가 같음
   | { type: 'ready'; ready: boolean }
+  // t0은 보낸 순간의 performance.now() (ms). 방에 들어가기 전에도 보냄
+  | { type: 'clockSync'; t0: number }
 
 // x·y는 칸 단위(map의 [y][x]와 같은 축), angle은 turn과 같음
 export type PlayerState = { id: string; x: number; y: number; angle: number; ready: boolean }
@@ -18,6 +20,8 @@ export type ServerMessage =
   | { type: 'error'; reason: 'notFound' | 'full' }
   | { type: 'map'; width: number; height: number; cells: Grid }
   | { type: 'state'; tick: number; players: PlayerState[] }
+  // clockSync의 답. t0은 보낸 값 그대로, ts는 서버 시각(ms)
+  | { type: 'serverTime'; t0: number; ts: number }
 
 // 서버가 보낸 JSON 하나를 읽음. 모양이 틀리면 null을 돌려주고 받는 쪽은 무시함 (서버와 같음)
 export function parseServerMessage(text: string): ServerMessage | null {
@@ -39,6 +43,8 @@ export function parseServerMessage(text: string): ServerMessage | null {
       return Number.isInteger(m.tick) && Array.isArray(m.players) && m.players.every(isPlayer)
         ? { type: 'state', tick: m.tick, players: m.players }
         : null
+    case 'serverTime':
+      return Number.isFinite(m.t0) && Number.isFinite(m.ts) ? { type: 'serverTime', t0: m.t0, ts: m.ts } : null
     default:
       return null
   }
