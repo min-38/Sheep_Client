@@ -1,4 +1,5 @@
 import './style.css'
+import { best, measure, type ClockSample } from './clock.ts'
 import { record, sampleAt, type Sample } from './interpolate.ts'
 import { parseServerMessage, type ClientMessage, type PlayerState } from './net.ts'
 import type { Grid } from './raycast.ts'
@@ -20,6 +21,8 @@ const FIRE_INTERVAL = 250
 const TURN_INTERVAL = 50
 // ms. 다른 플레이어는 약 두 틱 전을 그려 늘 앞뒤 두 상태 사이에 있게 함 (기술 설계서 다른 플레이어 보여 주기)
 const INTERP_DELAY = 100
+// 한 번 맞출 때 재는 횟수. 그중 왕복이 가장 짧은 값을 씀 (기술 설계서 시간 맞추기)
+const SYNC_COUNT = 5
 
 const canvas = document.querySelector<HTMLCanvasElement>('#screen')!
 canvas.width = W
@@ -120,9 +123,19 @@ const REASONS = { notFound: '없는 방 코드', full: '꽉 찬 방' }
 const ws = new WebSocket('/ws')
 const send = (m: ClientMessage) => ws.send(JSON.stringify(m))
 
+// 서버 시계와 내 시계의 차이. 맞추기 전에는 null. 서버가 알린 시각을 내 시계로 바꿀 때 씀
+let clock: ClockSample | null = null
+let syncs: ClockSample[] = []
+// 접속할 때와 판 사이에 부름. 한 번에 하나씩 보내 앞의 답이 뒤의 왕복을 늘리지 않게 하고, 답이 오면 다음 것을 보냄
+function syncClock() {
+  syncs = []
+  send({ type: 'clockSync', t0: performance.now() })
+}
+
 ws.addEventListener('open', () => {
   controls.disabled = false
   status.textContent = ''
+  syncClock()
 })
 // 처음부터 못 붙어도 여기로 옴. ponytail: 재접속 없음. 재접속 이슈에서 다시 붙어 방으로 돌아가게 함
 ws.addEventListener('close', () => {
@@ -153,6 +166,16 @@ ws.addEventListener('message', (e) => {
       break
     case 'state':
       applyState(m.players)
+      break
+    case 'serverTime':
+      syncs.push(measure(m.t0, m.ts, performance.now()))
+      if (syncs.length < SYNC_COUNT) {
+        send({ type: 'clockSync', t0: performance.now() })
+        break
+      }
+      clock = best(syncs)
+      // 잰 지연을 개발자 도구에서 보게 남김. 판정이 이상할 때 먼저 볼 값임
+      console.info(`시계 맞춤: 왕복 ${clock.roundTrip.toFixed(1)}ms, 차이 ${clock.offset.toFixed(1)}ms`)
       break
   }
 })

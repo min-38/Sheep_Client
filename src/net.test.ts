@@ -51,6 +51,13 @@ describe('parseServerMessage', () => {
     expect(parseServerMessage('{"type":"state","tick":7,"players":[null]}')).toBeNull()
   })
 
+  test('시계 맞추기 답은 보낸 t0과 서버 시각 ts를 받음', () => {
+    expect(parseServerMessage('{"type":"serverTime","t0":1234.5,"ts":98765.25}')).toEqual({ type: 'serverTime', t0: 1234.5, ts: 98765.25 })
+    expect(parseServerMessage('{"type":"serverTime","t0":1234.5}')).toBeNull()
+    expect(parseServerMessage('{"type":"serverTime","t0":"1234.5","ts":98765.25}')).toBeNull()
+    expect(parseServerMessage('{"type":"serverTime","t0":1234.5,"ts":null}')).toBeNull()
+  })
+
   test('깨진 JSON, 모르는 type, 빠진 필드는 버림', () => {
     expect(parseServerMessage('{"type":')).toBeNull()
     expect(parseServerMessage('null')).toBeNull()
