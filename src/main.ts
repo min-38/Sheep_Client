@@ -53,6 +53,12 @@ function applyState(players: readonly PlayerState[]) {
   if (!placed) angle = sentAngle = me.angle
   placed = true
   record(others, players.filter((p) => p !== me), performance.now())
+  // 내 준비 여부도 서버가 정함. 누르면 이 값을 뒤집어 보냄
+  ready = me.ready
+  readyButton.textContent = ready ? '준비 풀기' : '준비'
+  const count = `준비 ${players.filter((p) => p.ready).length}/${players.length}`
+  // 같은 글자를 틱마다 다시 넣으면 화면 낭독기가 되풀이해 읽음
+  if (readyCount.value !== count) readyCount.value = count
 }
 
 function othersAt(t: number): Thing[] {
@@ -104,6 +110,10 @@ const controls = lobby.querySelector('fieldset')!
 const codeInput = document.querySelector<HTMLInputElement>('#code')!
 const status = document.querySelector<HTMLParagraphElement>('#status')!
 const room = document.querySelector<HTMLOutputElement>('#room')!
+const readyBar = document.querySelector<HTMLDivElement>('#ready-bar')!
+const readyButton = document.querySelector<HTMLButtonElement>('#ready')!
+const readyCount = document.querySelector<HTMLOutputElement>('#ready-count')!
+let ready = false
 const REASONS = { notFound: '없는 방 코드', full: '꽉 찬 방' }
 
 // 같은 출처의 /ws. 개발 중에는 vite가 로컬 서버로 넘김 (vite.config.ts)
@@ -119,6 +129,7 @@ ws.addEventListener('close', () => {
   document.exitPointerLock()
   controls.disabled = true
   lobby.hidden = false
+  readyBar.hidden = true
   room.value = ''
   status.textContent = '서버와 연결되지 않음. 새로고침해 다시 접속'
 })
@@ -128,6 +139,7 @@ ws.addEventListener('message', (e) => {
     case 'roomCreated':
     case 'joined':
       lobby.hidden = true
+      readyBar.hidden = false
       room.value = `방 ${m.code}`
       myId = m.playerId
       placed = false
@@ -146,6 +158,8 @@ ws.addEventListener('message', (e) => {
 })
 
 document.querySelector('#create')!.addEventListener('click', () => send({ type: 'createRoom' }))
+// ponytail: 포인터 잠금 중에는 Esc로 커서를 풀어야 누를 수 있음. 조작이 정해지면 키로도 누르게 함
+readyButton.addEventListener('click', () => send({ type: 'ready', ready: !ready }))
 lobby.addEventListener('submit', (e) => {
   e.preventDefault()
   send({ type: 'joinRoom', code: codeInput.value })

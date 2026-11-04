@@ -26,14 +26,14 @@ describe('parseServerMessage', () => {
     expect(parseServerMessage('{"type":"map","width":3,"height":2}')).toBeNull()
   })
 
-  test('상태는 틱 번호와 모든 플레이어의 위치, 각도를 받음', () => {
-    const text = '{"type":"state","tick":7,"players":[{"id":"p1","x":10.5,"y":4,"angle":1.57},{"id":"p2","x":10.5,"y":17,"angle":4.71}]}'
+  test('상태는 틱 번호와 모든 플레이어의 위치, 각도, 준비 여부를 받음', () => {
+    const text = '{"type":"state","tick":7,"players":[{"id":"p1","x":10.5,"y":4,"angle":1.57,"ready":true},{"id":"p2","x":10.5,"y":17,"angle":4.71,"ready":false}]}'
     expect(parseServerMessage(text)).toEqual({
       type: 'state',
       tick: 7,
       players: [
-        { id: 'p1', x: 10.5, y: 4, angle: 1.57 },
-        { id: 'p2', x: 10.5, y: 17, angle: 4.71 },
+        { id: 'p1', x: 10.5, y: 4, angle: 1.57, ready: true },
+        { id: 'p2', x: 10.5, y: 17, angle: 4.71, ready: false },
       ],
     })
   })
@@ -41,9 +41,13 @@ describe('parseServerMessage', () => {
   test('모양이 틀린 상태는 버림', () => {
     expect(parseServerMessage('{"type":"state","players":[]}')).toBeNull()
     expect(parseServerMessage('{"type":"state","tick":7}')).toBeNull()
-    expect(parseServerMessage('{"type":"state","tick":7,"players":[{"id":1,"x":1,"y":1,"angle":0}]}')).toBeNull()
-    expect(parseServerMessage('{"type":"state","tick":7,"players":[{"id":"p1","x":"1","y":1,"angle":0}]}')).toBeNull()
-    expect(parseServerMessage('{"type":"state","tick":7,"players":[{"id":"p1","x":1,"y":1}]}')).toBeNull()
+    expect(parseServerMessage('{"type":"state","tick":7,"players":[{"id":1,"x":1,"y":1,"angle":0,"ready":false}]}')).toBeNull()
+    expect(parseServerMessage('{"type":"state","tick":7,"players":[{"id":"p1","x":"1","y":1,"angle":0,"ready":false}]}')).toBeNull()
+    expect(parseServerMessage('{"type":"state","tick":7,"players":[{"id":"p1","x":1,"y":1,"ready":false}]}')).toBeNull()
+    // 준비 여부는 true·false만 받음 (기술 설계서 메시지 state)
+    expect(parseServerMessage('{"type":"state","tick":7,"players":[{"id":"p1","x":1,"y":1,"angle":0}]}')).toBeNull()
+    expect(parseServerMessage('{"type":"state","tick":7,"players":[{"id":"p1","x":1,"y":1,"angle":0,"ready":"true"}]}')).toBeNull()
+    expect(parseServerMessage('{"type":"state","tick":7,"players":[{"id":"p1","x":1,"y":1,"angle":0,"ready":1}]}')).toBeNull()
     expect(parseServerMessage('{"type":"state","tick":7,"players":[null]}')).toBeNull()
   })
 

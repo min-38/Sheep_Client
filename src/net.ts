@@ -6,9 +6,11 @@ export type ClientMessage =
   | { type: 'joinRoom'; code: string }
   // angle은 라디안, 0 이상 2π 미만. 범위 밖이면 서버가 버림
   | { type: 'turn'; angle: number }
+  // 값을 보냄. 두 번 보내도 결과가 같음
+  | { type: 'ready'; ready: boolean }
 
 // x·y는 칸 단위(map의 [y][x]와 같은 축), angle은 turn과 같음
-export type PlayerState = { id: string; x: number; y: number; angle: number }
+export type PlayerState = { id: string; x: number; y: number; angle: number; ready: boolean }
 
 export type ServerMessage =
   | { type: 'roomCreated'; code: string; playerId: string }
@@ -43,7 +45,7 @@ export function parseServerMessage(text: string): ServerMessage | null {
 }
 
 const isPlayer = (p: any): p is PlayerState =>
-  typeof p?.id === 'string' && [p.x, p.y, p.angle].every(Number.isFinite)
+  typeof p?.id === 'string' && [p.x, p.y, p.angle].every(Number.isFinite) && typeof p.ready === 'boolean'
 
 // 레이캐스터는 칸이 다 숫자이고 모든 줄 길이가 같다고 봄
 function isGrid(cells: unknown, width: unknown, height: unknown): cells is Grid {
