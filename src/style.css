@@ -80,8 +80,9 @@ body {
   font: 2cqw / 1.2 sans-serif;
 }
 
-/* display: grid가 hidden 속성의 display: none을 덮어씀 */
-#lobby[hidden] {
+/* display: grid·flex가 hidden 속성의 display: none을 덮어씀 */
+#lobby[hidden],
+#ready-bar[hidden] {
   display: none;
 }
 
@@ -94,7 +95,8 @@ body {
 }
 
 #lobby button,
-#lobby input {
+#lobby input,
+#ready {
   font: inherit;
   padding: 0.6cqw 1.2cqw;
 }
@@ -107,4 +109,18 @@ body {
 #status {
   margin: 0;
   min-height: 1.2em;
+}
+
+/* 방에 있는 동안 아래 가운데. 눌러야 해서 HUD와 달리 클릭을 받음 */
+#ready-bar {
+  position: absolute;
+  left: 50%;
+  bottom: 1.5cqw;
+  translate: -50% 0;
+  display: flex;
+  align-items: center;
+  gap: 1cqw;
+  color: #f2dfa7;
+  font: 2cqw / 1.2 sans-serif;
+  text-shadow: 0 0 0.3cqw #000;
 }
