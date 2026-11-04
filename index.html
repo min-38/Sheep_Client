@@ -11,6 +11,15 @@
       <canvas id="screen" aria-label="게임 화면"></canvas>
       <div id="crosshair" aria-hidden="true"></div>
       <output id="ammo" aria-label="남은 총알"></output>
+      <output id="room" aria-label="방 코드"></output>
+      <form id="lobby">
+        <fieldset disabled>
+          <button type="button" id="create">방 만들기</button>
+          <input id="code" aria-label="방 코드" placeholder="방 코드" maxlength="6" pattern="[A-Za-z0-9]{6}" required autocomplete="off" spellcheck="false" />
+          <button>입장</button>
+        </fieldset>
+        <p id="status" role="status">서버에 접속하는 중</p>
+      </form>
     </div>
     <script type="module" src="/src/main.ts"></script>
   </body>

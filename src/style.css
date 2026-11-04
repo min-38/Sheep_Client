@@ -27,7 +27,8 @@ body {
 
 /* HUD는 클릭을 캔버스로 넘겨야 포인터 잠금과 쏘기가 됨 */
 #crosshair,
-#ammo {
+#ammo,
+#room {
   position: absolute;
   pointer-events: none;
 }
@@ -45,11 +46,65 @@ body {
   filter: drop-shadow(0 0 1px #000);
 }
 
-#ammo {
-  left: 2cqw;
-  bottom: 1.5cqw;
+#ammo,
+#room {
   color: #f2dfa7;
   font: 3cqw / 1 sans-serif;
   letter-spacing: 0.4cqw;
   text-shadow: 0 0 0.3cqw #000;
+}
+
+#ammo {
+  left: 2cqw;
+  bottom: 1.5cqw;
+}
+
+/* 다른 사람에게 불러 줄 수 있게 들어가 있는 동안 계속 보임 */
+#room {
+  right: 2cqw;
+  top: 1.5cqw;
+  font-size: 2cqw;
+}
+
+/* 방에 들어가기 전에는 게임 화면을 덮음 */
+#lobby {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 1.5cqw;
+  margin: 0;
+  background: #000c;
+  color: #f2dfa7;
+  font: 2cqw / 1.2 sans-serif;
+}
+
+/* display: grid가 hidden 속성의 display: none을 덮어씀 */
+#lobby[hidden] {
+  display: none;
+}
+
+#lobby fieldset {
+  display: flex;
+  gap: 1cqw;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+#lobby button,
+#lobby input {
+  font: inherit;
+  padding: 0.6cqw 1.2cqw;
+}
+
+#code {
+  width: 9ch;
+  text-transform: uppercase;
+}
+
+#status {
+  margin: 0;
+  min-height: 1.2em;
 }
