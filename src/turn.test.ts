@@ -20,6 +20,13 @@ describe('turn', () => {
     }
   })
 
+  test('0 바로 아래로 조금 돌아도 정확히 2π가 되지 않음', () => {
+    // 2π보다 작은 수에 더해도 반올림되면 2π가 됨. 서버는 2π를 범위 밖으로 버림
+    const a = turn(0, -1e-17, 1)
+    expect(a).toBeGreaterThanOrEqual(0)
+    expect(a).toBeLessThan(TAU)
+  })
+
   test('움직이지 않으면 그대로', () => {
     expect(turn(2, 0, 0.01)).toBe(2)
   })

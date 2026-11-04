@@ -1,8 +1,8 @@
 import './style.css'
-import { parseServerMessage, type ClientMessage } from './net.ts'
+import { parseServerMessage, type ClientMessage, type PlayerState } from './net.ts'
 import type { Grid } from './raycast.ts'
 import { makeCamera, renderFrame } from './render.ts'
-import { firstHit, loaded, pull, ROUNDS } from './revolver.ts'
+import { loaded, pull, ROUNDS } from './revolver.ts'
 import { makeScarecrowFrames } from './scarecrow.ts'
 import type { Thing } from './sprite.ts'
 import { turn } from './turn.ts'
@@ -15,8 +15,8 @@ const FOV = 66
 const SENSITIVITY = 0.003
 // ms. ponytail: 임시 값. 시스템 기획서 리볼버의 발사 간격이 정해지면 그 값으로 바꿈
 const FIRE_INTERVAL = 250
-// 칸. 허수아비 몸 폭(0.45칸)의 절반. ponytail: 임시 값. 시스템 기획서 리볼버의 명중 반지름이 정해지면 그 값으로 바꿈
-const HIT_RADIUS = 0.225
+// ms. 서버 틱(20Hz)마다 마지막 각도만 쓰므로 그보다 자주 보내지 않음
+const TURN_INTERVAL = 50
 
 const canvas = document.querySelector<HTMLCanvasElement>('#screen')!
 canvas.width = W
@@ -27,24 +27,29 @@ const pixels = new Uint32Array(image.data.buffer)
 
 // 서버가 보낸 결투장. 받기 전에는 그리지도 쏘지도 않음
 let grid: Grid | null = null
+// 입장 응답으로 받은 내 id. 받기 전의 state는 무시함 (기술 설계서 메시지)
+let myId: string | null = null
+// 내 위치는 서버가 정함. 처음 state를 받아 자리를 잡기 전에는 그리지 않음
+let placed = false
 let x = 0
 let y = 0
 let angle = 0
+let sentAngle = 0
+let sentAt = -Infinity
+// 다른 플레이어. ponytail: 허수아비 그림을 임시로 씀. 플레이어 스프라이트 시트가 생기면 바꿈
 let things: Thing[] = []
 const scarecrow = makeScarecrowFrames()
 
-// map을 받을 때마다 부름. 방에 다시 들어와도 맵이 다시 옴 (기술 설계서 메시지)
-function enterArena(cells: Grid, width: number, height: number) {
-  grid = cells
-  // ponytail: 결투장 가운데에 섬. 서버가 내 시작 위치를 보내면(SHEEP-6) 그 위치로 바꿈
-  x = width / 2
-  y = height / 2
-  // M2 혼자 쏘기용 임시 과녁. 나를 둘러 8개를 세우고, k번째는 나를 보던 데서 k·45° 돌려 8장이 모두 보이게 함
-  things = Array.from({ length: 8 }, (_, k) => {
-    const a = (k * Math.PI) / 4
-    const toMe = a + Math.PI
-    return { x: x + 4 * Math.cos(a), y: y + 4 * Math.sin(a), facing: toMe + a, frames: scarecrow }
-  })
+function applyState(players: readonly PlayerState[]) {
+  const me = players.find((p) => p.id === myId)
+  if (!me) return
+  x = me.x
+  y = me.y
+  // 내 각도는 시작 배치에서 한 번만 받음. 그 뒤로는 내 입력이 바로 반영되고 서버 값은 늦게 도는 메아리라 버림
+  if (!placed) angle = sentAngle = me.angle
+  placed = true
+  // ponytail: 받은 상태를 그대로 그림. 보간 이슈(SHEEP-27)에서 두 틱 사이를 이어 그림
+  things = players.filter((p) => p !== me).map((p) => ({ x: p.x, y: p.y, facing: p.angle, frames: scarecrow }))
 }
 
 // 포인터 잠금 중에만 돌림. 잠금 전에는 커서가 화면 밖으로 나가 이동량이 끊김
@@ -65,16 +70,20 @@ canvas.addEventListener('mousedown', (e) => {
   const next = pull(gun, e.timeStamp, FIRE_INTERVAL)
   if (!next) return
   gun = next
+  // 명중은 서버가 확정함 (M4). 클라는 탄 수만 줄임
   showAmmo()
-  const i = firstHit(grid, x, y, angle, things, HIT_RADIUS)
-  // 쓰러지는 그림이 생기기 전까지는 맞은 허수아비를 결투장에서 뺌
-  if (i >= 0) things.splice(i, 1)
 })
 
-function frame() {
-  if (grid) {
+function frame(now: number) {
+  if (grid && placed) {
     renderFrame(pixels, W, H, grid, makeCamera(x, y, angle, FOV), things)
     ctx.putImageData(image, 0, 0)
+    // 마우스 이벤트가 아니라 여기서 보내야 마지막으로 멈춘 각도도 빠지지 않고 감
+    if (angle !== sentAngle && now - sentAt >= TURN_INTERVAL && ws.readyState === WebSocket.OPEN) {
+      send({ type: 'turn', angle })
+      sentAngle = angle
+      sentAt = now
+    }
   }
   requestAnimationFrame(frame)
 }
@@ -110,12 +119,18 @@ ws.addEventListener('message', (e) => {
     case 'joined':
       lobby.hidden = true
       room.value = `방 ${m.code}`
+      myId = m.playerId
+      placed = false
       break
     case 'error':
       status.textContent = REASONS[m.reason]
       break
+    // 방에 다시 들어와도 맵이 다시 옴 (기술 설계서 메시지)
     case 'map':
-      enterArena(m.cells, m.width, m.height)
+      grid = m.cells
+      break
+    case 'state':
+      applyState(m.players)
       break
   }
 })
