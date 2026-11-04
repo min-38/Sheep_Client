@@ -1,4 +1,5 @@
 import './style.css'
+import { record, sampleAt, type Sample } from './interpolate.ts'
 import { parseServerMessage, type ClientMessage, type PlayerState } from './net.ts'
 import type { Grid } from './raycast.ts'
 import { makeCamera, renderFrame } from './render.ts'
@@ -17,6 +18,8 @@ const SENSITIVITY = 0.003
 const FIRE_INTERVAL = 250
 // ms. 서버 틱(20Hz)마다 마지막 각도만 쓰므로 그보다 자주 보내지 않음
 const TURN_INTERVAL = 50
+// ms. 다른 플레이어는 약 두 틱 전을 그려 늘 앞뒤 두 상태 사이에 있게 함 (기술 설계서 다른 플레이어 보여 주기)
+const INTERP_DELAY = 100
 
 const canvas = document.querySelector<HTMLCanvasElement>('#screen')!
 canvas.width = W
@@ -36,8 +39,9 @@ let y = 0
 let angle = 0
 let sentAngle = 0
 let sentAt = -Infinity
-// 다른 플레이어. ponytail: 허수아비 그림을 임시로 씀. 플레이어 스프라이트 시트가 생기면 바꿈
-let things: Thing[] = []
+// 다른 플레이어마다 받은 상태. 나는 넣지 않음 (내 회전은 바로 반영)
+const others = new Map<string, Sample[]>()
+// ponytail: 허수아비 그림을 임시로 씀. 플레이어 스프라이트 시트가 생기면 바꿈
 const scarecrow = makeScarecrowFrames()
 
 function applyState(players: readonly PlayerState[]) {
@@ -48,8 +52,14 @@ function applyState(players: readonly PlayerState[]) {
   // 내 각도는 시작 배치에서 한 번만 받음. 그 뒤로는 내 입력이 바로 반영되고 서버 값은 늦게 도는 메아리라 버림
   if (!placed) angle = sentAngle = me.angle
   placed = true
-  // ponytail: 받은 상태를 그대로 그림. 보간 이슈(SHEEP-27)에서 두 틱 사이를 이어 그림
-  things = players.filter((p) => p !== me).map((p) => ({ x: p.x, y: p.y, facing: p.angle, frames: scarecrow }))
+  record(others, players.filter((p) => p !== me), performance.now())
+}
+
+function othersAt(t: number): Thing[] {
+  return [...others.values()].map((samples) => {
+    const s = sampleAt(samples, t)
+    return { x: s.x, y: s.y, facing: s.angle, frames: scarecrow }
+  })
 }
 
 // 포인터 잠금 중에만 돌림. 잠금 전에는 커서가 화면 밖으로 나가 이동량이 끊김
@@ -76,7 +86,7 @@ canvas.addEventListener('mousedown', (e) => {
 
 function frame(now: number) {
   if (grid && placed) {
-    renderFrame(pixels, W, H, grid, makeCamera(x, y, angle, FOV), things)
+    renderFrame(pixels, W, H, grid, makeCamera(x, y, angle, FOV), othersAt(now - INTERP_DELAY))
     ctx.putImageData(image, 0, 0)
     // 마우스 이벤트가 아니라 여기서 보내야 마지막으로 멈춘 각도도 빠지지 않고 감
     if (angle !== sentAngle && now - sentAt >= TURN_INTERVAL && ws.readyState === WebSocket.OPEN) {
