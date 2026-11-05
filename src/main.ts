@@ -117,7 +117,7 @@ const readyBar = document.querySelector<HTMLDivElement>('#ready-bar')!
 const readyButton = document.querySelector<HTMLButtonElement>('#ready')!
 const readyCount = document.querySelector<HTMLOutputElement>('#ready-count')!
 let ready = false
-const REASONS = { notFound: '없는 방 코드', full: '꽉 찬 방' }
+const REASONS = { notFound: '없는 방 코드', full: '꽉 찬 방', playing: '판이 진행 중인 방' }
 
 // 같은 출처의 /ws. 개발 중에는 vite가 로컬 서버로 넘김 (vite.config.ts)
 const ws = new WebSocket('/ws')

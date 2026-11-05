@@ -11,17 +11,22 @@ export type ClientMessage =
   // t0은 보낸 순간의 performance.now() (ms). 방에 들어가기 전에도 보냄
   | { type: 'clockSync'; t0: number }
 
-// x·y는 칸 단위(map의 [y][x]와 같은 축), angle은 turn과 같음
-export type PlayerState = { id: string; x: number; y: number; angle: number; ready: boolean }
+// x·y는 칸 단위(map의 [y][x]와 같은 축), angle은 turn과 같음. pose는 동작 (서 있음, 걷기)
+export type PlayerState = { id: string; x: number; y: number; angle: number; pose: 'stand' | 'walk'; ready: boolean }
+
+// 서버가 알리는 판 단계. 준비 중은 알리지 않음
+export type Phase = 'countdown' | 'walk' | 'duel'
 
 export type ServerMessage =
   | { type: 'roomCreated'; code: string; playerId: string }
   | { type: 'joined'; code: string; playerId: string }
-  | { type: 'error'; reason: 'notFound' | 'full' }
+  | { type: 'error'; reason: 'notFound' | 'full' | 'playing' }
   | { type: 'map'; width: number; height: number; cells: Grid }
   | { type: 'state'; tick: number; players: PlayerState[] }
   // clockSync의 답. t0은 보낸 값 그대로, ts는 서버 시각(ms)
   | { type: 'serverTime'; t0: number; ts: number }
+  // at은 그 단계가 시작하는 서버 시각(ms). serverTime의 ts와 같은 시계
+  | { type: 'phase'; phase: Phase; at: number }
 
 // 서버가 보낸 JSON 하나를 읽음. 모양이 틀리면 null을 돌려주고 받는 쪽은 무시함 (서버와 같음)
 export function parseServerMessage(text: string): ServerMessage | null {
@@ -36,7 +41,7 @@ export function parseServerMessage(text: string): ServerMessage | null {
     case 'joined':
       return typeof m.code === 'string' && typeof m.playerId === 'string' ? { type: m.type, code: m.code, playerId: m.playerId } : null
     case 'error':
-      return m.reason === 'notFound' || m.reason === 'full' ? { type: 'error', reason: m.reason } : null
+      return m.reason === 'notFound' || m.reason === 'full' || m.reason === 'playing' ? { type: 'error', reason: m.reason } : null
     case 'map':
       return isGrid(m.cells, m.width, m.height) ? { type: 'map', width: m.width, height: m.height, cells: m.cells } : null
     case 'state':
@@ -45,13 +50,20 @@ export function parseServerMessage(text: string): ServerMessage | null {
         : null
     case 'serverTime':
       return Number.isFinite(m.t0) && Number.isFinite(m.ts) ? { type: 'serverTime', t0: m.t0, ts: m.ts } : null
+    case 'phase':
+      return (m.phase === 'countdown' || m.phase === 'walk' || m.phase === 'duel') && Number.isFinite(m.at)
+        ? { type: 'phase', phase: m.phase, at: m.at }
+        : null
     default:
       return null
   }
 }
 
 const isPlayer = (p: any): p is PlayerState =>
-  typeof p?.id === 'string' && [p.x, p.y, p.angle].every(Number.isFinite) && typeof p.ready === 'boolean'
+  typeof p?.id === 'string' &&
+  [p.x, p.y, p.angle].every(Number.isFinite) &&
+  (p.pose === 'stand' || p.pose === 'walk') &&
+  typeof p.ready === 'boolean'
 
 // 레이캐스터는 칸이 다 숫자이고 모든 줄 길이가 같다고 봄
 function isGrid(cells: unknown, width: unknown, height: unknown): cells is Grid {
