@@ -28,6 +28,7 @@ body {
 /* HUD는 클릭을 캔버스로 넘겨야 포인터 잠금과 쏘기가 됨 */
 #crosshair,
 #ammo,
+#banner,
 #room {
   position: absolute;
   pointer-events: none;
@@ -47,6 +48,7 @@ body {
 }
 
 #ammo,
+#banner,
 #room {
   color: #f2dfa7;
   font: 3cqw / 1 sans-serif;
@@ -57,6 +59,15 @@ body {
 #ammo {
   left: 2cqw;
   bottom: 1.5cqw;
+}
+
+/* 카운트다운과 "시작!". 조준점을 가리지 않게 위로 올림 */
+#banner {
+  left: 50%;
+  top: 25%;
+  translate: -50% -50%;
+  font-size: 10cqw;
+  letter-spacing: 0;
 }
 
 /* 다른 사람에게 불러 줄 수 있게 들어가 있는 동안 계속 보임 */
