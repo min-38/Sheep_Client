@@ -1,10 +1,11 @@
 import './style.css'
-import { best, measure, type ClockSample } from './clock.ts'
+import { best, measure, toServerTime, type ClockSample } from './clock.ts'
 import { record, sampleAt, type Sample } from './interpolate.ts'
 import { parseServerMessage, type ClientMessage, type PlayerState } from './net.ts'
 import type { Grid } from './raycast.ts'
 import { makeCamera, renderFrame } from './render.ts'
 import { loaded, pull, ROUNDS } from './revolver.ts'
+import { banner, locked, type Schedule } from './round.ts'
 import { makeScarecrowFrames } from './scarecrow.ts'
 import type { Thing } from './sprite.ts'
 import { turn } from './turn.ts'
@@ -37,25 +38,23 @@ let grid: Grid | null = null
 let myId: string | null = null
 // 내 위치는 서버가 정함. 처음 state를 받아 자리를 잡기 전에는 그리지 않음
 let placed = false
-let x = 0
-let y = 0
 let angle = 0
 let sentAngle = 0
 let sentAt = -Infinity
-// 다른 플레이어마다 받은 상태. 나는 넣지 않음 (내 회전은 바로 반영)
-const others = new Map<string, Sample[]>()
+// 플레이어마다 받은 상태. 나도 넣어 서버가 나를 걷게 할 때 다른 사람과 같이 보간해 그림
+const history = new Map<string, Sample[]>()
 // ponytail: 허수아비 그림을 임시로 씀. 플레이어 스프라이트 시트가 생기면 바꿈
 const scarecrow = makeScarecrowFrames()
 
 function applyState(players: readonly PlayerState[]) {
   const me = players.find((p) => p.id === myId)
   if (!me) return
-  x = me.x
-  y = me.y
-  // 내 각도는 시작 배치에서 한 번만 받음. 그 뒤로는 내 입력이 바로 반영되고 서버 값은 늦게 도는 메아리라 버림
-  if (!placed) angle = sentAngle = me.angle
+  const now = performance.now()
+  // 내 각도는 시작 배치에서 한 번만 받음. 그 뒤로는 내 입력이 바로 반영되고 서버 값은 늦게 도는 메아리라 버림.
+  // 잠긴 동안은 서버가 나를 돌리므로 따름. 그래야 풀리는 순간 서버가 돌려 둔 쪽에서 이어 돎
+  if (!placed || inputLocked(now)) angle = sentAngle = me.angle
   placed = true
-  record(others, players.filter((p) => p !== me), performance.now())
+  record(history, players, now)
   // 내 준비 여부도 서버가 정함. 누르면 이 값을 뒤집어 보냄
   ready = me.ready
   readyButton.textContent = ready ? '준비 풀기' : '준비'
@@ -65,16 +64,18 @@ function applyState(players: readonly PlayerState[]) {
 }
 
 function othersAt(t: number): Thing[] {
-  return [...others.values()].map((samples) => {
-    const s = sampleAt(samples, t)
-    return { x: s.x, y: s.y, facing: s.angle, frames: scarecrow }
-  })
+  return [...history]
+    .filter(([id]) => id !== myId)
+    .map(([, samples]) => {
+      const s = sampleAt(samples, t)
+      return { x: s.x, y: s.y, facing: s.angle, frames: scarecrow }
+    })
 }
 
 // 포인터 잠금 중에만 돌림. 잠금 전에는 커서가 화면 밖으로 나가 이동량이 끊김
 canvas.addEventListener('click', () => canvas.requestPointerLock())
 document.addEventListener('mousemove', (e) => {
-  if (document.pointerLockElement === canvas) angle = turn(angle, e.movementX, SENSITIVITY)
+  if (document.pointerLockElement === canvas && !inputLocked(e.timeStamp)) angle = turn(angle, e.movementX, SENSITIVITY)
 })
 
 const ammo = document.querySelector<HTMLOutputElement>('#ammo')!
@@ -85,7 +86,7 @@ showAmmo()
 // ponytail: 임시 쏘기 키(왼쪽 클릭). 시스템 기획서 조작의 쏘기 키가 정해지면 바꿈.
 // 잠금 전 클릭은 잠금만 걸고 쏘지 않음
 canvas.addEventListener('mousedown', (e) => {
-  if (!grid || document.pointerLockElement !== canvas || e.button !== 0) return
+  if (!grid || document.pointerLockElement !== canvas || e.button !== 0 || inputLocked(e.timeStamp)) return
   const next = pull(gun, e.timeStamp, FIRE_INTERVAL)
   if (!next) return
   gun = next
@@ -95,7 +96,10 @@ canvas.addEventListener('mousedown', (e) => {
 
 function frame(now: number) {
   if (grid && placed) {
-    renderFrame(pixels, W, H, grid, makeCamera(x, y, angle, FOV), othersAt(now - INTERP_DELAY))
+    // 내 자리도 다른 사람처럼 INTERP_DELAY 전을 그림. 받은 그대로 그리면 걷는 동안 20Hz로 끊겨 보임
+    const me = sampleAt(history.get(myId!)!, now - INTERP_DELAY)
+    const view = inputLocked(now) ? me.angle : angle
+    renderFrame(pixels, W, H, grid, makeCamera(me.x, me.y, view, FOV), othersAt(now - INTERP_DELAY))
     ctx.putImageData(image, 0, 0)
     // 마우스 이벤트가 아니라 여기서 보내야 마지막으로 멈춘 각도도 빠지지 않고 감
     if (angle !== sentAngle && now - sentAt >= TURN_INTERVAL && ws.readyState === WebSocket.OPEN) {
@@ -104,6 +108,8 @@ function frame(now: number) {
       sentAt = now
     }
   }
+  const text = clock ? banner(schedule, toServerTime(now, clock.offset)) : ''
+  if (bannerText.value !== text) bannerText.value = text
   requestAnimationFrame(frame)
 }
 requestAnimationFrame(frame)
@@ -116,6 +122,7 @@ const room = document.querySelector<HTMLOutputElement>('#room')!
 const readyBar = document.querySelector<HTMLDivElement>('#ready-bar')!
 const readyButton = document.querySelector<HTMLButtonElement>('#ready')!
 const readyCount = document.querySelector<HTMLOutputElement>('#ready-count')!
+const bannerText = document.querySelector<HTMLOutputElement>('#banner')!
 let ready = false
 const REASONS = { notFound: '없는 방 코드', full: '꽉 찬 방', playing: '판이 진행 중인 방' }
 
@@ -126,6 +133,10 @@ const send = (m: ClientMessage) => ws.send(JSON.stringify(m))
 // 서버 시계와 내 시계의 차이. 맞추기 전에는 null. 서버가 알린 시각을 내 시계로 바꿀 때 씀
 let clock: ClockSample | null = null
 let syncs: ClockSample[] = []
+// 이번 판에 서버가 알린 단계별 시각(서버 시계)
+let schedule: Schedule = {}
+// 시계를 맞추기 전에는 판 시각을 내 시계로 바꿀 수 없어 막지 않음. 그래도 서버가 걷는 동안의 turn은 버림
+const inputLocked = (now: number) => clock !== null && locked(schedule, toServerTime(now, clock.offset))
 // 접속할 때와 판 사이에 부름. 한 번에 하나씩 보내 앞의 답이 뒤의 왕복을 늘리지 않게 하고, 답이 오면 다음 것을 보냄
 function syncClock() {
   syncs = []
@@ -156,6 +167,7 @@ ws.addEventListener('message', (e) => {
       room.value = `방 ${m.code}`
       myId = m.playerId
       placed = false
+      schedule = {}
       break
     case 'error':
       status.textContent = REASONS[m.reason]
@@ -177,12 +189,24 @@ ws.addEventListener('message', (e) => {
       // 잰 지연을 개발자 도구에서 보게 남김. 판정이 이상할 때 먼저 볼 값임
       console.info(`시계 맞춤: 왕복 ${clock.roundTrip.toFixed(1)}ms, 차이 ${clock.offset.toFixed(1)}ms`)
       break
+    case 'phase':
+      // 새 판은 카운트다운부터 다시 받음. 판 도중의 ready는 서버가 버리므로 준비 버튼을 숨김 (기술 설계서 메시지 ready)
+      if (m.phase === 'countdown') {
+        schedule = {}
+        readyBar.hidden = true
+      }
+      schedule[m.phase] = m.at
+      break
   }
 })
 
 document.querySelector('#create')!.addEventListener('click', () => send({ type: 'createRoom' }))
 // ponytail: 포인터 잠금 중에는 Esc로 커서를 풀어야 누를 수 있음. 조작이 정해지면 키로도 누르게 함
-readyButton.addEventListener('click', () => send({ type: 'ready', ready: !ready }))
+readyButton.addEventListener('click', () => {
+  // 판 사이에 시계를 다시 잼. 판이 시작되기 직전이라 이번 판 시각을 바꾸는 데 가장 새 값이 됨
+  if (!ready) syncClock()
+  send({ type: 'ready', ready: !ready })
+})
 lobby.addEventListener('submit', (e) => {
   e.preventDefault()
   send({ type: 'joinRoom', code: codeInput.value })
