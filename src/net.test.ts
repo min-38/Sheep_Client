@@ -71,8 +71,9 @@ describe('parseServerMessage', () => {
     expect(parseServerMessage('{"type":"phase","phase":"countdown","at":1500.5}')).toEqual({ type: 'phase', phase: 'countdown', at: 1500.5 })
     expect(parseServerMessage('{"type":"phase","phase":"walk","at":4500.5}')).toEqual({ type: 'phase', phase: 'walk', at: 4500.5 })
     expect(parseServerMessage('{"type":"phase","phase":"duel","at":7500.5}')).toEqual({ type: 'phase', phase: 'duel', at: 7500.5 })
-    // 준비 중(lobby)은 알리지 않는 단계임
-    expect(parseServerMessage('{"type":"phase","phase":"lobby","at":0}')).toBeNull()
+    // 판이 끝나 준비 중으로 돌아가는 시각
+    expect(parseServerMessage('{"type":"phase","phase":"lobby","at":12000}')).toEqual({ type: 'phase', phase: 'lobby', at: 12000 })
+    expect(parseServerMessage('{"type":"phase","phase":"result","at":12000}')).toBeNull()
     expect(parseServerMessage('{"type":"phase","phase":"walk"}')).toBeNull()
     expect(parseServerMessage('{"type":"phase","phase":"walk","at":"4500"}')).toBeNull()
   })
@@ -88,6 +89,28 @@ describe('parseServerMessage', () => {
     expect(parseServerMessage('{"type":"eliminated","playerId":"p2"}')).toEqual({ type: 'eliminated', playerId: 'p2' })
     expect(parseServerMessage('{"type":"eliminated"}')).toBeNull()
     expect(parseServerMessage('{"type":"eliminated","playerId":2}')).toBeNull()
+  })
+
+  test('판 결과는 승리나 재대결, 해당하는 사람들, 재대결 장전 수를 받음', () => {
+    expect(parseServerMessage('{"type":"result","outcome":"win","playerIds":["p1"],"rounds":0}')).toEqual({ type: 'result', outcome: 'win', playerIds: ['p1'], rounds: 0 })
+    expect(parseServerMessage('{"type":"result","outcome":"rematch","playerIds":["p1","p2"],"rounds":2}')).toEqual({
+      type: 'result',
+      outcome: 'rematch',
+      playerIds: ['p1', 'p2'],
+      rounds: 2,
+    })
+  })
+
+  test('모양이 틀린 판 결과는 버림', () => {
+    expect(parseServerMessage('{"type":"result","outcome":"draw","playerIds":["p1"],"rounds":0}')).toBeNull()
+    expect(parseServerMessage('{"type":"result","playerIds":["p1"],"rounds":0}')).toBeNull()
+    expect(parseServerMessage('{"type":"result","outcome":"win","playerIds":"p1","rounds":0}')).toBeNull()
+    expect(parseServerMessage('{"type":"result","outcome":"win","playerIds":[1],"rounds":0}')).toBeNull()
+    expect(parseServerMessage('{"type":"result","outcome":"win","playerIds":["p1"]}')).toBeNull()
+    // 장전 수는 0 이상의 정수 (기술 설계서 메시지 result)
+    expect(parseServerMessage('{"type":"result","outcome":"rematch","playerIds":["p1","p2"],"rounds":"2"}')).toBeNull()
+    expect(parseServerMessage('{"type":"result","outcome":"rematch","playerIds":["p1","p2"],"rounds":1.5}')).toBeNull()
+    expect(parseServerMessage('{"type":"result","outcome":"rematch","playerIds":["p1","p2"],"rounds":-1}')).toBeNull()
   })
 
   test('깨진 JSON, 모르는 type, 빠진 필드는 버림', () => {
