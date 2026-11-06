@@ -22,3 +22,31 @@ export function playSignal(audio: AudioContext, when: number) {
   tone.start(when)
   tone.stop(when + 0.3)
 }
+
+// 쏜 사람 자리(칸)를 내 시선 기준으로 바꿈. right는 화면 오른쪽(카메라 평면 쪽), front는 시선 쪽 거리(칸)
+export function heardFrom(viewX: number, viewY: number, angle: number, x: number, y: number) {
+  const dx = x - viewX
+  const dy = y - viewY
+  return { right: Math.cos(angle) * dy - Math.sin(angle) * dx, front: Math.cos(angle) * dx + Math.sin(angle) * dy }
+}
+
+// 총소리를 when(AudioContext 시각, 초)에 냄. from이 있으면 그 자리에서 들리고(HRTF), 없으면 내 총이라 가운데서 들림.
+// 듣는 사람(AudioListener)은 기본값 그대로 원점에서 -z를 보므로 오른쪽이 +x, 앞이 -z임.
+// 4칸(걷기를 마친 자리의 반지름) 안에서는 같은 크기, 더 멀면 거리에 반비례해 줄어듦.
+// ponytail: 흰 소음으로 합성한 임시음. CC0 효과음으로 바꿀 때 소리 부분만 고침 (기술 설계서 사운드 구현)
+export function playShot(audio: AudioContext, when: number, from?: { right: number; front: number }) {
+  const noise = new AudioBuffer({ length: Math.round(audio.sampleRate * 0.25), sampleRate: audio.sampleRate })
+  const data = noise.getChannelData(0)
+  for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1
+  const source = new AudioBufferSourceNode(audio, { buffer: noise })
+  const volume = new GainNode(audio)
+  volume.gain.setValueAtTime(0.5, when)
+  volume.gain.exponentialRampToValueAtTime(0.001, when + 0.25)
+  let out: AudioNode = source.connect(volume)
+  if (from) {
+    const where = { positionX: from.right, positionY: 0, positionZ: -from.front }
+    out = out.connect(new PannerNode(audio, { panningModel: 'HRTF', refDistance: 4, ...where }))
+  }
+  out.connect(audio.destination)
+  source.start(when)
+}
