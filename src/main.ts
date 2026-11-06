@@ -1,5 +1,5 @@
 import './style.css'
-import { best, measure, toServerTime, type ClockSample } from './clock.ts'
+import { best, measure, toLocalTime, toServerTime, type ClockSample } from './clock.ts'
 import { record, sampleAt, type Sample } from './interpolate.ts'
 import { fireMessage, parseServerMessage, type ClientMessage, type PlayerState, type RoundResult } from './net.ts'
 import type { Grid } from './raycast.ts'
@@ -7,6 +7,7 @@ import { makeCamera, renderFrame } from './render.ts'
 import { loaded, pull, ROUNDS } from './revolver.ts'
 import { banner, dueling, locked, resultText, type Schedule } from './round.ts'
 import { makeFallenFrames, makeScarecrowFrames } from './scarecrow.ts'
+import { playSignal, stampOf, toAudioTime } from './sound.ts'
 import type { Thing } from './sprite.ts'
 import { turn } from './turn.ts'
 
@@ -156,6 +157,8 @@ const readyButton = document.querySelector<HTMLButtonElement>('#ready')!
 const readyCount = document.querySelector<HTMLOutputElement>('#ready-count')!
 const bannerText = document.querySelector<HTMLOutputElement>('#banner')!
 let ready = false
+// 준비 버튼을 처음 누를 때 만듦. 브라우저는 사용자 입력 전에 만든 AudioContext의 소리를 막음 (기술 설계서 사운드 구현)
+let audio: AudioContext | null = null
 const REASONS = { notFound: '없는 방 코드', full: '꽉 찬 방', playing: '판이 진행 중인 방' }
 
 // 같은 출처의 /ws. 개발 중에는 vite가 로컬 서버로 넘김 (vite.config.ts)
@@ -249,6 +252,8 @@ function receive(data: string) {
         readyBar.hidden = true
       }
       schedule[m.phase] = m.at
+      // 신호음은 프레임을 기다리지 않고 AudioContext 시계로 결투 시각에 맞춰 예약함 (기술 설계서 시간 맞추기)
+      if (m.phase === 'duel' && audio && clock) playSignal(audio, toAudioTime(toLocalTime(m.at, clock.offset), stampOf(audio)))
       break
     case 'shot':
       // 내 불꽃은 쏠 때 이미 띄움
@@ -268,6 +273,7 @@ function receive(data: string) {
 document.querySelector('#create')!.addEventListener('click', () => send({ type: 'createRoom' }))
 // ponytail: 포인터 잠금 중에는 Esc로 커서를 풀어야 누를 수 있음. 조작이 정해지면 키로도 누르게 함
 readyButton.addEventListener('click', () => {
+  audio ??= new AudioContext()
   // 판 사이에 시계를 다시 잼. 판이 시작되기 직전이라 이번 판 시각을 바꾸는 데 가장 새 값이 됨
   if (!ready) syncClock()
   send({ type: 'ready', ready: !ready })
