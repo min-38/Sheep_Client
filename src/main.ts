@@ -160,7 +160,11 @@ const REASONS = { notFound: '없는 방 코드', full: '꽉 찬 방', playing: '
 
 // 같은 출처의 /ws. 개발 중에는 vite가 로컬 서버로 넘김 (vite.config.ts)
 const ws = new WebSocket('/ws')
-const send = (m: ClientMessage) => ws.send(JSON.stringify(m))
+// 개발 빌드에서만 주소의 ?lag=N(ms)만큼 왕복을 늘림. 보내기와 받기를 반씩 늦춰 지연이 다른 창끼리 판정을 확인함 (기술 설계서 개발 마일스톤 5).
+// 늦추는 시간이 모두 같아 메시지 순서는 그대로임
+const LAG = import.meta.env.DEV ? Number(new URLSearchParams(location.search).get('lag')) : 0
+const later = (f: () => void) => (LAG > 0 ? setTimeout(f, LAG / 2) : f())
+const send = (m: ClientMessage) => later(() => ws.send(JSON.stringify(m)))
 
 // 서버 시계와 내 시계의 차이. 맞추기 전에는 null. 서버가 알린 시각을 내 시계로 바꿀 때 씀
 let clock: ClockSample | null = null
@@ -204,8 +208,9 @@ ws.addEventListener('close', () => {
   room.value = ''
   status.textContent = '서버와 연결되지 않음. 새로고침해 다시 접속'
 })
-ws.addEventListener('message', (e) => {
-  const m = parseServerMessage(e.data)
+ws.addEventListener('message', (e) => later(() => receive(e.data)))
+function receive(data: string) {
+  const m = parseServerMessage(data)
   switch (m?.type) {
     case 'roomCreated':
     case 'joined':
@@ -258,7 +263,7 @@ ws.addEventListener('message', (e) => {
       result = { ...m, at: performance.now() }
       break
   }
-})
+}
 
 document.querySelector('#create')!.addEventListener('click', () => send({ type: 'createRoom' }))
 // ponytail: 포인터 잠금 중에는 Esc로 커서를 풀어야 누를 수 있음. 조작이 정해지면 키로도 누르게 함
