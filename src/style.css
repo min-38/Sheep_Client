@@ -27,6 +27,7 @@ body {
 
 /* HUD는 클릭을 캔버스로 넘겨야 포인터 잠금과 쏘기가 됨 */
 #crosshair,
+#flash,
 #ammo,
 #banner,
 #room {
@@ -45,6 +46,16 @@ body {
     linear-gradient(#fff, #fff) center / 100% 2px no-repeat,
     linear-gradient(#fff, #fff) center / 2px 100% no-repeat;
   filter: drop-shadow(0 0 1px #000);
+}
+
+/* 내 발사 불꽃. 리볼버 그림이 생기면 총구 자리로 옮김 (기술 설계서 렌더링 무기) */
+#flash {
+  left: 50%;
+  bottom: 0;
+  width: 14cqw;
+  aspect-ratio: 1;
+  translate: -50% 35%;
+  background: radial-gradient(closest-side, #fffbe0, #ffd56a 45%, #ff9a2a00);
 }
 
 #ammo,
