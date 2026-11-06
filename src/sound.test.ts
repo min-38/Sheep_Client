@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'vitest'
 import { toLocalTime } from './clock.ts'
-import { stampOf, toAudioTime } from './sound.ts'
+import { makeCamera } from './render.ts'
+import { heardFrom, stampOf, toAudioTime } from './sound.ts'
 
 describe('toAudioTime', () => {
   test('스탬프와 같은 순간이면 contextTime', () => {
@@ -35,5 +36,31 @@ describe('stampOf', () => {
     expect(s.contextTime).toBe(0.2)
     expect(s.performanceTime).toBeGreaterThanOrEqual(before)
     expect(s.performanceTime).toBeLessThanOrEqual(performance.now())
+  })
+})
+
+describe('heardFrom', () => {
+  test('시선 바로 앞이면 그 거리만큼 앞', () => {
+    const p = heardFrom(5, 5, 0, 8, 5)
+    expect(p.front).toBeCloseTo(3)
+    expect(p.right).toBeCloseTo(0)
+  })
+
+  test('등 뒤면 앞이 음수', () => {
+    expect(heardFrom(5, 5, Math.PI / 2, 5, 3).front).toBeCloseTo(-2)
+  })
+
+  test('화면 오른쪽(카메라 평면 쪽)에 선 사람은 오른쪽에서 들림', () => {
+    for (const angle of [0, 1, Math.PI, 4.5]) {
+      const cam = makeCamera(5, 5, angle, 66)
+      const p = heardFrom(5, 5, angle, 5 + cam.planeX, 5 + cam.planeY)
+      expect(p.right).toBeGreaterThan(0)
+      expect(p.front).toBeCloseTo(0)
+    }
+  })
+
+  test('거리는 그대로임', () => {
+    const p = heardFrom(1, 2, 2.3, 4, 6)
+    expect(Math.hypot(p.right, p.front)).toBeCloseTo(5)
   })
 })

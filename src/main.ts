@@ -7,7 +7,7 @@ import { makeCamera, renderFrame } from './render.ts'
 import { loaded, pull, ROUNDS } from './revolver.ts'
 import { banner, dueling, locked, resultText, type Schedule } from './round.ts'
 import { makeFallenFrames, makeScarecrowFrames } from './scarecrow.ts'
-import { playSignal, stampOf, toAudioTime } from './sound.ts'
+import { heardFrom, playShot, playSignal, stampOf, toAudioTime } from './sound.ts'
 import type { Thing } from './sprite.ts'
 import { turn } from './turn.ts'
 
@@ -76,6 +76,24 @@ function applyState(players: readonly PlayerState[]) {
   if (readyCount.value !== count) readyCount.value = count
 }
 
+// 지금 내 자리와 시선. 자리는 다른 사람처럼 INTERP_DELAY 전이고, 시선은 잠긴 동안 서버가 돌린 각도, 아니면 내 입력
+function myView(now: number) {
+  const me = sampleAt(history.get(myId!)!, now - INTERP_DELAY)
+  return { x: me.x, y: me.y, angle: inputLocked(now) ? me.angle : angle }
+}
+
+// 다른 사람의 발사. 불꽃과 총소리 모두 state처럼 INTERP_DELAY 뒤에 내어 돌기, 발사, 쓰러짐의 순서를 지킴.
+// ponytail: 총소리 방향은 받은 순간의 내 시선으로 정함. 소리가 나기까지 0.1초와 나는 동안 돌면 그만큼 어긋남. 거슬리면 프레임마다 AudioListener를 내 시선으로 돌림
+function showShot(id: string, shotAngle: number) {
+  const now = performance.now()
+  shots.set(id, { at: now, angle: shotAngle })
+  const samples = history.get(id)
+  if (!audio || !placed || !samples) return
+  const view = myView(now)
+  const shooter = sampleAt(samples, now - INTERP_DELAY)
+  playShot(audio, toAudioTime(now + INTERP_DELAY, stampOf(audio)), heardFrom(view.x, view.y, view.angle, shooter.x, shooter.y))
+}
+
 function othersAt(t: number): Thing[] {
   return [...history]
     .filter(([id]) => id !== myId)
@@ -109,17 +127,17 @@ canvas.addEventListener('mousedown', (e) => {
   const next = pull(gun, e.timeStamp, FIRE_INTERVAL)
   if (!next) return
   gun = next
-  // 불꽃과 탄 수는 바로 바꾸고, 명중과 쓰러짐은 서버가 정해 알려 줌
+  // 불꽃, 탄 수, 총소리는 바로 내고, 명중과 쓰러짐은 서버가 정해 알려 줌
   showAmmo()
+  if (audio) playShot(audio, audio.currentTime)
   send(fireMessage(angle, e.timeStamp, clock.offset))
 })
 
 function frame(now: number) {
   if (grid && placed) {
     // 내 자리도 다른 사람처럼 INTERP_DELAY 전을 그림. 받은 그대로 그리면 걷는 동안 20Hz로 끊겨 보임
-    const me = sampleAt(history.get(myId!)!, now - INTERP_DELAY)
-    const view = inputLocked(now) ? me.angle : angle
-    renderFrame(pixels, W, H, grid, makeCamera(me.x, me.y, view, FOV), othersAt(now - INTERP_DELAY))
+    const view = myView(now)
+    renderFrame(pixels, W, H, grid, makeCamera(view.x, view.y, view.angle, FOV), othersAt(now - INTERP_DELAY))
     ctx.putImageData(image, 0, 0)
     // 마우스 이벤트가 아니라 여기서 보내야 마지막으로 멈춘 각도도 빠지지 않고 감
     if (angle !== sentAngle && now - sentAt >= TURN_INTERVAL && ws.readyState === WebSocket.OPEN) {
@@ -256,8 +274,8 @@ function receive(data: string) {
       if (m.phase === 'duel' && audio && clock) playSignal(audio, toAudioTime(toLocalTime(m.at, clock.offset), stampOf(audio)))
       break
     case 'shot':
-      // 내 불꽃은 쏠 때 이미 띄움
-      if (m.playerId !== myId) shots.set(m.playerId, { at: performance.now(), angle: m.angle })
+      // 내 불꽃과 총소리는 쏠 때 이미 냄
+      if (m.playerId !== myId) showShot(m.playerId, m.angle)
       break
     case 'eliminated':
       downAt.set(m.playerId, performance.now())
