@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest'
 import { toServerTime } from './clock.ts'
-import { banner, dueling, GO_SHOWN, locked, type Schedule } from './round.ts'
+import { banner, dueling, GO_SHOWN, locked, resultText, type Schedule } from './round.ts'
 
 // 서버가 알리는 순서: 카운트다운 시각, 카운트다운이 시작할 때 걷기 시각, 걷기가 시작할 때 결투 시각 (기술 설계서 메시지 phase)
 const full: Schedule = { countdown: 10000, walk: 13000, duel: 16000 }
@@ -84,5 +84,19 @@ describe('dueling', () => {
   test('"시작!" 순간부터 쏠 수 있음', () => {
     expect(dueling(full, 16000)).toBe(true)
     expect(dueling(full, 99999)).toBe(true)
+  })
+})
+
+describe('resultText', () => {
+  test('이긴 사람에게는 승리, 나머지에게는 패배', () => {
+    const win = { outcome: 'win' as const, playerIds: ['p1'], rounds: 0 }
+    expect(resultText(win, 'p1')).toBe('승리!')
+    expect(resultText(win, 'p2')).toBe('패배')
+  })
+
+  test('재대결은 재대결하는 사람 수를 보여 줌', () => {
+    expect(resultText({ outcome: 'rematch', playerIds: ['p1', 'p2'], rounds: 2 }, 'p1')).toBe('재대결 2명')
+    // 재대결에 끼지 못한 사람도 같은 글자를 봄
+    expect(resultText({ outcome: 'rematch', playerIds: ['p1', 'p2', 'p3'], rounds: 3 }, 'p4')).toBe('재대결 3명')
   })
 })

@@ -1,11 +1,11 @@
 import './style.css'
 import { best, measure, toServerTime, type ClockSample } from './clock.ts'
 import { record, sampleAt, type Sample } from './interpolate.ts'
-import { fireMessage, parseServerMessage, type ClientMessage, type PlayerState } from './net.ts'
+import { fireMessage, parseServerMessage, type ClientMessage, type PlayerState, type RoundResult } from './net.ts'
 import type { Grid } from './raycast.ts'
 import { makeCamera, renderFrame } from './render.ts'
 import { loaded, pull, ROUNDS } from './revolver.ts'
-import { banner, dueling, locked, type Schedule } from './round.ts'
+import { banner, dueling, locked, resultText, type Schedule } from './round.ts'
 import { makeFallenFrames, makeScarecrowFrames } from './scarecrow.ts'
 import type { Thing } from './sprite.ts'
 import { turn } from './turn.ts'
@@ -54,6 +54,9 @@ const fallen = makeFallenFrames()
 const shots = new Map<string, { at: number; angle: number }>()
 const downAt = new Map<string, number>()
 const isDown = (id: string, t: number) => (downAt.get(id) ?? Infinity) <= t
+// 서버가 알린 판 결과와 받은 시각(ms). 탈락처럼 INTERP_DELAY 뒤에 띄움.
+// end는 결과 바로 뒤에 오는 phase의 시각(서버 시계, 승리면 lobby, 재대결이면 countdown)이고 이때 endResult로 끝냄
+let result: (RoundResult & { at: number; end?: number }) | null = null
 
 function applyState(players: readonly PlayerState[]) {
   const me = players.find((p) => p.id === myId)
@@ -98,9 +101,9 @@ showAmmo()
 const flash = document.querySelector<HTMLDivElement>('#flash')!
 
 // ponytail: 임시 쏘기 키(왼쪽 클릭). 시스템 기획서 조작의 쏘기 키가 정해지면 바꿈.
-// 잠금 전 클릭은 잠금만 걸고 쏘지 않음. "시작!" 전과 쓰러진 뒤의 발사는 서버가 버리므로 탄 수도 줄이지 않음
+// 잠금 전 클릭은 잠금만 걸고 쏘지 않음. "시작!" 전, 쓰러진 뒤, 판 결과가 정해진 뒤의 발사는 서버가 버리므로 탄 수도 줄이지 않음
 canvas.addEventListener('mousedown', (e) => {
-  if (!grid || !clock || document.pointerLockElement !== canvas || e.button !== 0) return
+  if (!grid || !clock || result || document.pointerLockElement !== canvas || e.button !== 0) return
   if (inputLocked(e.timeStamp) || !dueling(schedule, toServerTime(e.timeStamp, clock.offset))) return
   const next = pull(gun, e.timeStamp, FIRE_INTERVAL)
   if (!next) return
@@ -125,8 +128,19 @@ function frame(now: number) {
     }
   }
   flash.hidden = now - gun.lastShot >= FLASH_SHOWN
-  // 내가 쓰러진 것도 INTERP_DELAY 뒤에 알림. 나를 맞힌 사람의 불꽃보다 먼저 뜨지 않게 함
-  const text = myId !== null && isDown(myId, now - INTERP_DELAY) ? '쓰러짐' : clock ? banner(schedule, toServerTime(now, clock.offset)) : ''
+  if (result?.end !== undefined && clock && toServerTime(now, clock.offset) >= result.end) {
+    endResult(result)
+    result = null
+  }
+  // 내가 쓰러진 것과 판 결과도 INTERP_DELAY 뒤에 알림. 나를 맞힌 사람의 불꽃보다 먼저 뜨지 않게 함
+  const text =
+    result && now - INTERP_DELAY >= result.at
+      ? resultText(result, myId)
+      : myId !== null && isDown(myId, now - INTERP_DELAY)
+        ? '쓰러짐'
+        : clock
+          ? banner(schedule, toServerTime(now, clock.offset))
+          : ''
   if (bannerText.value !== text) bannerText.value = text
   requestAnimationFrame(frame)
 }
@@ -157,6 +171,19 @@ let schedule: Schedule = {}
 // 쓰러지면 탈락을 받는 즉시 막음. 쓰러졌다는 알림은 늦게 띄워도 그 뒤 입력은 서버가 버리기 때문임
 const inputLocked = (now: number) =>
   (myId !== null && downAt.has(myId)) || (clock !== null && locked(schedule, toServerTime(now, clock.offset)))
+// 결과 시간이 끝나면 부름. 승리면 준비 중으로 돌아가 처음처럼, 재대결이면 재대결하는 사람만 일으키고 다시 장전함
+function endResult(r: RoundResult) {
+  if (r.outcome === 'win') {
+    schedule = {}
+    downAt.clear()
+    gun = loaded(ROUNDS)
+    readyBar.hidden = false
+  } else {
+    for (const id of r.playerIds) downAt.delete(id)
+    if (myId !== null && r.playerIds.includes(myId)) gun = loaded(r.rounds)
+  }
+  showAmmo()
+}
 // 접속할 때와 판 사이에 부름. 한 번에 하나씩 보내 앞의 답이 뒤의 왕복을 늘리지 않게 하고, 답이 오면 다음 것을 보냄
 function syncClock() {
   syncs = []
@@ -210,6 +237,7 @@ ws.addEventListener('message', (e) => {
       console.info(`시계 맞춤: 왕복 ${clock.roundTrip.toFixed(1)}ms, 차이 ${clock.offset.toFixed(1)}ms`)
       break
     case 'phase':
+      if (result && result.end === undefined) result.end = m.at
       // 새 판은 카운트다운부터 다시 받음. 판 도중의 ready는 서버가 버리므로 준비 버튼을 숨김 (기술 설계서 메시지 ready)
       if (m.phase === 'countdown') {
         schedule = {}
@@ -223,6 +251,11 @@ ws.addEventListener('message', (e) => {
       break
     case 'eliminated':
       downAt.set(m.playerId, performance.now())
+      break
+    case 'result':
+      // 창이 숨어 그리기가 멈춘 동안에는 앞 결과가 끝나지 않은 채 다음 결과가 올 수 있어 먼저 끝냄
+      if (result) endResult(result)
+      result = { ...m, at: performance.now() }
       break
   }
 })
