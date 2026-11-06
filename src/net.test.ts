@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { parseServerMessage } from './net.ts'
+import { fireMessage, parseServerMessage } from './net.ts'
 
 describe('parseServerMessage', () => {
   test('방 만들기와 입장 응답은 내 플레이어 id를 받음', () => {
@@ -39,6 +39,11 @@ describe('parseServerMessage', () => {
     })
   })
 
+  test('쓰러진 사람의 동작은 down', () => {
+    const text = '{"type":"state","tick":9,"players":[{"id":"p1","x":1,"y":1,"angle":0,"pose":"down","ready":false}]}'
+    expect(parseServerMessage(text)).toEqual({ type: 'state', tick: 9, players: [{ id: 'p1', x: 1, y: 1, angle: 0, pose: 'down', ready: false }] })
+  })
+
   test('모양이 틀린 상태는 버림', () => {
     expect(parseServerMessage('{"type":"state","players":[]}')).toBeNull()
     expect(parseServerMessage('{"type":"state","tick":7}')).toBeNull()
@@ -72,10 +77,32 @@ describe('parseServerMessage', () => {
     expect(parseServerMessage('{"type":"phase","phase":"walk","at":"4500"}')).toBeNull()
   })
 
+  test('발사 이벤트는 쏜 사람과 쏜 각도를 받음', () => {
+    expect(parseServerMessage('{"type":"shot","playerId":"p2","angle":3.14}')).toEqual({ type: 'shot', playerId: 'p2', angle: 3.14 })
+    expect(parseServerMessage('{"type":"shot","angle":3.14}')).toBeNull()
+    expect(parseServerMessage('{"type":"shot","playerId":"p2"}')).toBeNull()
+    expect(parseServerMessage('{"type":"shot","playerId":"p2","angle":"3.14"}')).toBeNull()
+  })
+
+  test('탈락은 쓰러진 사람을 받음', () => {
+    expect(parseServerMessage('{"type":"eliminated","playerId":"p2"}')).toEqual({ type: 'eliminated', playerId: 'p2' })
+    expect(parseServerMessage('{"type":"eliminated"}')).toBeNull()
+    expect(parseServerMessage('{"type":"eliminated","playerId":2}')).toBeNull()
+  })
+
   test('깨진 JSON, 모르는 type, 빠진 필드는 버림', () => {
     expect(parseServerMessage('{"type":')).toBeNull()
     expect(parseServerMessage('null')).toBeNull()
     expect(parseServerMessage('{"type":"hello"}')).toBeNull()
     expect(parseServerMessage('{"type":"joined"}')).toBeNull()
+  })
+})
+
+describe('fireMessage', () => {
+  test('쏜 시각을 서버 시계로 바꿔 보냄', () => {
+    // 서버 시계가 4000ms 앞섬. 내 1000은 서버 5000
+    expect(fireMessage(1.5, 1000, 4000)).toEqual({ type: 'fire', angle: 1.5, at: 5000 })
+    // 서버 시계가 500ms 뒤처짐. 내 1000은 서버 500
+    expect(fireMessage(0, 1000, -500)).toEqual({ type: 'fire', angle: 0, at: 500 })
   })
 })

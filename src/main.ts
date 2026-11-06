@@ -1,12 +1,12 @@
 import './style.css'
 import { best, measure, toServerTime, type ClockSample } from './clock.ts'
 import { record, sampleAt, type Sample } from './interpolate.ts'
-import { parseServerMessage, type ClientMessage, type PlayerState } from './net.ts'
+import { fireMessage, parseServerMessage, type ClientMessage, type PlayerState } from './net.ts'
 import type { Grid } from './raycast.ts'
 import { makeCamera, renderFrame } from './render.ts'
 import { loaded, pull, ROUNDS } from './revolver.ts'
-import { banner, locked, type Schedule } from './round.ts'
-import { makeScarecrowFrames } from './scarecrow.ts'
+import { banner, dueling, locked, type Schedule } from './round.ts'
+import { makeFallenFrames, makeScarecrowFrames } from './scarecrow.ts'
 import type { Thing } from './sprite.ts'
 import { turn } from './turn.ts'
 
@@ -16,8 +16,10 @@ const H = 270
 const FOV = 66
 // 라디안/px. ponytail: 임시 감도. 시스템 기획서 조작의 감도가 정해지면 그 값으로 바꿈
 const SENSITIVITY = 0.003
-// ms. ponytail: 임시 값. 시스템 기획서 리볼버의 발사 간격이 정해지면 그 값으로 바꿈
+// ms. 시스템 기획서 리볼버 발사 간격. 서버와 같은 값이어야 내가 센 탄 수가 서버와 어긋나지 않음
 const FIRE_INTERVAL = 250
+// ms. 발사 불꽃을 띄워 두는 시간. ponytail: 임시 값(시스템 기획서 HUD). 플레이해 보며 다시 정함
+const FLASH_SHOWN = 100
 // ms. 서버 틱(20Hz)마다 마지막 각도만 쓰므로 그보다 자주 보내지 않음
 const TURN_INTERVAL = 50
 // ms. 다른 플레이어는 약 두 틱 전을 그려 늘 앞뒤 두 상태 사이에 있게 함 (기술 설계서 다른 플레이어 보여 주기)
@@ -45,6 +47,13 @@ let sentAt = -Infinity
 const history = new Map<string, Sample[]>()
 // ponytail: 허수아비 그림을 임시로 씀. 플레이어 스프라이트 시트가 생기면 바꿈
 const scarecrow = makeScarecrowFrames()
+const firing = makeScarecrowFrames(true)
+const fallen = makeFallenFrames()
+// 다른 사람이 마지막으로 쏜 것과 쓰러진 것을 받은 시각(ms). state처럼 INTERP_DELAY 뒤에 보여 줘 돌기, 발사, 쓰러짐의 순서를 지킴.
+// ponytail: 사람마다 마지막 발사 하나만 둠. 발사 간격(250ms)이 불꽃(100ms)보다 길어 겹치지 않음. 지연이 크게 흔들려 둘이 붙어 오면 앞 불꽃이 빠짐
+const shots = new Map<string, { at: number; angle: number }>()
+const downAt = new Map<string, number>()
+const isDown = (id: string, t: number) => (downAt.get(id) ?? Infinity) <= t
 
 function applyState(players: readonly PlayerState[]) {
   const me = players.find((p) => p.id === myId)
@@ -66,9 +75,12 @@ function applyState(players: readonly PlayerState[]) {
 function othersAt(t: number): Thing[] {
   return [...history]
     .filter(([id]) => id !== myId)
-    .map(([, samples]) => {
+    .map(([id, samples]) => {
       const s = sampleAt(samples, t)
-      return { x: s.x, y: s.y, facing: s.angle, frames: scarecrow }
+      const shot = shots.get(id)
+      const flashing = shot !== undefined && t >= shot.at && t < shot.at + FLASH_SHOWN
+      // 불꽃 동안은 쏜 각도로 그림. 돌고 바로 쏘면 돌아간 각도는 다음 state로 늦게 옴
+      return { x: s.x, y: s.y, facing: flashing ? shot.angle : s.angle, frames: isDown(id, t) ? fallen : flashing ? firing : scarecrow }
     })
 }
 
@@ -83,15 +95,19 @@ let gun = loaded(ROUNDS)
 const showAmmo = () => (ammo.value = '●'.repeat(gun.rounds) + '○'.repeat(ROUNDS - gun.rounds))
 showAmmo()
 
+const flash = document.querySelector<HTMLDivElement>('#flash')!
+
 // ponytail: 임시 쏘기 키(왼쪽 클릭). 시스템 기획서 조작의 쏘기 키가 정해지면 바꿈.
-// 잠금 전 클릭은 잠금만 걸고 쏘지 않음
+// 잠금 전 클릭은 잠금만 걸고 쏘지 않음. "시작!" 전과 쓰러진 뒤의 발사는 서버가 버리므로 탄 수도 줄이지 않음
 canvas.addEventListener('mousedown', (e) => {
-  if (!grid || document.pointerLockElement !== canvas || e.button !== 0 || inputLocked(e.timeStamp)) return
+  if (!grid || !clock || document.pointerLockElement !== canvas || e.button !== 0) return
+  if (inputLocked(e.timeStamp) || !dueling(schedule, toServerTime(e.timeStamp, clock.offset))) return
   const next = pull(gun, e.timeStamp, FIRE_INTERVAL)
   if (!next) return
   gun = next
-  // 명중은 서버가 확정함 (M4). 클라는 탄 수만 줄임
+  // 불꽃과 탄 수는 바로 바꾸고, 명중과 쓰러짐은 서버가 정해 알려 줌
   showAmmo()
+  send(fireMessage(angle, e.timeStamp, clock.offset))
 })
 
 function frame(now: number) {
@@ -108,7 +124,9 @@ function frame(now: number) {
       sentAt = now
     }
   }
-  const text = clock ? banner(schedule, toServerTime(now, clock.offset)) : ''
+  flash.hidden = now - gun.lastShot >= FLASH_SHOWN
+  // 내가 쓰러진 것도 INTERP_DELAY 뒤에 알림. 나를 맞힌 사람의 불꽃보다 먼저 뜨지 않게 함
+  const text = myId !== null && isDown(myId, now - INTERP_DELAY) ? '쓰러짐' : clock ? banner(schedule, toServerTime(now, clock.offset)) : ''
   if (bannerText.value !== text) bannerText.value = text
   requestAnimationFrame(frame)
 }
@@ -135,8 +153,10 @@ let clock: ClockSample | null = null
 let syncs: ClockSample[] = []
 // 이번 판에 서버가 알린 단계별 시각(서버 시계)
 let schedule: Schedule = {}
-// 시계를 맞추기 전에는 판 시각을 내 시계로 바꿀 수 없어 막지 않음. 그래도 서버가 걷는 동안의 turn은 버림
-const inputLocked = (now: number) => clock !== null && locked(schedule, toServerTime(now, clock.offset))
+// 시계를 맞추기 전에는 판 시각을 내 시계로 바꿀 수 없어 막지 않음. 그래도 서버가 걷는 동안의 turn은 버림.
+// 쓰러지면 탈락을 받는 즉시 막음. 쓰러졌다는 알림은 늦게 띄워도 그 뒤 입력은 서버가 버리기 때문임
+const inputLocked = (now: number) =>
+  (myId !== null && downAt.has(myId)) || (clock !== null && locked(schedule, toServerTime(now, clock.offset)))
 // 접속할 때와 판 사이에 부름. 한 번에 하나씩 보내 앞의 답이 뒤의 왕복을 늘리지 않게 하고, 답이 오면 다음 것을 보냄
 function syncClock() {
   syncs = []
@@ -196,6 +216,13 @@ ws.addEventListener('message', (e) => {
         readyBar.hidden = true
       }
       schedule[m.phase] = m.at
+      break
+    case 'shot':
+      // 내 불꽃은 쏠 때 이미 띄움
+      if (m.playerId !== myId) shots.set(m.playerId, { at: performance.now(), angle: m.angle })
+      break
+    case 'eliminated':
+      downAt.set(m.playerId, performance.now())
       break
   }
 })

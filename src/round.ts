@@ -18,3 +18,6 @@ export function banner(s: Schedule, now: number): string {
 // 카운트다운부터 "시작!"까지 내 돌기와 발사를 막음. 그동안은 서버가 나를 돌리고 걷게 함 (기술 설계서 서버/클라 역할 분리)
 export const locked = (s: Schedule, now: number) =>
   s.countdown !== undefined && now >= s.countdown && !(s.duel !== undefined && now >= s.duel)
+
+// "시작!"부터 쏠 수 있음. 그 전 발사는 서버가 버리므로 불꽃도 탄 수도 바꾸지 않음
+export const dueling = (s: Schedule, now: number) => s.duel !== undefined && now >= s.duel

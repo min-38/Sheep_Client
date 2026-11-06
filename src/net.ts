@@ -1,3 +1,4 @@
+import { toServerTime } from './clock.ts'
 import type { Grid } from './raycast.ts'
 
 // 기술 설계서 메시지 표를 손으로 옮김. 표가 바뀌면 여기도 고침
@@ -10,9 +11,11 @@ export type ClientMessage =
   | { type: 'ready'; ready: boolean }
   // t0은 보낸 순간의 performance.now() (ms). 방에 들어가기 전에도 보냄
   | { type: 'clockSync'; t0: number }
+  // angle은 turn과 같음. at은 쏜 시각(ms, 서버 시계). M4 서버는 발사 간격을 잴 때만 씀
+  | { type: 'fire'; angle: number; at: number }
 
-// x·y는 칸 단위(map의 [y][x]와 같은 축), angle은 turn과 같음. pose는 동작 (서 있음, 걷기)
-export type PlayerState = { id: string; x: number; y: number; angle: number; pose: 'stand' | 'walk'; ready: boolean }
+// x·y는 칸 단위(map의 [y][x]와 같은 축), angle은 turn과 같음. pose는 동작 (서 있음, 걷기, 쓰러짐)
+export type PlayerState = { id: string; x: number; y: number; angle: number; pose: 'stand' | 'walk' | 'down'; ready: boolean }
 
 // 서버가 알리는 판 단계. 준비 중은 알리지 않음
 export type Phase = 'countdown' | 'walk' | 'duel'
@@ -27,6 +30,12 @@ export type ServerMessage =
   | { type: 'serverTime'; t0: number; ts: number }
   // at은 그 단계가 시작하는 서버 시각(ms). serverTime의 ts와 같은 시계
   | { type: 'phase'; phase: Phase; at: number }
+  // 서버가 받아들인 발사. angle은 fire의 angle 그대로
+  | { type: 'shot'; playerId: string; angle: number }
+  | { type: 'eliminated'; playerId: string }
+
+// 쏜 순간 내 시각(ms, performance.now())을 서버 시계로 바꿔 보냄. 서버는 이 시각으로 발사 간격을 재고, M5부터 쏜 순서를 가림
+export const fireMessage = (angle: number, shotAt: number, offset: number): ClientMessage => ({ type: 'fire', angle, at: toServerTime(shotAt, offset) })
 
 // 서버가 보낸 JSON 하나를 읽음. 모양이 틀리면 null을 돌려주고 받는 쪽은 무시함 (서버와 같음)
 export function parseServerMessage(text: string): ServerMessage | null {
@@ -54,6 +63,10 @@ export function parseServerMessage(text: string): ServerMessage | null {
       return (m.phase === 'countdown' || m.phase === 'walk' || m.phase === 'duel') && Number.isFinite(m.at)
         ? { type: 'phase', phase: m.phase, at: m.at }
         : null
+    case 'shot':
+      return typeof m.playerId === 'string' && Number.isFinite(m.angle) ? { type: 'shot', playerId: m.playerId, angle: m.angle } : null
+    case 'eliminated':
+      return typeof m.playerId === 'string' ? { type: 'eliminated', playerId: m.playerId } : null
     default:
       return null
   }
@@ -62,7 +75,7 @@ export function parseServerMessage(text: string): ServerMessage | null {
 const isPlayer = (p: any): p is PlayerState =>
   typeof p?.id === 'string' &&
   [p.x, p.y, p.angle].every(Number.isFinite) &&
-  (p.pose === 'stand' || p.pose === 'walk') &&
+  (p.pose === 'stand' || p.pose === 'walk' || p.pose === 'down') &&
   typeof p.ready === 'boolean'
 
 // 레이캐스터는 칸이 다 숫자이고 모든 줄 길이가 같다고 봄

@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest'
 import { toServerTime } from './clock.ts'
-import { banner, GO_SHOWN, locked, type Schedule } from './round.ts'
+import { banner, dueling, GO_SHOWN, locked, type Schedule } from './round.ts'
 
 // 서버가 알리는 순서: 카운트다운 시각, 카운트다운이 시작할 때 걷기 시각, 걷기가 시작할 때 결투 시각 (기술 설계서 메시지 phase)
 const full: Schedule = { countdown: 10000, walk: 13000, duel: 16000 }
@@ -71,5 +71,18 @@ describe('locked', () => {
   test('"시작!" 순간 풂', () => {
     expect(locked(full, 16000)).toBe(false)
     expect(locked(full, 99999)).toBe(false)
+  })
+})
+
+describe('dueling', () => {
+  test('"시작!" 전에는 쏠 수 없음', () => {
+    expect(dueling({}, 99999)).toBe(false)
+    expect(dueling({ countdown: 10000, walk: 13000 }, 99999)).toBe(false)
+    expect(dueling(full, 15999)).toBe(false)
+  })
+
+  test('"시작!" 순간부터 쏠 수 있음', () => {
+    expect(dueling(full, 16000)).toBe(true)
+    expect(dueling(full, 99999)).toBe(true)
   })
 })
