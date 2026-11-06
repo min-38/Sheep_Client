@@ -17,8 +17,11 @@ export type ClientMessage =
 // x·y는 칸 단위(map의 [y][x]와 같은 축), angle은 turn과 같음. pose는 동작 (서 있음, 걷기, 쓰러짐)
 export type PlayerState = { id: string; x: number; y: number; angle: number; pose: 'stand' | 'walk' | 'down'; ready: boolean }
 
-// 서버가 알리는 판 단계. 준비 중은 알리지 않음
-export type Phase = 'countdown' | 'walk' | 'duel'
+// 서버가 알리는 판 단계. lobby는 판이 끝나 준비 중으로 돌아가는 시각임
+export type Phase = 'countdown' | 'walk' | 'duel' | 'lobby'
+
+// 판 결과. playerIds는 이긴 사람 1명, 또는 재대결하는 사람들. rounds는 재대결 때 새로 장전하는 총알 수이고 승리면 0
+export type RoundResult = { outcome: 'win' | 'rematch'; playerIds: string[]; rounds: number }
 
 export type ServerMessage =
   | { type: 'roomCreated'; code: string; playerId: string }
@@ -33,6 +36,8 @@ export type ServerMessage =
   // 서버가 받아들인 발사. angle은 fire의 angle 그대로
   | { type: 'shot'; playerId: string; angle: number }
   | { type: 'eliminated'; playerId: string }
+  // 결과 시간이 끝나는 시각은 바로 뒤의 phase로 옴 (승리면 lobby, 재대결이면 countdown)
+  | ({ type: 'result' } & RoundResult)
 
 // 쏜 순간 내 시각(ms, performance.now())을 서버 시계로 바꿔 보냄. 서버는 이 시각으로 발사 간격을 재고, M5부터 쏜 순서를 가림
 export const fireMessage = (angle: number, shotAt: number, offset: number): ClientMessage => ({ type: 'fire', angle, at: toServerTime(shotAt, offset) })
@@ -60,13 +65,21 @@ export function parseServerMessage(text: string): ServerMessage | null {
     case 'serverTime':
       return Number.isFinite(m.t0) && Number.isFinite(m.ts) ? { type: 'serverTime', t0: m.t0, ts: m.ts } : null
     case 'phase':
-      return (m.phase === 'countdown' || m.phase === 'walk' || m.phase === 'duel') && Number.isFinite(m.at)
+      return (m.phase === 'countdown' || m.phase === 'walk' || m.phase === 'duel' || m.phase === 'lobby') && Number.isFinite(m.at)
         ? { type: 'phase', phase: m.phase, at: m.at }
         : null
     case 'shot':
       return typeof m.playerId === 'string' && Number.isFinite(m.angle) ? { type: 'shot', playerId: m.playerId, angle: m.angle } : null
     case 'eliminated':
       return typeof m.playerId === 'string' ? { type: 'eliminated', playerId: m.playerId } : null
+    case 'result':
+      return (m.outcome === 'win' || m.outcome === 'rematch') &&
+        Array.isArray(m.playerIds) &&
+        m.playerIds.every((id: unknown) => typeof id === 'string') &&
+        Number.isInteger(m.rounds) &&
+        m.rounds >= 0
+        ? { type: 'result', outcome: m.outcome, playerIds: m.playerIds, rounds: m.rounds }
+        : null
     default:
       return null
   }
