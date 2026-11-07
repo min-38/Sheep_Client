@@ -35,16 +35,17 @@ body {
   pointer-events: none;
 }
 
-/* 광선은 화면 가운데 세로줄로 나감 */
+/* 흰 고리와 가운데 점 (시스템 기획서 HUD). 화면 가운데가 시선이고, 팔 흔들림만큼 main.ts가 transform으로 옮겨 총알이 갈 곳을 보여 줌 */
 #crosshair {
   left: 50%;
   top: 50%;
   width: 2cqw;
   aspect-ratio: 1;
   translate: -50% -50%;
-  background:
-    linear-gradient(#fff, #fff) center / 100% 2px no-repeat,
-    linear-gradient(#fff, #fff) center / 2px 100% no-repeat;
+  box-sizing: border-box;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  background: radial-gradient(circle, #fff 0 2px, #fff0 2.5px);
   filter: drop-shadow(0 0 1px #000);
 }
 
