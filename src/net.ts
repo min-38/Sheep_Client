@@ -17,8 +17,18 @@ export type ClientMessage =
   // 걷다 멈추기. at은 누른 시각(ms, 서버 시계). 걷는 동안 한 번만 보냄
   | { type: 'stop'; at: number }
 
-// x·y는 칸 단위(map의 [y][x]와 같은 축), angle은 turn과 같음. pose는 동작 (서 있음, 걷기, 쓰러짐)
-export type PlayerState = { id: string; x: number; y: number; angle: number; pose: 'stand' | 'walk' | 'down'; ready: boolean }
+// x·y는 칸 단위(map의 [y][x]와 같은 축), angle은 turn과 같음. pose는 동작 (서 있음, 걷기, 쓰러짐).
+// nickname은 포스터에 쓰는 이름, color는 목수건 색 번호 0~7 (시스템 기획서 사람 색의 순서)
+export type PlayerState = {
+  id: string
+  x: number
+  y: number
+  angle: number
+  pose: 'stand' | 'walk' | 'down'
+  ready: boolean
+  nickname: string
+  color: number
+}
 
 // 서버가 알리는 판 단계. lobby는 판이 끝나 준비 중으로 돌아가는 시각임
 export type Phase = 'countdown' | 'walk' | 'duel' | 'lobby'
@@ -111,11 +121,15 @@ export function parseServerMessage(text: string): ServerMessage | null {
   }
 }
 
+const isColor = (c: unknown) => Number.isInteger(c) && (c as number) >= 0 && (c as number) < 8
+
 const isPlayer = (p: any): p is PlayerState =>
   typeof p?.id === 'string' &&
   [p.x, p.y, p.angle].every(Number.isFinite) &&
   (p.pose === 'stand' || p.pose === 'walk' || p.pose === 'down') &&
-  typeof p.ready === 'boolean'
+  typeof p.ready === 'boolean' &&
+  typeof p.nickname === 'string' &&
+  isColor(p.color)
 
 // 레이캐스터는 칸이 다 숫자이고 모든 줄 길이가 같다고 봄
 function isGrid(cells: unknown, width: unknown, height: unknown): cells is Grid {
