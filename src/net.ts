@@ -3,8 +3,11 @@ import type { Grid } from './raycast.ts'
 
 // 기술 설계서 메시지 표를 손으로 옮김. 표가 바뀌면 여기도 고침
 export type ClientMessage =
-  | { type: 'createRoom' }
-  | { type: 'joinRoom'; code: string }
+  // nickname은 normalizeNickname을 거친 이름. private가 true면 비공개 방 (랜덤 입장에 안 나옴)
+  | { type: 'createRoom'; nickname: string; private: boolean }
+  | { type: 'joinRoom'; code: string; nickname: string }
+  // 들어갈 수 있는 공개 방 중 사람이 가장 많은 방에 넣고, 없으면 새 공개 방을 만듦. 답은 joined 또는 roomCreated
+  | { type: 'quickJoin'; nickname: string }
   // angle은 라디안, 0 이상 2π 미만. 범위 밖이면 서버가 버림
   | { type: 'turn'; angle: number }
   // 값을 보냄. 두 번 보내도 결과가 같음
@@ -17,8 +20,18 @@ export type ClientMessage =
   // 걷다 멈추기. at은 누른 시각(ms, 서버 시계). 걷는 동안 한 번만 보냄
   | { type: 'stop'; at: number }
 
-// x·y는 칸 단위(map의 [y][x]와 같은 축), angle은 turn과 같음. pose는 동작 (서 있음, 걷기, 쓰러짐)
-export type PlayerState = { id: string; x: number; y: number; angle: number; pose: 'stand' | 'walk' | 'down'; ready: boolean }
+// x·y는 칸 단위(map의 [y][x]와 같은 축), angle은 turn과 같음. pose는 동작 (서 있음, 걷기, 쓰러짐).
+// nickname은 포스터에 쓰는 이름, color는 목수건 색 번호 0~7 (시스템 기획서 사람 색의 순서)
+export type PlayerState = {
+  id: string
+  x: number
+  y: number
+  angle: number
+  pose: 'stand' | 'walk' | 'down'
+  ready: boolean
+  nickname: string
+  color: number
+}
 
 // 서버가 알리는 판 단계. lobby는 판이 끝나 준비 중으로 돌아가는 시각임
 export type Phase = 'countdown' | 'walk' | 'duel' | 'lobby'
@@ -35,7 +48,7 @@ export type ShotResult =
 export type ServerMessage =
   | { type: 'roomCreated'; code: string; playerId: string }
   | { type: 'joined'; code: string; playerId: string }
-  | { type: 'error'; reason: 'notFound' | 'full' | 'playing' }
+  | { type: 'error'; reason: 'notFound' | 'full' | 'playing' | 'nickname' }
   | { type: 'map'; width: number; height: number; cells: Grid }
   | { type: 'state'; tick: number; players: PlayerState[] }
   // clockSync의 답. t0은 보낸 값 그대로, ts는 서버 시각(ms)
@@ -72,7 +85,7 @@ export function parseServerMessage(text: string): ServerMessage | null {
     case 'joined':
       return typeof m.code === 'string' && typeof m.playerId === 'string' ? { type: m.type, code: m.code, playerId: m.playerId } : null
     case 'error':
-      return m.reason === 'notFound' || m.reason === 'full' || m.reason === 'playing' ? { type: 'error', reason: m.reason } : null
+      return ['notFound', 'full', 'playing', 'nickname'].includes(m.reason) ? { type: 'error', reason: m.reason } : null
     case 'map':
       return isGrid(m.cells, m.width, m.height) ? { type: 'map', width: m.width, height: m.height, cells: m.cells } : null
     case 'state':
@@ -115,7 +128,11 @@ const isPlayer = (p: any): p is PlayerState =>
   typeof p?.id === 'string' &&
   [p.x, p.y, p.angle].every(Number.isFinite) &&
   (p.pose === 'stand' || p.pose === 'walk' || p.pose === 'down') &&
-  typeof p.ready === 'boolean'
+  typeof p.ready === 'boolean' &&
+  typeof p.nickname === 'string' &&
+  Number.isInteger(p.color) &&
+  p.color >= 0 &&
+  p.color < 8
 
 // 레이캐스터는 칸이 다 숫자이고 모든 줄 길이가 같다고 봄
 function isGrid(cells: unknown, width: unknown, height: unknown): cells is Grid {

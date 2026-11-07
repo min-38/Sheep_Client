@@ -6,6 +6,7 @@ import { drawGun, RECOIL_MS } from './gun.ts'
 import { dotPosition, noBlood, onGameEnd, onRevived, onWalk, onWounded, resultLabel } from './hitcard.ts'
 import { record, sampleAt, type Sample } from './interpolate.ts'
 import { fireMessage, parseServerMessage, stopMessage, type ClientMessage, type PlayerState, type RoundResult, type ShotResult } from './net.ts'
+import { normalizeNickname } from './nickname.ts'
 import { parseMtl, parseObj } from './obj.ts'
 import type { Grid } from './raycast.ts'
 import { makeCamera, renderFrame } from './render.ts'
@@ -237,6 +238,10 @@ function frame(now: number) {
       sentAngle = angle
       sentAt = now
     }
+  } else if (!lobby.hidden) {
+    // 첫 화면 뒤로 결투장 가운데에서 천천히 돎. ponytail: 지금 빛과 벽 그대로. 사막 작업(M8 C6)에서 석양 빛으로 바꿈
+    renderFrame(pixels, W, H, BACKDROP, makeCamera(BACKDROP.length / 2, BACKDROP.length / 2, now * BACKDROP_TURN, FOV), [])
+    ctx.putImageData(image, 0, 0)
   }
   flash.hidden = now - gun.lastShot >= FLASH_SHOWN
   bloodView.hidden = !blood.shown
@@ -279,7 +284,42 @@ const timer = document.querySelector<HTMLOutputElement>('#timer')!
 let ready = false
 // 준비 버튼을 처음 누를 때 만듦. 브라우저는 사용자 입력 전에 만든 AudioContext의 소리를 막음 (기술 설계서 사운드 구현)
 let audio: AudioContext | null = null
-const REASONS = { notFound: '없는 방 코드', full: '꽉 찬 방', playing: '판이 진행 중인 방' }
+const REASONS = { notFound: '없는 방 코드', full: '꽉 찬 방', playing: '판이 진행 중인 방', nickname: '닉네임 규칙에 맞지 않음' }
+const nicknameInput = document.querySelector<HTMLInputElement>('#nickname')!
+const nicknameRule = document.querySelector<HTMLParagraphElement>('#nickname-rule')!
+const privateBox = document.querySelector<HTMLInputElement>('#private')!
+// 닉네임을 정해야 누를 수 있는 버튼 (시스템 기획서 방 화면 닉네임)
+const roomButtons = ['#quick', '#create', '#join'].map((s) => document.querySelector<HTMLButtonElement>(s)!)
+// 방에 들어가기 전에는 서버 맵이 없어, 첫 화면 배경은 서버 ArenaMap과 같은 21칸 둘레 벽 결투장을 그림
+const BACKDROP: Grid = Array.from({ length: 21 }, (_, y) => Array.from({ length: 21 }, (_, x) => (x % 20 === 0 || y % 20 === 0 ? 1 : 0)))
+// 라디안/ms. 한 바퀴에 약 1분. ponytail: 임시 값
+const BACKDROP_TURN = 0.0001
+// 브라우저에 기억해 다음에는 다시 넣지 않음. 사생활 보호 모드처럼 저장소를 막으면 던지므로 기억 못 해도 그냥 둠
+const SAVED_NICKNAME = 'nickname'
+try {
+  nicknameInput.value = localStorage.getItem(SAVED_NICKNAME) ?? ''
+} catch {}
+
+// 맞는 이름이면 그 이름, 틀리면 null. 틀리면 칸 아래에 규칙을 빨갛게 보이고 방 버튼을 막음
+function checkNickname(): string | null {
+  const name = normalizeNickname(nicknameInput.value)
+  nicknameRule.hidden = name !== null
+  for (const b of roomButtons) b.disabled = name === null
+  return name
+}
+checkNickname()
+nicknameInput.addEventListener('input', checkNickname)
+
+// 방에 들어가는 버튼마다 부름. 맞는 이름이면 기억하고 그 이름으로 메시지를 만들어 보냄
+function enterWith(message: (nickname: string) => ClientMessage) {
+  const name = checkNickname()
+  if (name === null) return
+  try {
+    localStorage.setItem(SAVED_NICKNAME, name)
+  } catch {}
+  status.textContent = ''
+  send(message(name))
+}
 
 // 같은 출처의 /ws. 개발 중에는 vite가 로컬 서버로 넘김 (vite.config.ts)
 const ws = new WebSocket('/ws')
@@ -412,7 +452,10 @@ function receive(data: string) {
   }
 }
 
-document.querySelector('#create')!.addEventListener('click', () => send({ type: 'createRoom' }))
+document.querySelector('#quick')!.addEventListener('click', () => enterWith((nickname) => ({ type: 'quickJoin', nickname })))
+document.querySelector('#create')!.addEventListener('click', () =>
+  enterWith((nickname) => ({ type: 'createRoom', nickname, private: privateBox.checked })),
+)
 // ponytail: 포인터 잠금 중에는 Esc로 커서를 풀어야 누를 수 있음. 조작이 정해지면 키로도 누르게 함
 readyButton.addEventListener('click', () => {
   audio ??= new AudioContext()
@@ -422,5 +465,5 @@ readyButton.addEventListener('click', () => {
 })
 lobby.addEventListener('submit', (e) => {
   e.preventDefault()
-  send({ type: 'joinRoom', code: codeInput.value })
+  enterWith((nickname) => ({ type: 'joinRoom', code: codeInput.value, nickname }))
 })
