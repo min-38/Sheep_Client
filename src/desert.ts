@@ -1,5 +1,5 @@
 import { blend, pack, type RGB } from './render.ts'
-import type { Sprite, Thing } from './sprite.ts'
+import { PX_PER_CELL, type Sprite, type Thing } from './sprite.ts'
 
 // 하늘 시간대 (시스템 기획서 결투장 시간대)
 export type TimeOfDay = 'noon' | 'afternoon' | 'sunset'
@@ -222,7 +222,7 @@ export const SKIES: Record<TimeOfDay, Sky> = {
   sunset: makeSky({ top: [58, 50, 112], horizon: [244, 130, 72], sun: [255, 176, 96], sunHeight: 2, light: [232, 150, 118], clouds: false }),
 }
 
-// 소품 그림 크기(px). sprite.ts HEIGHT(0.9칸) 높이로 그려져 1px이 0.0375칸임. 낮은 소품은 위를 비워 둠.
+// 소품 원본 그림 크기(px). blocks에서 0.9칸 높이로 늘려 1px이 0.0375칸임. 낮은 소품은 위를 비워 둠.
 // ponytail: 모든 Thing이 키 하나를 같이 써 선인장도 사람 키를 넘지 못함. 더 크게 하려면 Thing에 키를 둠
 const S = 24
 type Rect = readonly [x: number, y: number, w: number, h: number, color: RGB]
@@ -230,9 +230,12 @@ type Rect = readonly [x: number, y: number, w: number, h: number, color: RGB]
 // 네모를 차례로 쌓아 칠한 한 장. 앞면, 오른쪽 옆면(어둡게), 윗면(밝게)을 각각 단색으로 칠함 (컨셉 기획서 화풍).
 // 둘레 소품이라 어느 쪽에서 봐도 같은 그림을 8방향에 씀
 function blocks(rects: readonly Rect[]): Sprite[] {
-  const pixels = new Uint32Array(S * S)
-  for (const [x, y, w, h, c] of rects) for (let r = y; r < y + h; r++) pixels.fill(pack(...c), r * S + x, r * S + x + w)
-  return Array(8).fill({ w: S, h: S, pixels })
+  const art = new Uint32Array(S * S)
+  for (const [x, y, w, h, c] of rects) for (let r = y; r < y + h; r++) art.fill(pack(...c), r * S + x, r * S + x + w)
+  // 사람과 같은 배율(PX_PER_CELL)로 0.9칸 높이가 되게 늘림
+  const T = Math.round(0.9 * PX_PER_CELL)
+  const pixels = new Uint32Array(T * T).map((_, i) => art[Math.floor((Math.floor(i / T) * S) / T) * S + Math.floor(((i % T) * S) / T)])
+  return Array(8).fill({ w: T, h: T, pixels })
 }
 
 const CACTUS: RGB = [92, 148, 70]

@@ -1,20 +1,22 @@
 import './style.css'
-import mtlText from './assets/revolver.mtl?raw'
-import objText from './assets/revolver.obj?raw'
+import revolverData from './assets/revolver-rig.json'
+import { characterFrames, suicideStage, type Poses } from './character.ts'
 import { best, measure, toLocalTime, toServerTime, type ClockSample } from './clock.ts'
 import { makeProps, SKIES, timeOfDay } from './desert.ts'
-import { drawGun, RECOIL_MS } from './gun.ts'
+import { drawGun, gunClips, lift, RAISE_MS, RECOIL_MS, RELOAD_AT, RELOAD_SEATED, RELOAD_SHUT, revolverMesh } from './gun.ts'
 import { dotPosition, noBlood, onGameEnd, onRevived, onWalk, onWounded, resultLabel } from './hitcard.ts'
 import { record, sampleAt, type Sample } from './interpolate.ts'
 import { fireMessage, parseServerMessage, stopMessage, type ClientMessage, type PlayerState, type RoundResult, type ShotResult } from './net.ts'
-import { parseMtl, parseObj } from './obj.ts'
+import { normalizeNickname } from './nickname.ts'
+import { BANDANA, joinable, memberText, roomStatus, type RoomInfo } from './roomlist.ts'
+import { normalizeRoomName, randomRoomName } from './roomname.ts'
 import type { Grid } from './raycast.ts'
 import { makeCamera, renderFrame } from './render.ts'
 import { loaded, pull, ROUNDS } from './revolver.ts'
-import { banner, dueling, formatTime, locked, resultText, stepIndex, timeLeft, walking, type Schedule } from './round.ts'
-import { makeAimingFrames, makeFallenFrames, makeScarecrowFrames, makeSuicideFrames, suicideStage } from './scarecrow.ts'
-import { heardFrom, playShot, playSignal, playStep, stampOf, toAudioTime } from './sound.ts'
-import type { Thing } from './sprite.ts'
+import type { Rig } from './rig.ts'
+import { banner, dueling, formatTime, joins, locked, resultText, stepIndex, timeLeft, walking, type Schedule } from './round.ts'
+import { heardFrom, loadEffects, play, playSignal, playStep, stampOf, toAudioTime } from './sound.ts'
+import type { Sprite, Thing } from './sprite.ts'
 import { afterTurn, aimAt, crosshairOffset, scaleAt, steady, sway } from './sway.ts'
 import { tilt, turn } from './turn.ts'
 
@@ -61,15 +63,12 @@ let sentAngle = 0
 let sentAt = -Infinity
 // 플레이어마다 받은 상태. 나도 넣어 서버가 나를 걷게 할 때 다른 사람과 같이 보간해 그림
 const history = new Map<string, Sample[]>()
-// ponytail: 허수아비 그림을 임시로 씀. 플레이어 스프라이트 시트가 생기면 바꿈
-const scarecrow = makeScarecrowFrames()
-// "시작!"부터 서 있는 사람은 총을 겨눈 그림. 발사는 결투 중에만 받으므로 쏘는 그림도 겨눈 그림에 불꽃을 더한 것뿐임
-const aiming = makeAimingFrames()
-const firing = makeAimingFrames(true)
-const suicide = makeSuicideFrames()
-const fallen = makeFallenFrames()
-// 1인칭 리볼버 모델 (컨셉 기획서 아트와 사운드 1인칭 총)
-const gunModel = parseObj(objText, parseMtl(mtlText))
+// 사람마다 목수건 색 번호. state마다 새로 받음
+let colors = new Map<string, number>()
+// 1인칭 리볼버 모델. 부품이 뼈대로 움직임 (컨셉 기획서 아트와 사운드 1인칭 총)
+const revolver = revolverData as Rig
+// 이번 카운트다운에 내가 끼어 장전하는지. 카운트다운을 받을 때 장전 소리와 같은 조건으로 정함
+let reloading = false
 // 다른 사람이 마지막으로 쏜 것과 쓰러진 것을 받은 시각(ms). state처럼 INTERP_DELAY 뒤에 보여 줘 돌기, 발사, 쓰러짐의 순서를 지킴.
 // ponytail: 사람마다 마지막 발사 하나만 둠. 발사 간격(250ms)이 불꽃(100ms)보다 길어 겹치지 않음. 지연이 크게 흔들려 둘이 붙어 오면 앞 불꽃이 빠짐
 const shots = new Map<string, { at: number; angle: number }>()
@@ -89,6 +88,7 @@ function applyState(players: readonly PlayerState[]) {
   if (!placed || inputLocked(now)) angle = sentAngle = me.angle
   placed = true
   record(history, players, now)
+  colors = new Map(players.map((p) => [p.id, p.color]))
   // 내 준비 여부도 서버가 정함. 누르면 이 값을 뒤집어 보냄
   ready = me.ready
   readyButton.textContent = ready ? '준비 풀기' : '준비'
@@ -112,27 +112,32 @@ function showShot(id: string, shotAngle: number) {
   if (!audio || !placed || !samples) return
   const view = myView(now)
   const shooter = sampleAt(samples, now - INTERP_DELAY)
-  playShot(audio, toAudioTime(now + INTERP_DELAY, stampOf(audio)), heardFrom(view.x, view.y, view.angle, shooter.x, shooter.y))
+  play(audio, 'shot', toAudioTime(now + INTERP_DELAY, stampOf(audio)), heardFrom(view.x, view.y, view.angle, shooter.x, shooter.y))
 }
 
 function othersAt(t: number): Thing[] {
   const duel = clock !== null && dueling(schedule, toServerTime(t, clock.offset))
+  // 걷는 사람은 발소리를 내는 걸음마다 다리를 바꿈. 걷기 시각 조금 전이면 -1이라 & 1로 묶음
+  const step = clock !== null && schedule.walk !== undefined ? stepIndex(schedule.walk, toServerTime(t, clock.offset)) & 1 : 0
   return [...history]
     .filter(([id]) => id !== myId)
     .map(([id, samples]) => {
       const s = sampleAt(samples, t)
       const shot = shots.get(id)
       const flashing = shot !== undefined && t >= shot.at && t < shot.at + FLASH_SHOWN
+      const poses = characterFrames(colors.get(id)!)
+      // "시작!"부터 서 있는 사람은 총을 겨눈 그림
+      const upright = duel ? poses.aim : s.pose === 'walk' ? poses.walk[step] : poses.stand
       // 불꽃 동안은 쏜 각도로 그림. 돌고 바로 쏘면 돌아간 각도는 다음 state로 늦게 옴
-      return { x: s.x, y: s.y, facing: flashing ? shot.angle : s.angle, frames: flashing ? firing : poseFrames(id, t, duel) }
+      return { x: s.x, y: s.y, facing: flashing ? shot.angle : s.angle, frames: flashing ? poses.fire : poseFrames(poses, id, t, upright) }
     })
 }
 
-function poseFrames(id: string, t: number, duel: boolean) {
+function poseFrames(poses: Poses, id: string, t: number, upright: Sprite[]) {
   const down = downs.get(id)
-  if (down === undefined || t < down.at) return duel ? aiming : scarecrow
+  if (down === undefined || t < down.at) return upright
   const stage = down.reason === 'timeout' ? suicideStage(t - down.at) : null
-  return stage === null ? fallen : suicide[stage]
+  return stage === null ? poses.fallen : poses.suicide[stage]
 }
 
 // 포인터 잠금 중에만 돌림. 잠금 전에는 커서가 화면 밖으로 나가 이동량이 끊김
@@ -214,11 +219,15 @@ canvas.addEventListener('mousedown', (e) => {
   if (!grid || !clock || result || document.pointerLockElement !== canvas || e.button !== 0) return
   if (inputLocked(e.timeStamp) || !dueling(schedule, toServerTime(e.timeStamp, clock.offset))) return
   const next = pull(gun, e.timeStamp, FIRE_INTERVAL)
-  if (!next) return
+  if (!next) {
+    // 빈 총은 서버에 알리지 않아 내 화면에서만 들림. 남이 들으면 누가 이미 쐈는지 알게 됨 (시스템 기획서 사운드)
+    if (audio && gun.rounds <= 0) play(audio, 'dryFire', audio.currentTime)
+    return
+  }
   gun = next
   // 불꽃, 탄 수, 총소리는 바로 내고, 명중과 쓰러짐은 서버가 정해 알려 줌
   showAmmo()
-  if (audio) playShot(audio, audio.currentTime)
+  if (audio) play(audio, 'shot', audio.currentTime)
   // 총알은 시선이 아니라 흔들린 총이 가리키는 쪽으로 감. 조준점도 같은 식으로 그려 둘이 맞음
   const aim = aimAt(angle, pitch, e.timeStamp, scaleAt(unsteady, e.timeStamp))
   send(fireMessage(aim.angle, aim.pitch, e.timeStamp, clock.offset))
@@ -235,8 +244,12 @@ function frame(now: number) {
     playSteps(now)
     // 총은 시점에 붙어 있어 위아래 시선과 상관없이 같은 자리에 있고, 조준점과 같은 흔들림으로 돎.
     // ponytail: 총에는 시간대 빛 색조를 곱하지 않음. 석양에 총만 밝아 보여 거슬리면 drawGun에 빛 색조를 넘겨 면 색에 곱함
-    const kick = Math.max(0, 1 - (now - gun.lastShot) / RECOIL_MS)
-    const muzzle = drawGun(ctx, gunModel, { ...s, kick }, W, H, PROJ)
+    // 들어 올리기는 보이기만 함. 조준점과 발사는 총을 다 들기 전에도 그대로임
+    // 부품 움직임도 서버 시계로 재어 AudioContext로 예약한 장전·공이치기 소리와 맞음
+    const hold = clock ? lift(schedule, toServerTime(now, clock.offset), reloading) : { lower: 1, kick: 0 }
+    const plays = clock ? gunClips(schedule, toServerTime(now, clock.offset), reloading, toServerTime(gun.lastShot, clock.offset)) : []
+    const kick = Math.max(hold.kick, 1 - (now - gun.lastShot) / RECOIL_MS)
+    const muzzle = drawGun(ctx, revolverMesh(revolver, plays, gun.rounds), { ...s, kick, lower: hold.lower }, W, H, PROJ)
     flash.style.transform = `translate(${(muzzle.x * 100) / W}cqw, ${(muzzle.y * 100) / W}cqw)`
     // 마우스 이벤트가 아니라 여기서 보내야 마지막으로 멈춘 각도도 빠지지 않고 감
     if (angle !== sentAngle && now - sentAt >= TURN_INTERVAL && ws.readyState === WebSocket.OPEN) {
@@ -244,6 +257,10 @@ function frame(now: number) {
       sentAngle = angle
       sentAt = now
     }
+  } else if (!lobby.hidden) {
+    // 첫 화면 뒤로 결투장 가운데에서 석양 빛으로 천천히 돎 (시스템 기획서 방 화면 M8 첫 화면)
+    renderFrame(pixels, W, H, BACKDROP, makeCamera(BACKDROP.length / 2, BACKDROP.length / 2, now * BACKDROP_TURN, FOV), [], SKIES.sunset)
+    ctx.putImageData(image, 0, 0)
   }
   flash.hidden = now - gun.lastShot >= FLASH_SHOWN
   bloodView.hidden = !blood.shown
@@ -274,7 +291,11 @@ function frame(now: number) {
 requestAnimationFrame(frame)
 
 const lobby = document.querySelector<HTMLFormElement>('#lobby')!
-const controls = lobby.querySelector('fieldset')!
+const nameStep = document.querySelector<HTMLFieldSetElement>('#name-step')!
+const roomStep = document.querySelector<HTMLFieldSetElement>('#room-step')!
+const whoName = document.querySelector<HTMLElement>('#who-name')!
+const roomList = document.querySelector<HTMLUListElement>('#room-list')!
+const nameOk = document.querySelector<HTMLButtonElement>('#name-ok')!
 const codeInput = document.querySelector<HTMLInputElement>('#code')!
 const status = document.querySelector<HTMLParagraphElement>('#status')!
 const room = document.querySelector<HTMLOutputElement>('#room')!
@@ -284,9 +305,112 @@ const readyCount = document.querySelector<HTMLOutputElement>('#ready-count')!
 const bannerText = document.querySelector<HTMLOutputElement>('#banner')!
 const timer = document.querySelector<HTMLOutputElement>('#timer')!
 let ready = false
-// 준비 버튼을 처음 누를 때 만듦. 브라우저는 사용자 입력 전에 만든 AudioContext의 소리를 막음 (기술 설계서 사운드 구현)
+// 준비 버튼을 처음 누를 때 만들고 효과음도 이때 받기 시작함. 브라우저는 사용자 입력 전에 만든 AudioContext의 소리를 막음 (기술 설계서 사운드 구현)
 let audio: AudioContext | null = null
-const REASONS = { notFound: '없는 방 코드', full: '꽉 찬 방', playing: '판이 진행 중인 방' }
+const REASONS = {
+  notFound: '없는 방 코드',
+  full: '꽉 찬 방',
+  playing: '판이 진행 중인 방',
+  nickname: '닉네임 규칙에 맞지 않음',
+  roomName: '방 이름 규칙에 맞지 않음',
+  maxPlayers: '인원은 2~8명',
+}
+const nicknameInput = document.querySelector<HTMLInputElement>('#nickname')!
+const nicknameRule = document.querySelector<HTMLParagraphElement>('#nickname-rule')!
+const privateBox = document.querySelector<HTMLInputElement>('#private')!
+// 방에 들어가기 전에는 서버 맵이 없어, 첫 화면 배경은 서버 ArenaMap과 같은 21칸 둘레 벽 결투장을 그림
+const BACKDROP: Grid = Array.from({ length: 21 }, (_, y) => Array.from({ length: 21 }, (_, x) => (x % 20 === 0 || y % 20 === 0 ? 1 : 0)))
+// 라디안/ms. 한 바퀴에 약 1분. ponytail: 임시 값
+const BACKDROP_TURN = 0.0001
+// 브라우저에 기억해 다음에는 다시 넣지 않음. 사생활 보호 모드처럼 저장소를 막으면 던지므로 기억 못 해도 그냥 둠
+const SAVED_NICKNAME = 'nickname'
+try {
+  nicknameInput.value = localStorage.getItem(SAVED_NICKNAME) ?? ''
+} catch {}
+// 정한 닉네임. 정하기 전(1단계)에는 null. 기억한 이름이 맞으면 바로 방 목록 단계로 감
+let nickname = normalizeNickname(nicknameInput.value)
+let connected = false
+// ms. 방 목록이 보이는 동안 다시 받는 간격. ponytail: 임시 값(시스템 기획서 방 화면 대기실 보기)
+const ROOMS_EVERY = 2000
+let roomsTimer = 0
+
+// 맞는 이름이면 그 이름, 틀리면 null. 넣은 이름이 틀리면 규칙을 빨갛게 보이고 확인 버튼을 막음
+function checkNickname(): string | null {
+  const name = normalizeNickname(nicknameInput.value)
+  nicknameRule.classList.toggle('bad', name === null && nicknameInput.value !== '')
+  nameOk.disabled = name === null
+  return name
+}
+checkNickname()
+nicknameInput.addEventListener('input', checkNickname)
+
+// 첫 화면의 단계를 맞춤. 닉네임을 정했으면 방 목록 단계이고, 그 단계가 보이는 동안만 방 목록을 다시 받음
+function showStep() {
+  const naming = nickname === null
+  nameStep.hidden = !naming
+  roomStep.hidden = naming
+  nameStep.disabled = !connected || !naming
+  roomStep.disabled = !connected || naming
+  whoName.textContent = nickname ?? ''
+  clearInterval(roomsTimer)
+  if (naming || !connected || lobby.hidden) return
+  send({ type: 'listRooms' })
+  roomsTimer = setInterval(() => send({ type: 'listRooms' }), ROOMS_EVERY)
+}
+showStep()
+
+document.querySelector('#rename')!.addEventListener('click', () => {
+  nickname = null
+  showStep()
+  nicknameInput.focus()
+})
+
+// 방 목록 (시스템 기획서 방 화면 대기실 보기). 사용자가 넣은 이름이라 textContent로만 넣음
+function showRooms(rooms: readonly RoomInfo[]) {
+  const items = rooms.map((r) => {
+    const li = document.createElement('li')
+    li.classList.toggle('closed', !joinable(r))
+    const name = document.createElement('strong')
+    name.textContent = r.name
+    const who = document.createElement('span')
+    for (const p of r.players.slice(0, 3)) {
+      const dot = document.createElement('i')
+      dot.className = 'dot'
+      dot.style.background = BANDANA[p.color]
+      who.append(dot)
+    }
+    who.append(memberText(r.players))
+    const count = document.createElement('span')
+    count.textContent = `${r.players.length}/${r.max}`
+    const state = document.createElement('span')
+    state.textContent = roomStatus(r)
+    li.append(name, who, count, state)
+    if (joinable(r)) {
+      const join = document.createElement('button')
+      join.type = 'button'
+      join.className = 'plank'
+      join.textContent = '입장'
+      join.addEventListener('click', () => enterWith((nickname) => ({ type: 'joinRoom', code: r.code, nickname })))
+      li.append(join)
+    }
+    return li
+  })
+  if (items.length === 0) {
+    const empty = document.createElement('li')
+    empty.className = 'empty'
+    // ponytail: 임시 문구
+    empty.textContent = '열린 방이 없음'
+    items.push(empty)
+  }
+  roomList.replaceChildren(...items)
+}
+
+// 방에 들어가는 버튼마다 부름. 정한 닉네임으로 메시지를 만들어 보냄
+function enterWith(message: (nickname: string) => ClientMessage) {
+  if (nickname === null) return
+  status.textContent = ''
+  send(message(nickname))
+}
 
 // 같은 출처의 /ws. 개발 중에는 vite가 로컬 서버로 넘김 (vite.config.ts)
 const ws = new WebSocket('/ws')
@@ -331,15 +455,18 @@ function syncClock() {
 }
 
 ws.addEventListener('open', () => {
-  controls.disabled = false
+  connected = true
+  showStep()
   status.textContent = ''
   syncClock()
 })
 // 처음부터 못 붙어도 여기로 옴. ponytail: 재접속 없음. 재접속 이슈에서 다시 붙어 방으로 돌아가게 함
 ws.addEventListener('close', () => {
   document.exitPointerLock()
-  controls.disabled = true
+  connected = false
+  createPanel.hidden = true
   lobby.hidden = false
+  showStep()
   readyBar.hidden = true
   room.value = ''
   status.textContent = '서버와 연결되지 않음. 새로고침해 다시 접속'
@@ -351,8 +478,10 @@ function receive(data: string) {
     case 'roomCreated':
     case 'joined':
       lobby.hidden = true
+      showStep()
       readyBar.hidden = false
-      room.value = `방 ${m.code}`
+      // ponytail: 술집 칠판이 생기기 전까지 오른쪽 위 방 코드 옆에 방 이름과 비공개를 적음 (M8 C5에서 옮김)
+      room.value = `${m.name} · ${m.code}${m.private ? ' · 비공개' : ''}`
       myId = m.playerId
       placed = false
       schedule = {}
@@ -387,6 +516,7 @@ function receive(data: string) {
         readyBar.hidden = true
         // 재대결이면 재대결하는 사람만, 새 판이면 방 사람 모두가 섬. 앞 판 결과는 이 시각에 끝나므로 아직 남아 있음
         standing = result?.outcome === 'rematch' ? result.playerIds.length : history.size
+        reloading = myId !== null && joins(result, myId)
       }
       if (m.phase === 'walk') {
         // 걷기 시각은 다음 라운드 카운트다운이 시작한 뒤에 와 결과 시간은 이미 끝났음. 창이 숨어 그리기가 멈췄으면 결과를 여기서 먼저 끝내야
@@ -400,8 +530,22 @@ function receive(data: string) {
         lastStep.clear()
       }
       schedule[m.phase] = m.at
-      // 신호음은 프레임을 기다리지 않고 AudioContext 시계로 결투 시각에 맞춰 예약함 (기술 설계서 시간 맞추기)
-      if (m.phase === 'duel' && audio && clock) playSignal(audio, toAudioTime(toLocalTime(m.at, clock.offset), stampOf(audio)))
+      // 신호음, 장전, 공이치기는 프레임을 기다리지 않고 AudioContext 시계로 그 단계 시각에 맞춰 예약함 (기술 설계서 시간 맞추기).
+      // 장전과 공이치기는 내 것만 들음. 장전은 이번 라운드에 끼는 나만, 공이치기는 "시작!"에 서서 총을 드는 나만
+      if (audio && clock && myId !== null) {
+        const when = toAudioTime(toLocalTime(m.at, clock.offset), stampOf(audio))
+        // 장전 소리는 Reload 클립에서 총알이 다 들어갈 때, 실린더 닫는 소리는 실린더가 다 닫힐 때 딸깍이 들리게 함 (gun.ts gunClips)
+        if (m.phase === 'countdown' && reloading) {
+          play(audio, 'load', when + RELOAD_AT / 1000 + RELOAD_SEATED)
+          play(audio, 'closeCylinder', when + RELOAD_AT / 1000 + RELOAD_SHUT)
+        }
+        if (m.phase === 'duel') {
+          playSignal(audio, when)
+          // 공이치기는 총을 다 들어 공이치기가 끝까지 젖혀지고 화면이 튀는 순간에 맞춤 (gun.ts lift, gunClips).
+          // ponytail: 총을 다 드는 RAISE_MS(0.2초) 안에 쏘면 공이치기 소리와 튐이 총소리 뒤에 남. 거슬리면 쏠 때 예약한 공이치기를 멈춤(AudioBufferSourceNode.stop)
+          if (!downs.has(myId)) play(audio, 'cockHammer', when + RAISE_MS / 1000)
+        }
+      }
       break
     case 'shot':
       // 내 불꽃과 총소리는 쏠 때 이미 냄
@@ -421,18 +565,76 @@ function receive(data: string) {
     case 'wounded':
       blood = onWounded(blood)
       break
+    case 'rooms':
+      if (!roomStep.hidden) showRooms(m.rooms)
+      break
   }
 }
 
-document.querySelector('#create')!.addEventListener('click', () => send({ type: 'createRoom' }))
+document.querySelector('#quick')!.addEventListener('click', () => enterWith((nickname) => ({ type: 'quickJoin', nickname })))
+// 방 만들기 창 (시스템 기획서 방 화면 방 만들기 창). 열 때마다 무작위 이름, 8명, 공개로 채움
+const createPanel = document.querySelector<HTMLDivElement>('#create-panel')!
+const roomNameInput = document.querySelector<HTMLInputElement>('#room-name')!
+const roomNameRule = document.querySelector<HTMLParagraphElement>('#room-name-rule')!
+const maxPlayersSelect = document.querySelector<HTMLSelectElement>('#max-players')!
+const createOk = document.querySelector<HTMLButtonElement>('#create-ok')!
+
+// 맞는 이름이면 그 이름, 틀리면 null. 틀리면 규칙을 빨갛게 보이고 생성 버튼을 막음
+function checkRoomName(): string | null {
+  const name = normalizeRoomName(roomNameInput.value)
+  roomNameRule.hidden = name !== null
+  createOk.disabled = name === null
+  return name
+}
+
+function rollRoomName() {
+  roomNameInput.value = randomRoomName()
+  checkRoomName()
+}
+
+document.querySelector('#create')!.addEventListener('click', () => {
+  if (nickname === null) return
+  rollRoomName()
+  maxPlayersSelect.value = '8'
+  privateBox.checked = false
+  createPanel.hidden = false
+  roomNameInput.select()
+})
+document.querySelector('#dice')!.addEventListener('click', rollRoomName)
+roomNameInput.addEventListener('input', checkRoomName)
+document.querySelector('#create-cancel')!.addEventListener('click', () => (createPanel.hidden = true))
+createPanel.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') createPanel.hidden = true
+})
+document.querySelector('#create-form')!.addEventListener('submit', (e) => {
+  e.preventDefault()
+  const name = checkRoomName()
+  if (name === null) return
+  createPanel.hidden = true
+  enterWith((nickname) => ({ type: 'createRoom', nickname, name, maxPlayers: Number(maxPlayersSelect.value), private: privateBox.checked }))
+})
 // ponytail: 포인터 잠금 중에는 Esc로 커서를 풀어야 누를 수 있음. 조작이 정해지면 키로도 누르게 함
 readyButton.addEventListener('click', () => {
-  audio ??= new AudioContext()
+  if (!audio) {
+    audio = new AudioContext()
+    loadEffects(audio)
+  }
   // 판 사이에 시계를 다시 잼. 판이 시작되기 직전이라 이번 판 시각을 바꾸는 데 가장 새 값이 됨
   if (!ready) syncClock()
   send({ type: 'ready', ready: !ready })
 })
+// 1단계에서는 닉네임 확인, 2단계에서는 방 코드로 입장. 숨은 단계의 칸은 꺼져 있어 검사하지 않음
 lobby.addEventListener('submit', (e) => {
   e.preventDefault()
-  send({ type: 'joinRoom', code: codeInput.value })
+  if (nickname === null) {
+    const name = checkNickname()
+    if (name === null) return
+    nickname = name
+    try {
+      localStorage.setItem(SAVED_NICKNAME, name)
+    } catch {}
+    showStep()
+    return
+  }
+  enterWith((nickname) => ({ type: 'joinRoom', code: codeInput.value, nickname }))
 })

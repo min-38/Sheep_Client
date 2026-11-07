@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest'
 import { makeProps, SUN_AZ, SUN_HALF, timeOfDay, TOWN } from './desert.ts'
-import { HEIGHT } from './sprite.ts'
+import { PX_PER_CELL } from './sprite.ts'
 
 describe('timeOfDay', () => {
   test('5명 이상은 한낮', () => {
@@ -27,7 +27,7 @@ describe('makeProps', () => {
     for (const p of props) {
       const f = p.frames[0]
       // 그림 폭의 절반만큼 더 떨어져야 그림 가장자리도 범위 밖임
-      expect(Math.hypot(p.x - 10.5, p.y - 10.5) - (HEIGHT * f.w) / f.h / 2).toBeGreaterThan(4)
+      expect(Math.hypot(p.x - 10.5, p.y - 10.5) - f.w / PX_PER_CELL / 2).toBeGreaterThan(4)
     }
   })
 

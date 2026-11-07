@@ -187,28 +187,280 @@ body {
   font-size: 2cqw;
 }
 
-/* 방에 들어가기 전에는 게임 화면을 덮음 */
+/* 첫 화면. 방에 들어가기 전에는 게임 화면을 덮고, 뒤로 결투장이 천천히 돎 (시스템 기획서 방 화면 M8 첫 화면) */
 #lobby {
   position: absolute;
   inset: 0;
   display: grid;
   place-content: center;
   justify-items: center;
-  gap: 1.5cqw;
+  gap: 1.2cqw;
   margin: 0;
-  background: #000c;
+  /* ponytail: 석양처럼 보이게 덮는 임시 색. 사막 작업(M8 C6)에서 결투장을 석양 빛으로 그리면 지움 */
+  background:
+    radial-gradient(ellipse at 50% 45%, #0000 35%, #1a0c06aa 100%),
+    linear-gradient(#2a1838b0, #c8642a60 55%, #2a1208d0);
   color: #f2dfa7;
   font: 2cqw / 1.2 sans-serif;
 }
 
+/* 블록 글자처럼 아래로 두께를 줌. ponytail: 임시 글꼴. 술집 작업(M8 C5)에서 Black Han Sans를 넣으면 바꿈 */
+#title {
+  margin: 0 0 1.5cqw;
+  color: #f7d27a;
+  font: 900 7cqw / 1 sans-serif;
+  letter-spacing: 0.3cqw;
+  -webkit-text-stroke: 0.12cqw #6e3a14;
+  /* 같은 색을 촘촘히 겹쳐 아래로 이어진 두께로 보이게 함. 띄엄띄엄 겹치면 판이 여러 장 쌓인 것처럼 보임 */
+  text-shadow:
+    0 0.1cqw 0 #8a4b1c,
+    0 0.2cqw 0 #8a4b1c,
+    0 0.3cqw 0 #8a4b1c,
+    0 0.4cqw 0 #8a4b1c,
+    0 0.5cqw 0 #6e3a14,
+    0 0.6cqw 0 #6e3a14,
+    0 1.2cqw 1.2cqw #000b;
+}
+
+/* 첫 화면 동안은 게임 HUD를 숨김. 첫 화면 배경이 비쳐 보여 그대로 두면 실린더와 조준점이 겹침 */
+#game:has(#lobby:not([hidden])) :is(#ammo, #crosshair) {
+  visibility: hidden;
+}
+
+/* 나무 판 버튼 */
+.plank {
+  border: 0.25cqw solid #3d2412;
+  border-radius: 0.4cqw;
+  background: repeating-linear-gradient(180deg, #8a5a32 0 1.1cqw, #7a4c28 1.1cqw 1.4cqw);
+  box-shadow: 0 0.3cqw 0 #3d2412;
+  color: #f7e6bd;
+  font-weight: bold;
+  text-shadow: 0 0.15cqw 0 #3d2412;
+  cursor: pointer;
+}
+
+.plank:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* 칸은 낡은 종이색. 나무 판 버튼과 같은 테두리와 높이 */
+#nickname,
+#code,
+#room-name,
+#max-players {
+  box-sizing: border-box;
+  min-width: 0;
+  border: 0.25cqw solid #3d2412;
+  border-radius: 0.4cqw;
+  background: #f1e0b3;
+  box-shadow: inset 0 0.25cqw 0 #0002;
+  color: #3d2412;
+  font-weight: bold;
+  text-align: center;
+}
+
+#nickname::placeholder,
+#code::placeholder,
+#room-name::placeholder {
+  color: #9a7a55;
+}
+
+/* 늘 흐리게 보이고, 규칙에 맞지 않는 이름을 넣으면 빨간 글자 */
+#nickname-rule {
+  margin: -0.4cqw 0 0;
+  color: #f2dfa7aa;
+  font-size: 1.5cqw;
+  text-align: center;
+  text-shadow: 0 0 0.3cqw #000;
+}
+
+#nickname-rule.bad {
+  color: #ff6b5a;
+}
+
+/* 방 목록 단계는 목록이 들어가게 넓히고 제목을 줄임 */
+#lobby #room-step {
+  width: 48cqw;
+}
+
+#lobby:has(#room-step:not([hidden])) #title {
+  font-size: 4.5cqw;
+  margin-bottom: 0.5cqw;
+}
+
+#who {
+  margin: 0;
+  text-align: center;
+  text-shadow: 0 0 0.3cqw #000;
+}
+
+#rename {
+  padding: 0 0.4cqw;
+  border: 0;
+  background: none;
+  color: #f7d27a;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+/* 방 목록. 들어갈 수 있는 방이 위, 그 안에서는 사람이 많은 방부터 (서버가 정렬함) */
+#room-list {
+  display: grid;
+  align-content: start;
+  gap: 0.5cqw;
+  height: 17cqw;
+  margin: 0;
+  padding: 0.6cqw;
+  overflow-y: auto;
+  border: 0.25cqw solid #3d2412;
+  border-radius: 0.4cqw;
+  background: #1a0c0699;
+  list-style: none;
+}
+
+#room-list li {
+  display: grid;
+  grid-template-columns: 1.3fr 1.7fr auto auto 5.5cqw;
+  align-items: center;
+  gap: 1cqw;
+  padding: 0.5cqw 0.8cqw;
+  border-radius: 0.3cqw;
+  background: #f1e0b3;
+  color: #3d2412;
+  font-size: 1.6cqw;
+}
+
+#room-list li > * {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* 판 진행 중이거나 꽉 찬 방은 흐리게 하고 입장 버튼이 없음 */
+#room-list li.closed {
+  opacity: 0.5;
+}
+
+#room-list li.empty {
+  display: block;
+  background: none;
+  color: #f2dfa7;
+  text-align: center;
+}
+
+#room-list .dot {
+  display: inline-block;
+  width: 1.1cqw;
+  height: 1.1cqw;
+  margin-right: 0.3cqw;
+  border: 0.15cqw solid #3d2412;
+  border-radius: 50%;
+  vertical-align: middle;
+}
+
+#room-list .plank {
+  padding: 0.2cqw 0.6cqw;
+}
+
+/* 줄마다 폭을 같게 나눔 */
+#lobby .row,
+#create-panel .row {
+  display: flex;
+  align-items: center;
+  gap: 1cqw;
+}
+
+#lobby .row > * {
+  flex: 1;
+}
+
+/* 방 만들기 창. 첫 화면 위를 어둡게 덮고 가운데에 낡은 종이 한 장 */
+#create-panel {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: #000a;
+  font: 2cqw / 1.2 sans-serif;
+}
+
+#create-panel[hidden] {
+  display: none;
+}
+
+#create-panel .sheet {
+  display: grid;
+  gap: 1.2cqw;
+  width: 34cqw;
+  padding: 2cqw 2.5cqw;
+  border: 0.3cqw solid #3d2412;
+  border-radius: 0.6cqw;
+  background: radial-gradient(ellipse closest-side, #f1e0b3 70%, #d4b479 140%);
+  box-shadow: 0 1cqw 2cqw #000c;
+  color: #3d2412;
+}
+
+#create-title {
+  margin: 0;
+  font: 900 3cqw / 1 sans-serif;
+  text-align: center;
+}
+
+#create-panel button,
+#create-panel input,
+#create-panel select {
+  font: inherit;
+  padding: 0.6cqw 1.2cqw;
+}
+
+#room-name {
+  flex: 1;
+}
+
+#dice {
+  flex: 0 0 auto;
+  padding: 0.4cqw 1cqw;
+}
+
+#create-panel .row > .plank:not(#dice),
+#create-panel label.row > select {
+  flex: 1;
+}
+
+#room-name-rule {
+  margin: -0.6cqw 0 0;
+  color: #c0262d;
+  font-size: 1.5cqw;
+  text-align: center;
+}
+
+#private-box {
+  display: flex;
+  align-items: center;
+  gap: 0.5cqw;
+  cursor: pointer;
+}
+
+#private {
+  width: 1.8cqw;
+  height: 1.8cqw;
+  margin: 0;
+  accent-color: #8a5a32;
+}
+
 /* display: grid·flex가 hidden 속성의 display: none을 덮어씀 */
 #lobby[hidden],
+#lobby fieldset[hidden],
 #ready-bar[hidden] {
   display: none;
 }
 
+/* 모든 줄이 같은 폭이 되게 열 하나로 늘여 놓음 */
 #lobby fieldset {
   display: flex;
+  flex-direction: column;
+  width: 32cqw;
   gap: 1cqw;
   margin: 0;
   padding: 0;
@@ -223,13 +475,13 @@ body {
 }
 
 #code {
-  width: 9ch;
   text-transform: uppercase;
 }
 
 #status {
   margin: 0;
   min-height: 1.2em;
+  text-shadow: 0 0 0.3cqw #000;
 }
 
 /* 방에 있는 동안 아래 가운데. 눌러야 해서 HUD와 달리 클릭을 받음 */

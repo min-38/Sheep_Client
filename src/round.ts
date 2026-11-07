@@ -54,3 +54,6 @@ export function resultText(r: RoundResult, myId: string | null): string {
   if (r.outcome === 'rematch') return `재대결 ${r.playerIds.length}명`
   return r.playerIds[0] === myId ? '승리!' : '패배'
 }
+
+// 카운트다운을 받을 때 그 라운드에 myId가 끼는지. prev는 바로 앞 판 결과이고, 재대결이면 그 playerIds만 끼고 다시 장전함
+export const joins = (prev: RoundResult | null, myId: string) => prev?.outcome !== 'rematch' || prev.playerIds.includes(myId)

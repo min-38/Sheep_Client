@@ -1,28 +1,47 @@
-import type { Mesh, RGB, Vec3 } from './obj.ts'
+import { dueling, type Schedule } from './round.ts'
+import { skin, type Mesh, type Play, type RGB, type Rig, type Vec3 } from './rig.ts'
 
 // 1인칭 리볼버를 Canvas 2D 경로로 직접 그림. 먼 면부터 칠하는 화가 알고리즘 (기술 설계서 렌더링 무기)
 
-// yaw·pitch는 팔 흔들림(sway.ts, 라디안). kick은 반동이고 쏜 순간 1에서 RECOIL_MS 동안 0으로 줄어듦
-export type GunPose = { yaw: number; pitch: number; kick: number }
+// yaw·pitch는 팔 흔들림(sway.ts, 라디안). kick은 반동이고 쏜 순간 1에서 RECOIL_MS 동안 0으로 줄어듦.
+// lower는 총을 내린 정도(0 듦 ~ 1 화면 아래로 다 내림). 음수면 겨누는 자리보다 높이 듦
+export type GunPose = { yaw: number; pitch: number; kick: number; lower: number }
 
 // ms. ponytail: 임시 값. 플레이해 보며 정함
 export const RECOIL_MS = 150
-// 눈 좌표(x 오른쪽, y 위, z 앞)에서 총 가운데가 놓일 자리. ponytail: 임시 값. 화면을 보며 맞춤
-export const GUN_POS: Vec3 = [0.3, -0.24, 0.75]
-// 모델 한 단위의 눈 좌표 길이. 리볼버 모델은 길이가 약 2임
-const SCALE = 0.25
+// ms. "시작!"부터 총을 다 들어 올리기까지. 다 들면 공이치기를 당김. ponytail: 임시 값. 플레이해 보며 정함
+export const RAISE_MS = 200
+// 공이치기를 당길 때 튀는 크기(쏠 때 반동을 1로). ponytail: 임시 값. 화면을 보며 맞춤
+const COCK_KICK = 0.25
+// ms. 카운트다운부터 장전 클립을 시작하기까지. 그 사이에 총을 들어 올림. ponytail: 임시 값. 플레이해 보며 정함
+export const RELOAD_AT = 300
+// 초. Reload 클립에서 총알이 칸에 다 들어간 때와 실린더가 다 닫힌 때. 장전 소리와 실린더 닫는 소리의 딸깍을 여기에 맞춤
+export const RELOAD_SEATED = 0.833
+export const RELOAD_SHUT = 1.042
+// 초. Reload·Cock 클립 길이(revolver-rig.json). 클립을 다시 뽑으면 gun.test.ts가 어긋남을 잡음
+const RELOAD_LENGTH = 1.167
+const COCK_LENGTH = 0.125
+// ms. 장전을 마치고 총을 다 내리기까지. ponytail: 임시 값. 플레이해 보며 정함
+const LOWER_MS = 300
+// 장전하는 동안 겨누는 자리보다 높이 드는 정도(LOWER_BY 배). 실린더가 왼쪽 아래로 열리고 총구도 숙여 그대로면 화면 밖으로 나감.
+// ponytail: 임시 값. 화면을 보며 맞춤
+const RELOAD_LIFT = 0.3
+// 다 내린 총을 GUN_POS에서 내리는 거리(눈 좌표). 지금 모델은 흔들림이 가장 커도 약 0.24면 화면 아래로 다 숨어 여유를 둠
+const LOWER_BY = 0.35
+// 눈 좌표(x 오른쪽, y 위, z 앞)에서 모델 원점(총 가운데)이 놓일 자리. ponytail: 임시 값. 화면을 보며 맞춤
+export const GUN_POS: Vec3 = [0.275, -0.245, 0.75]
+// 모델 1m의 눈 좌표 길이. 리볼버 모델은 길이가 약 0.35m임
+const SCALE = 1.3
 // 반동 때 총구를 드는 각도(라디안)와 뒤로 빼는 거리
 const KICK_PITCH = 0.4
 const KICK_BACK = 0.08
 // 빛이 오는 쪽(왼쪽 위 앞)과 등진 면에도 남는 밝기
 const LIGHT = unit([-0.4, 1, -0.5])
 const AMBIENT = 0.45
-// 모델 색(MTL) 그대로는 밝은 하늘 앞에서 거의 검게 보여 전체를 밝힘. ponytail: 임시 값. 화면을 보며 맞춤
-const EXPOSURE = 1.8
 // 눈에 이보다 가까운 면은 투영이 터져서 그리지 않음
 const NEAR = 0.05
-// 모델 +x 끝에서 이 안의 꼭짓점을 총구로 봄
-const TIP = 0.02
+// 모델 +x 끝에서 이 안(m)의 꼭짓점을 총구로 봄
+const TIP = 0.003
 
 function unit([x, y, z]: Vec3): Vec3 {
   const l = Math.hypot(x, y, z)
@@ -32,9 +51,8 @@ function unit([x, y, z]: Vec3): Vec3 {
 const dot = (a: Vec3, b: Vec3) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2]
 const mean = (vs: Vec3[]): Vec3 => [0, 1, 2].map((k) => vs.reduce((s, v) => s + v[k], 0) / vs.length) as Vec3
 
-// 모델 → 눈 좌표. 꼭짓점 평균을 중심으로 돌린 뒤 GUN_POS로 옮김
+// 모델 → 눈 좌표. 모델 원점을 중심으로 돌린 뒤 GUN_POS로 옮김. 꼭짓점 평균은 부품이 움직이면 같이 움직여 기준으로 쓰지 않음
 export function transform(mesh: Mesh, pose: GunPose): Vec3[] {
-  const [cx, cy, cz] = mean(mesh.vertices)
   const up = pose.pitch + pose.kick * KICK_PITCH
   const cosUp = Math.cos(up)
   const sinUp = Math.sin(up)
@@ -42,18 +60,61 @@ export function transform(mesh: Mesh, pose: GunPose): Vec3[] {
   const sinYaw = Math.sin(pose.yaw)
   return mesh.vertices.map(([mx, my, mz]) => {
     // 모델은 총열이 +x, 위가 +y인 오른손 좌표. 눈 좌표는 왼손이라 x와 z를 맞바꾸면 모양이 거울에 비친 듯 뒤집히지 않음
-    const x = (mz - cz) * SCALE
-    const y = (my - cy) * SCALE
-    const z = (mx - cx) * SCALE
+    const x = mz * SCALE
+    const y = my * SCALE
+    const z = mx * SCALE
     // 총구를 위로 든 뒤(x축) 오른쪽으로 돌림(y축)
     const y1 = y * cosUp + z * sinUp
     const z1 = z * cosUp - y * sinUp
     return [
       x * cosYaw + z1 * sinYaw + GUN_POS[0],
-      y1 + GUN_POS[1],
+      y1 + GUN_POS[1] - pose.lower * LOWER_BY,
       z1 * cosYaw - x * sinYaw + GUN_POS[2] - pose.kick * KICK_BACK,
     ]
   })
+}
+
+// now(서버 시계)에 총을 내린 정도와 공이치기 반동. "시작!" 전과 판 사이에는 내려 두어 결투가 시작됐음을 화면으로도 알림.
+// "시작!"부터 RAISE_MS 동안 처음에 빨리 들고(ease-out), 다 든 순간 공이치기 소리와 함께 작게 튐. 판 결과가 끝나 schedule을 비우면 다시 내림.
+// reloading(이번 카운트다운에 내가 장전함)이면 카운트다운에도 같이 들되 RELOAD_LIFT만큼 더 높이 들어 장전하고, 장전 클립이 끝나면 LOWER_MS 동안 내림(ease-in)
+export function lift(s: Schedule, now: number, reloading: boolean): { lower: number; kick: number } {
+  if (dueling(s, now)) {
+    const since = now - s.duel!
+    if (since < RAISE_MS) return { lower: raised(since), kick: 0 }
+    return { lower: 0, kick: COCK_KICK * Math.max(0, 1 - (since - RAISE_MS) / RECOIL_MS) }
+  }
+  if (!reloading || s.countdown === undefined || now < s.countdown) return { lower: 1, kick: 0 }
+  const since = now - s.countdown
+  const after = since - RELOAD_AT - RELOAD_LENGTH * 1000
+  const down = after < 0 ? raised(since) : Math.min(1, after / LOWER_MS) ** 3
+  return { lower: down * (1 + RELOAD_LIFT) - RELOAD_LIFT, kick: 0 }
+}
+
+const raised = (since: number) => Math.max(0, 1 - since / RAISE_MS) ** 3
+
+// now(서버 시계)에 총에 덮을 클립. 소리처럼 서버가 알린 단계 시각에서 재어 소리와 움직임이 맞음.
+// 카운트다운에는 Reload(실린더를 열어 총알을 넣고 닫음), "시작!"부터 RAISE_MS 동안 Cock(공이치기를 당김),
+// 이번 결투에서 쏘면 Fire(공이치기가 떨어지고 실린더가 한 칸 돎). shotAt은 내가 마지막으로 쏜 시각(서버 시계, 안 쐈으면 -Infinity)
+export function gunClips(s: Schedule, now: number, reloading: boolean, shotAt: number): Play[] {
+  if (dueling(s, now)) {
+    const cock = { clip: 'Cock', t: Math.min(1, (now - s.duel!) / RAISE_MS) * COCK_LENGTH }
+    return shotAt >= s.duel! ? [cock, { clip: 'Fire', t: (now - shotAt) / 1000 }] : [cock]
+  }
+  const t = s.countdown === undefined ? -1 : (now - s.countdown - RELOAD_AT) / 1000
+  // 클립 밖은 쉰 자세와 같아 덮지 않음. 그래야 닫힌 실린더 안의 총알도 그리지 않음 (revolverMesh)
+  return reloading && t >= 0 && t <= RELOAD_LENGTH ? [{ clip: 'Reload', t }] : []
+}
+
+// 클립을 덮은 지금 모양. 총알은 실린더를 여는 Reload 동안만, 남은 총알 수(rounds)만큼 쏘는 차례가 앞인 칸에 그림.
+// 닫힌 실린더 안의 총알은 보이지 않아야 하는데 면 평균 깊이로 칠하면 몸통 위에 비침
+export function revolverMesh(rig: Rig, plays: Play[], rounds: number): Mesh {
+  const loading = plays.some((p) => p.clip === 'Reload')
+  const faces: Mesh['faces'] = []
+  rig.faces.forEach((v, i) => {
+    const chamber = rig.joints[rig.weights[v[0]][0]].chamber
+    if (chamber === undefined || (loading && chamber < rounds)) faces.push({ v, color: rig.colors[i] as RGB })
+  })
+  return { vertices: skin(rig, plays), faces }
 }
 
 // 면의 바깥쪽 단위 법선(Newell 방법, n각형도 됨). 모델의 반시계 감김이 x·z를 맞바꾼 눈 좌표에서는 시계 방향이라 부호를 뒤집음
@@ -79,7 +140,7 @@ export function paintOrder(verts: Vec3[], faces: Mesh['faces']): number[] {
 
 // 고정된 빛의 램버트 명암 + 주변광
 export function shade(color: RGB, normal: Vec3): RGB {
-  const light = EXPOSURE * (AMBIENT + (1 - AMBIENT) * Math.max(0, dot(normal, LIGHT)))
+  const light = AMBIENT + (1 - AMBIENT) * Math.max(0, dot(normal, LIGHT))
   const c = (k: number) => Math.min(255, Math.round(color[k] * light))
   return [c(0), c(1), c(2)]
 }
