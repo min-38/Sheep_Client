@@ -361,7 +361,8 @@ canvas.addEventListener('mousedown', (e) => {
   watchPlayer(nextTarget(roster, myId, watch.id))
 })
 
-// 다시 보기 버튼. 다시 보는 중에 누르면 처음부터
+// 다시 보기 버튼. 다시 보는 중에 누르면 처음부터.
+// ponytail: 다시 보기는 소리를 내지 않음(시스템 기획서 HUD 다시 보기). 넣으려면 누를 때 구간 안의 발사를 그 시각에 맞춰 play로 예약함
 const replayButton = document.querySelector<HTMLButtonElement>('#replay')!
 replayButton.addEventListener('click', () => {
   if (!replay) return
