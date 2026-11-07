@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { makeCamera } from './render.ts'
+import { makeCamera, pack, type RGB } from './render.ts'
 import { drawSprites, frameIndex, PX_PER_CELL, type Sprite, type Thing } from './sprite.ts'
 
 const W = 400
@@ -8,6 +8,7 @@ const H = 200
 const cam = makeCamera(0, 0, 0, 90)
 const RED = 0xff0000ff
 const BLUE = 0xffff0000
+const WHITE: RGB = [255, 255, 255]
 // 8방향 모두 같은 그림. 한 픽셀을 가로세로 약 1칸으로 늘림
 const N = Math.round(PX_PER_CELL)
 const eight = (w: number, ...pixels: number[]): Sprite[] =>
@@ -15,9 +16,9 @@ const eight = (w: number, ...pixels: number[]): Sprite[] =>
 const solid = (color: number) => eight(1, color)
 const at = (x: number, y: number, frames = solid(RED)): Thing => ({ x, y, facing: 0, frames })
 
-function draw(things: Thing[], zbuf = new Float64Array(W).fill(Infinity), camera = cam) {
+function draw(things: Thing[], zbuf = new Float64Array(W).fill(Infinity), camera = cam, light = WHITE) {
   const pixels = new Uint32Array(W * H)
-  drawSprites(pixels, W, H, zbuf, camera, things)
+  drawSprites(pixels, W, H, zbuf, camera, things, light)
   return pixels
 }
 
@@ -123,6 +124,11 @@ describe('drawSprites', () => {
   test('겹치면 가까운 것이 보임', () => {
     const pixels = draw([at(4, 0, solid(RED)), at(8, 0, solid(BLUE))])
     expect(pixels[(H / 2) * W + W / 2]).toBe(RED)
+  })
+
+  test('빛 색조를 곱해 칠함', () => {
+    const pixels = draw([at(4, 0, solid(pack(200, 100, 50)))], undefined, undefined, [255, 128, 0])
+    expect(pixels[(H / 2) * W + W / 2]).toBe(pack(200, 50, 0))
   })
 
   test('투명 픽셀(0)은 건너뜀', () => {

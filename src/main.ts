@@ -2,6 +2,7 @@ import './style.css'
 import revolverData from './assets/revolver-rig.json'
 import { characterFrames, suicideStage, type Poses } from './character.ts'
 import { best, measure, toLocalTime, toServerTime, type ClockSample } from './clock.ts'
+import { makeProps, SKIES, timeOfDay } from './desert.ts'
 import { drawGun, gunClips, lift, RAISE_MS, RECOIL_MS, RELOAD_AT, RELOAD_SEATED, RELOAD_SHUT, revolverMesh } from './gun.ts'
 import { dotPosition, noBlood, onGameEnd, onRevived, onWalk, onWounded, resultLabel } from './hitcard.ts'
 import { record, sampleAt, type Sample } from './interpolate.ts'
@@ -47,6 +48,10 @@ const pixels = new Uint32Array(image.data.buffer)
 
 // 서버가 보낸 결투장. 받기 전에는 그리지도 쏘지도 않음
 let grid: Grid | null = null
+// 결투장 둘레의 선인장, 바위, 회전초. 맵을 받을 때 그 중심에 맞춰 놓음
+let props: Thing[] = []
+// 그 라운드에 선 사람 수. 카운트다운이 시작할 때 정해 판 도중에 쓰러져도 하늘 시간대가 바뀌지 않음. 판 사이에는 null이고 방 인원을 씀
+let standing: number | null = null
 // 입장 응답으로 받은 내 id. 받기 전의 state는 무시함 (기술 설계서 메시지)
 let myId: string | null = null
 // 내 위치는 서버가 정함. 처음 state를 받아 자리를 잡기 전에는 그리지 않음
@@ -233,10 +238,12 @@ function frame(now: number) {
   if (grid && placed) {
     // 내 자리도 다른 사람처럼 INTERP_DELAY 전을 그림. 받은 그대로 그리면 걷는 동안 20Hz로 끊겨 보임
     const view = myView(now)
-    renderFrame(pixels, W, H, grid, makeCamera(view.x, view.y, view.angle, FOV, pitch), othersAt(now - INTERP_DELAY))
+    const things = [...othersAt(now - INTERP_DELAY), ...props]
+    renderFrame(pixels, W, H, grid, makeCamera(view.x, view.y, view.angle, FOV, pitch), things, SKIES[timeOfDay(standing ?? history.size)])
     ctx.putImageData(image, 0, 0)
     playSteps(now)
-    // 총은 시점에 붙어 있어 위아래 시선과 상관없이 같은 자리에 있고, 조준점과 같은 흔들림으로 돎
+    // 총은 시점에 붙어 있어 위아래 시선과 상관없이 같은 자리에 있고, 조준점과 같은 흔들림으로 돎.
+    // ponytail: 총에는 시간대 빛 색조를 곱하지 않음. 석양에 총만 밝아 보여 거슬리면 drawGun에 빛 색조를 넘겨 면 색에 곱함
     // 들어 올리기는 보이기만 함. 조준점과 발사는 총을 다 들기 전에도 그대로임
     // 부품 움직임도 서버 시계로 재어 AudioContext로 예약한 장전·공이치기 소리와 맞음
     const hold = clock ? lift(schedule, toServerTime(now, clock.offset), reloading) : { lower: 1, kick: 0 }
@@ -251,8 +258,8 @@ function frame(now: number) {
       sentAt = now
     }
   } else if (!lobby.hidden) {
-    // 첫 화면 뒤로 결투장 가운데에서 천천히 돎. ponytail: 지금 빛과 벽 그대로. 사막 작업(M8 C6)에서 석양 빛으로 바꿈
-    renderFrame(pixels, W, H, BACKDROP, makeCamera(BACKDROP.length / 2, BACKDROP.length / 2, now * BACKDROP_TURN, FOV), [])
+    // 첫 화면 뒤로 결투장 가운데에서 석양 빛으로 천천히 돎 (시스템 기획서 방 화면 M8 첫 화면)
+    renderFrame(pixels, W, H, BACKDROP, makeCamera(BACKDROP.length / 2, BACKDROP.length / 2, now * BACKDROP_TURN, FOV), [], SKIES.sunset)
     ctx.putImageData(image, 0, 0)
   }
   flash.hidden = now - gun.lastShot >= FLASH_SHOWN
@@ -427,6 +434,7 @@ function endResult(r: RoundResult) {
   hitCard.hidden = true
   if (r.outcome === 'win') {
     schedule = {}
+    standing = null
     pitch = 0
     downs.clear()
     gun = loaded(ROUNDS)
@@ -477,6 +485,7 @@ function receive(data: string) {
       myId = m.playerId
       placed = false
       schedule = {}
+      standing = null
       break
     case 'error':
       status.textContent = REASONS[m.reason]
@@ -484,6 +493,7 @@ function receive(data: string) {
     // 방에 다시 들어와도 맵이 다시 옴 (기술 설계서 메시지)
     case 'map':
       grid = m.cells
+      props = makeProps(m.cells[0].length / 2, m.cells.length / 2)
       break
     case 'state':
       applyState(m.players)
@@ -504,6 +514,8 @@ function receive(data: string) {
       if (m.phase === 'countdown') {
         schedule = {}
         readyBar.hidden = true
+        // 재대결이면 재대결하는 사람만, 새 판이면 방 사람 모두가 섬. 앞 판 결과는 이 시각에 끝나므로 아직 남아 있음
+        standing = result?.outcome === 'rematch' ? result.playerIds.length : history.size
         reloading = myId !== null && joins(result, myId)
       }
       if (m.phase === 'walk') {
