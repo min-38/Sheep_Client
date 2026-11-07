@@ -147,6 +147,31 @@ describe('drawGun', () => {
     expect(muzzle.x).toBeGreaterThan(240)
     expect(muzzle.y).toBeGreaterThan(135)
   })
+
+  test('왼손이면 왼쪽 아래에 그리고 뒤집힌 정육면체도 보이는 세 면만 칠함', () => {
+    const { ctx, filled } = fakeContext()
+    const muzzle = drawGun(ctx, cube, STILL, 480, 270, 370, -1)
+    expect(filled).toHaveLength(3)
+    expect(muzzle.x).toBeLessThan(240)
+    expect(muzzle.y).toBeGreaterThan(135)
+  })
+})
+
+describe('transform 왼손', () => {
+  test('흔들림이 없으면 오른손 자리를 좌우로 뒤집은 자리', () => {
+    const right = transform(stick, STILL)
+    const left = transform(stick, STILL, -1)
+    left.forEach(([x, y, z], i) => {
+      expect(x).toBeCloseTo(-right[i][0])
+      expect(y).toBeCloseTo(right[i][1])
+      expect(z).toBeCloseTo(right[i][2])
+    })
+  })
+
+  test('조준점처럼 오른쪽 흔들림(yaw > 0)에 총구가 오른쪽으로 감', () => {
+    const still = transform(stick, STILL, -1)[1]
+    expect(transform(stick, { ...STILL, yaw: 0.1 }, -1)[1][0]).toBeGreaterThan(still[0])
+  })
 })
 
 describe('lift', () => {
