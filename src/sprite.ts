@@ -1,4 +1,4 @@
-import { horizonY, type Camera } from './render.ts'
+import { horizonY, tint, type Camera, type RGB } from './render.ts'
 
 // 스프라이트 한 장. 픽셀 형식은 render.ts의 pack과 같고, 0은 투명
 export type Sprite = { w: number; h: number; pixels: Uint32Array }
@@ -8,7 +8,7 @@ export type Thing = { x: number; y: number; facing: number; frames: readonly Spr
 
 const STEP = Math.PI / 4
 // 벽 높이를 1로 볼 때 키. ponytail: 임시 값. 스프라이트 시트를 만들 때 그림 비율에 맞춰 다시 잡음
-const HEIGHT = 0.9
+export const HEIGHT = 0.9
 // 이보다 가까우면 그리지 않음. 0에 가까우면 크기가 무한대로 커짐
 const NEAR = 0.05
 
@@ -19,8 +19,8 @@ export function frameIndex(viewX: number, viewY: number, x: number, y: number, f
   return ((k % 8) + 8) % 8
 }
 
-// 벽을 그린 뒤에 부름. zbuf는 가로줄마다 벽까지의 수직 거리
-export function drawSprites(pixels: Uint32Array, w: number, h: number, zbuf: Float64Array, cam: Camera, things: readonly Thing[]) {
+// 벽을 그린 뒤에 부름. zbuf는 가로줄마다 벽까지의 수직 거리, light는 모든 픽셀에 곱하는 그 시간대의 빛 색조
+export function drawSprites(pixels: Uint32Array, w: number, h: number, zbuf: Float64Array, cam: Camera, things: readonly Thing[], light: RGB) {
   const proj = w / (2 * Math.hypot(cam.planeX, cam.planeY))
   // 카메라 행렬 [plane dir]의 역행렬로 카메라 기준 좌표를 구함. side는 plane 길이 단위, depth는 수직 거리
   const invDet = 1 / (cam.planeX * cam.dirY - cam.dirX * cam.planeY)
@@ -52,7 +52,7 @@ export function drawSprites(pixels: Uint32Array, w: number, h: number, zbuf: Flo
       const u = Math.floor(((x + 0.5 - left) / width) * tex.w)
       for (let y = y0; y < y1; y++) {
         const c = tex.pixels[Math.floor(((y + 0.5 - top) / height) * tex.h) * tex.w + u]
-        if (c !== 0) pixels[y * w + x] = c
+        if (c !== 0) pixels[y * w + x] = tint(c, light)
       }
     }
   }

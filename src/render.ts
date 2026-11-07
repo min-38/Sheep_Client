@@ -1,3 +1,4 @@
+import type { Sky } from './desert.ts'
 import { castRay, type Grid } from './raycast.ts'
 import { drawSprites, type Thing } from './sprite.ts'
 
@@ -13,18 +14,19 @@ export type Camera = {
   pitch: number
 }
 
-type RGB = readonly [number, number, number]
+export type RGB = readonly [number, number, number]
 
-const SKY_TOP: RGB = [88, 136, 196]
-const SKY_HORIZON: RGB = [176, 204, 230]
-const GRASS_HORIZON: RGB = [92, 128, 64]
-const GRASS_NEAR: RGB = [52, 92, 36]
+const TAU = Math.PI * 2
 
 // ImageData를 Uint32Array로 쓸 때의 픽셀 값. 리틀 엔디언이라 ABGR 순서
 export const pack = (r: number, g: number, b: number) => ((255 << 24) | (b << 16) | (g << 8) | r) >>> 0
 
 const mix = (p: number, q: number, t: number) => Math.round(p + (q - p) * t)
-const blend = (a: RGB, b: RGB, t: number) => pack(mix(a[0], b[0], t), mix(a[1], b[1], t), mix(a[2], b[2], t))
+export const blend = (a: RGB, b: RGB, t: number) => pack(mix(a[0], b[0], t), mix(a[1], b[1], t), mix(a[2], b[2], t))
+
+// 픽셀에 빛 색조를 곱함. 채널마다 light/255배라 흰 빛이면 그대로임 (시스템 기획서 결투장 시간대)
+export const tint = (c: number, light: RGB) =>
+  pack((((c & 255) * light[0]) / 255) | 0, ((((c >>> 8) & 255) * light[1]) / 255) | 0, ((((c >>> 16) & 255) * light[2]) / 255) | 0)
 
 const WALL_X = pack(132, 128, 118)
 // y 면을 어둡게 해서 벽 모서리가 구분되게 함
@@ -44,33 +46,51 @@ export function horizonY(h: number, proj: number, pitch: number): number {
   return h / 2 + proj * Math.tan(pitch)
 }
 
-export function renderFrame(pixels: Uint32Array, w: number, h: number, grid: Grid, cam: Camera, things: readonly Thing[]) {
+// sky는 그 라운드 시간대의 색과 하늘 그림 (desert.ts SKIES)
+export function renderFrame(pixels: Uint32Array, w: number, h: number, grid: Grid, cam: Camera, things: readonly Thing[], sky: Sky) {
   // 투영면까지의 거리(px). 화면 높이 대신 이 값으로 나눠야 16:9에서도 칸이 정사각형으로 보임
   const proj = w / (2 * Math.hypot(cam.planeX, cam.planeY))
   const horizon = horizonY(h, proj, cam.pitch)
   // 하늘과 땅의 경계. 화면 밖으로 나가도 0..h 안에서 칠함
   const half = Math.max(0, Math.min(h, Math.round(horizon)))
   for (let y = 0; y < h; y++) {
-    const color = y < half
-      ? blend(SKY_TOP, SKY_HORIZON, y / half)
-      : blend(GRASS_HORIZON, GRASS_NEAR, (y - half) / (h - half))
+    // 지평선에서 떨어진 만큼 섞어 위아래를 봐도 하늘과 모래 색이 지평선을 따라 움직임
+    const t = Math.min(1, Math.abs(y + 0.5 - horizon) / (h / 2))
+    const color = y < half ? blend(sky.horizon, sky.top, t) : blend(sky.sandFar, sky.sandNear, t)
     pixels.fill(color, y * w, (y + 1) * w)
   }
 
   // 가로줄마다 벽까지의 거리. 스프라이트가 벽 뒤에 있으면 가리는 데 씀
   const zbuf = new Float64Array(w).fill(Infinity)
+  const wallX = tint(WALL_X, sky.light)
+  const wallY = tint(WALL_Y, sky.light)
   for (let x = 0; x < w; x++) {
     const camX = (2 * x) / w - 1
-    const hit = castRay(grid, cam.x, cam.y, cam.dirX + cam.planeX * camX, cam.dirY + cam.planeY * camX)
+    const rayX = cam.dirX + cam.planeX * camX
+    const rayY = cam.dirY + cam.planeY * camX
+    // 하늘 그림은 아주 멀어 방위로만 열이 정해짐. 원통에 그린 그림처럼 높이를 열마다 같게 둬 화면 가장자리에서도 블록 윗면이 수평임
+    const az = Math.atan2(rayY, rayX)
+    for (const { blocks, color } of sky.layers) {
+      for (const b of blocks) {
+        const d = Math.abs(az - b.az) % TAU
+        if (Math.min(d, TAU - d) >= b.half) continue
+        const top = Math.max(0, Math.round(horizon - proj * b.top))
+        const bottom = Math.min(half, Math.round(horizon - proj * b.bottom))
+        for (let y = top; y < bottom; y++) pixels[y * w + x] = color
+      }
+    }
+    const hit = castRay(grid, cam.x, cam.y, rayX, rayY)
     if (!hit) continue
+    // 둘레 벽은 판정에만 남기고 그리지 않아 지평선까지 사막이 이어져 보임 (기술 설계서 결투장)
+    if (hit.mapX === 0 || hit.mapY === 0 || hit.mapY === grid.length - 1 || hit.mapX === grid[hit.mapY].length - 1) continue
     zbuf[x] = hit.dist
     // 눈높이는 벽의 절반이라 지평선에서 위아래로 반씩
     const halfH = (proj * 0.5) / hit.dist
     const top = Math.max(0, Math.floor(horizon - halfH))
     const bottom = Math.min(h, Math.ceil(horizon + halfH))
-    const color = hit.side === 0 ? WALL_X : WALL_Y
+    const color = hit.side === 0 ? wallX : wallY
     for (let y = top; y < bottom; y++) pixels[y * w + x] = color
   }
 
-  drawSprites(pixels, w, h, zbuf, cam, things)
+  drawSprites(pixels, w, h, zbuf, cam, things, sky.light)
 }
