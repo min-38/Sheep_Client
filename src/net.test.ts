@@ -42,6 +42,16 @@ describe('parseServerMessage', () => {
     expect(parseServerMessage(player(',"nickname":"보안관","color":1.5'))).toBeNull()
   })
 
+  test('상태의 닉네임은 문자열, 색은 0~7 정수만 받음 (기술 설계서 메시지 state)', () => {
+    const player = (extra: string) => `{"type":"state","tick":1,"players":[{"id":"p1","x":1,"y":1,"angle":0,"pose":"stand","ready":false${extra}}]}`
+    expect(parseServerMessage(player(',"nickname":"보안관","color":3'))).not.toBeNull()
+    expect(parseServerMessage(player(',"color":3'))).toBeNull()
+    expect(parseServerMessage(player(',"nickname":"보안관"'))).toBeNull()
+    expect(parseServerMessage(player(',"nickname":7,"color":3'))).toBeNull()
+    expect(parseServerMessage(player(',"nickname":"보안관","color":8'))).toBeNull()
+    expect(parseServerMessage(player(',"nickname":"보안관","color":1.5'))).toBeNull()
+  })
+
   test('입장 거절은 정해진 사유만 받음', () => {
     expect(parseServerMessage('{"type":"error","reason":"notFound"}')).toEqual({ type: 'error', reason: 'notFound' })
     expect(parseServerMessage('{"type":"error","reason":"full"}')).toEqual({ type: 'error', reason: 'full' })

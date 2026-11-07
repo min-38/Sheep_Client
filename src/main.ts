@@ -1,6 +1,7 @@
 import './style.css'
 import mtlText from './assets/revolver.mtl?raw'
 import objText from './assets/revolver.obj?raw'
+import { characterFrames, suicideStage, type Poses } from './character.ts'
 import { best, measure, toLocalTime, toServerTime, type ClockSample } from './clock.ts'
 import { drawGun, RECOIL_MS } from './gun.ts'
 import { dotPosition, noBlood, onGameEnd, onRevived, onWalk, onWounded, resultLabel } from './hitcard.ts'
@@ -14,9 +15,8 @@ import type { Grid } from './raycast.ts'
 import { makeCamera, renderFrame } from './render.ts'
 import { loaded, pull, ROUNDS } from './revolver.ts'
 import { banner, dueling, formatTime, locked, resultText, stepIndex, timeLeft, walking, type Schedule } from './round.ts'
-import { makeAimingFrames, makeFallenFrames, makeScarecrowFrames, makeSuicideFrames, suicideStage } from './scarecrow.ts'
 import { heardFrom, playShot, playSignal, playStep, stampOf, toAudioTime } from './sound.ts'
-import type { Thing } from './sprite.ts'
+import type { Sprite, Thing } from './sprite.ts'
 import { afterTurn, aimAt, crosshairOffset, scaleAt, steady, sway } from './sway.ts'
 import { tilt, turn } from './turn.ts'
 
@@ -59,13 +59,8 @@ let sentAngle = 0
 let sentAt = -Infinity
 // 플레이어마다 받은 상태. 나도 넣어 서버가 나를 걷게 할 때 다른 사람과 같이 보간해 그림
 const history = new Map<string, Sample[]>()
-// ponytail: 허수아비 그림을 임시로 씀. 플레이어 스프라이트 시트가 생기면 바꿈
-const scarecrow = makeScarecrowFrames()
-// "시작!"부터 서 있는 사람은 총을 겨눈 그림. 발사는 결투 중에만 받으므로 쏘는 그림도 겨눈 그림에 불꽃을 더한 것뿐임
-const aiming = makeAimingFrames()
-const firing = makeAimingFrames(true)
-const suicide = makeSuicideFrames()
-const fallen = makeFallenFrames()
+// 사람마다 목수건 색 번호. state마다 새로 받음
+let colors = new Map<string, number>()
 // 1인칭 리볼버 모델 (컨셉 기획서 아트와 사운드 1인칭 총)
 const gunModel = parseObj(objText, parseMtl(mtlText))
 // 다른 사람이 마지막으로 쏜 것과 쓰러진 것을 받은 시각(ms). state처럼 INTERP_DELAY 뒤에 보여 줘 돌기, 발사, 쓰러짐의 순서를 지킴.
@@ -87,6 +82,7 @@ function applyState(players: readonly PlayerState[]) {
   if (!placed || inputLocked(now)) angle = sentAngle = me.angle
   placed = true
   record(history, players, now)
+  colors = new Map(players.map((p) => [p.id, p.color]))
   // 내 준비 여부도 서버가 정함. 누르면 이 값을 뒤집어 보냄
   ready = me.ready
   readyButton.textContent = ready ? '준비 풀기' : '준비'
@@ -115,22 +111,27 @@ function showShot(id: string, shotAngle: number) {
 
 function othersAt(t: number): Thing[] {
   const duel = clock !== null && dueling(schedule, toServerTime(t, clock.offset))
+  // 걷는 사람은 발소리를 내는 걸음마다 다리를 바꿈. 걷기 시각 조금 전이면 -1이라 & 1로 묶음
+  const step = clock !== null && schedule.walk !== undefined ? stepIndex(schedule.walk, toServerTime(t, clock.offset)) & 1 : 0
   return [...history]
     .filter(([id]) => id !== myId)
     .map(([id, samples]) => {
       const s = sampleAt(samples, t)
       const shot = shots.get(id)
       const flashing = shot !== undefined && t >= shot.at && t < shot.at + FLASH_SHOWN
+      const poses = characterFrames(colors.get(id)!)
+      // "시작!"부터 서 있는 사람은 총을 겨눈 그림
+      const upright = duel ? poses.aim : s.pose === 'walk' ? poses.walk[step] : poses.stand
       // 불꽃 동안은 쏜 각도로 그림. 돌고 바로 쏘면 돌아간 각도는 다음 state로 늦게 옴
-      return { x: s.x, y: s.y, facing: flashing ? shot.angle : s.angle, frames: flashing ? firing : poseFrames(id, t, duel) }
+      return { x: s.x, y: s.y, facing: flashing ? shot.angle : s.angle, frames: flashing ? poses.fire : poseFrames(poses, id, t, upright) }
     })
 }
 
-function poseFrames(id: string, t: number, duel: boolean) {
+function poseFrames(poses: Poses, id: string, t: number, upright: Sprite[]) {
   const down = downs.get(id)
-  if (down === undefined || t < down.at) return duel ? aiming : scarecrow
+  if (down === undefined || t < down.at) return upright
   const stage = down.reason === 'timeout' ? suicideStage(t - down.at) : null
-  return stage === null ? fallen : suicide[stage]
+  return stage === null ? poses.fallen : poses.suicide[stage]
 }
 
 // 포인터 잠금 중에만 돌림. 잠금 전에는 커서가 화면 밖으로 나가 이동량이 끊김

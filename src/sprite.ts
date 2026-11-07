@@ -1,3 +1,4 @@
+import { HEAD } from './hitcard.ts'
 import { horizonY, type Camera } from './render.ts'
 
 // 스프라이트 한 장. 픽셀 형식은 render.ts의 pack과 같고, 0은 투명
@@ -7,8 +8,9 @@ export type Sprite = { w: number; h: number; pixels: Uint32Array }
 export type Thing = { x: number; y: number; facing: number; frames: readonly Sprite[] }
 
 const STEP = Math.PI / 4
-// 벽 높이를 1로 볼 때 키. ponytail: 임시 값. 스프라이트 시트를 만들 때 그림 비율에 맞춰 다시 잡음
-const HEIGHT = 0.9
+// 그림 px와 칸(벽 높이 1)의 비율. 모든 그림을 같은 배율로 그려 모자처럼 머리 위로 나온 것도 몸과 크기가 맞음.
+// 키(판정 머리 위)를 64px로 그림
+export const PX_PER_CELL = 64 / HEAD.top
 // 이보다 가까우면 그리지 않음. 0에 가까우면 크기가 무한대로 커짐
 const NEAR = 0.05
 
@@ -36,8 +38,8 @@ export function drawSprites(pixels: Uint32Array, w: number, h: number, zbuf: Flo
 
   for (const { t, side, depth } of seen) {
     const tex = t.frames[frameIndex(cam.x, cam.y, t.x, t.y, t.facing)]
-    const height = (proj * HEIGHT) / depth
-    const width = (height * tex.w) / tex.h
+    const height = (proj * tex.h) / PX_PER_CELL / depth
+    const width = (proj * tex.w) / PX_PER_CELL / depth
     // 발은 벽 아래 끝과 같은 높이 (눈높이는 벽의 절반). 위아래를 보면 지평선을 따라 밀림
     const bottom = horizonY(h, proj, cam.pitch) + (proj * 0.5) / depth
     const top = bottom - height
