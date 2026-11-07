@@ -47,7 +47,7 @@ describe('sampleAt', () => {
 })
 
 describe('record', () => {
-  const p = (id: string, x: number) => ({ id, x, y: 0, angle: 0, pose: 'stand' as const, ready: false })
+  const p = (id: string, x: number) => ({ id, x, y: 0, angle: 0, pose: 'stand' as const, ready: false, nickname: '보안관', color: 0 })
 
   test('플레이어마다 받은 시각과 함께 쌓음', () => {
     const history = new Map<string, Sample[]>()
