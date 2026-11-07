@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest'
 import { toServerTime } from './clock.ts'
-import { banner, DUEL_LIMIT, dueling, formatTime, GO_SHOWN, locked, resultText, STEP_MS, stepIndex, timeLeft, WALK_DURATION, walking, type Schedule } from './round.ts'
+import { banner, DUEL_LIMIT, dueling, formatTime, GO_SHOWN, joins, locked, resultText, STEP_MS, stepIndex, timeLeft, WALK_DURATION, walking, type Schedule } from './round.ts'
 
 // 서버가 알리는 순서: 카운트다운 시각, 카운트다운이 시작할 때 걷기 시각, 걷기가 시작할 때 결투 시각 (기술 설계서 메시지 phase)
 const full: Schedule = { countdown: 10000, walk: 13000, duel: 16000 }
@@ -150,5 +150,22 @@ describe('stepIndex', () => {
     expect(stepIndex(1000, 1000)).toBe(0)
     expect(stepIndex(1000, 1000 + STEP_MS - 1)).toBe(0)
     expect(stepIndex(1000, 1000 + STEP_MS)).toBe(1)
+  })
+})
+
+describe('joins', () => {
+  test('앞 결과가 없으면 준비한 사람 모두 낌', () => {
+    expect(joins(null, 'a')).toBe(true)
+  })
+
+  test('재대결이면 결과의 playerIds만 낌', () => {
+    const r = { outcome: 'rematch' as const, playerIds: ['a', 'b'], rounds: 1 }
+    expect(joins(r, 'a')).toBe(true)
+    expect(joins(r, 'c')).toBe(false)
+  })
+
+  // 창이 숨어 그리기가 멈추면 앞 판의 승리 결과가 끝나지 않은 채 새 판 카운트다운이 옴
+  test('승리로 끝난 앞 판 뒤의 새 판은 모두 낌', () => {
+    expect(joins({ outcome: 'win', playerIds: ['b'], rounds: 0 }, 'a')).toBe(true)
   })
 })
