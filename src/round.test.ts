@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest'
 import { toServerTime } from './clock.ts'
-import { banner, DUEL_LIMIT, dueling, formatTime, GO_SHOWN, locked, resultText, timeLeft, type Schedule } from './round.ts'
+import { banner, DUEL_LIMIT, dueling, formatTime, GO_SHOWN, locked, resultText, STEP_MS, stepIndex, timeLeft, WALK_DURATION, walking, type Schedule } from './round.ts'
 
 // 서버가 알리는 순서: 카운트다운 시각, 카운트다운이 시작할 때 걷기 시각, 걷기가 시작할 때 결투 시각 (기술 설계서 메시지 phase)
 const full: Schedule = { countdown: 10000, walk: 13000, duel: 16000 }
@@ -125,5 +125,30 @@ describe('formatTime', () => {
     expect(formatTime(10000)).toBe('0:10')
     expect(formatTime(0)).toBe('0:00')
     expect(formatTime(61000)).toBe('1:01')
+  })
+})
+
+describe('walking', () => {
+  test('걷기 시각 전에는 걷지 않음', () => {
+    expect(walking({}, 99999)).toBe(false)
+    expect(walking(full, 12999)).toBe(false)
+  })
+
+  test('걷기 시각부터 걷는 시간 동안 걸음', () => {
+    expect(walking(full, 13000)).toBe(true)
+    expect(walking(full, 13000 + WALK_DURATION - 1)).toBe(true)
+  })
+
+  test('걷는 시간이 지나면 걷지 않음. 결투 시각을 기다리는 동안도', () => {
+    expect(walking(full, 13000 + WALK_DURATION)).toBe(false)
+    expect(walking({ countdown: 10000, walk: 13000 }, 13000 + WALK_DURATION + 500)).toBe(false)
+  })
+})
+
+describe('stepIndex', () => {
+  test('걷기 시각부터 STEP_MS마다 한 걸음', () => {
+    expect(stepIndex(1000, 1000)).toBe(0)
+    expect(stepIndex(1000, 1000 + STEP_MS - 1)).toBe(0)
+    expect(stepIndex(1000, 1000 + STEP_MS)).toBe(1)
   })
 })

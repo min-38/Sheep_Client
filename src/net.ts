@@ -14,6 +14,8 @@ export type ClientMessage =
   // angle은 turn과 같음. pitch는 위아래 시선(라디안, 위가 +)이고 서버는 머리와 몸 판정(SHEEP-56)부터 읽음.
   // at은 쏜 시각(ms, 서버 시계). M4 서버는 발사 간격을 잴 때만 씀
   | { type: 'fire'; angle: number; pitch: number; at: number }
+  // 걷다 멈추기. at은 누른 시각(ms, 서버 시계). 걷는 동안 한 번만 보냄
+  | { type: 'stop'; at: number }
 
 // x·y는 칸 단위(map의 [y][x]와 같은 축), angle은 turn과 같음. pose는 동작 (서 있음, 걷기, 쓰러짐)
 export type PlayerState = { id: string; x: number; y: number; angle: number; pose: 'stand' | 'walk' | 'down'; ready: boolean }
@@ -53,6 +55,9 @@ export type ServerMessage =
 
 // 쏜 순간 내 시각(ms, performance.now())을 서버 시계로 바꿔 보냄. 서버는 이 시각으로 발사 간격을 재고, M5부터 쏜 순서를 가림
 export const fireMessage = (angle: number, pitch: number, shotAt: number, offset: number): ClientMessage => ({ type: 'fire', angle, pitch, at: toServerTime(shotAt, offset) })
+
+// 누른 순간 내 시각(ms)을 서버 시계로 바꿔 보냄. 서버는 이 시각까지 걸은 자리에 세움 (기술 설계서 메시지 stop)
+export const stopMessage = (pressedAt: number, offset: number): ClientMessage => ({ type: 'stop', at: toServerTime(pressedAt, offset) })
 
 // 서버가 보낸 JSON 하나를 읽음. 모양이 틀리면 null을 돌려주고 받는 쪽은 무시함 (서버와 같음)
 export function parseServerMessage(text: string): ServerMessage | null {

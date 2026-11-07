@@ -4,14 +4,19 @@ import { record, sampleAt, type Sample } from './interpolate.ts'
 const deg = (d: number) => (d * Math.PI) / 180
 
 describe('sampleAt', () => {
-  const a: Sample = { at: 1000, x: 2, y: 4, angle: deg(10) }
-  const b: Sample = { at: 1050, x: 4, y: 8, angle: deg(30) }
+  const a: Sample = { at: 1000, x: 2, y: 4, angle: deg(10), pose: 'walk' }
+  const b: Sample = { at: 1050, x: 4, y: 8, angle: deg(30), pose: 'stand' }
 
   test('두 상태 사이 중간 시각은 위치와 각도도 중간', () => {
     const s = sampleAt([a, b], 1025)
     expect(s.x).toBeCloseTo(3)
     expect(s.y).toBeCloseTo(6)
     expect(s.angle).toBeCloseTo(deg(20))
+  })
+
+  test('동작은 그 시각에 마지막으로 받은 상태의 것', () => {
+    expect(sampleAt([a, b], 1049).pose).toBe('walk')
+    expect(sampleAt([a, b], 1050).pose).toBe('stand')
   })
 
   test('359°에서 1°로는 2°만 돎', () => {
@@ -32,7 +37,7 @@ describe('sampleAt', () => {
   })
 
   test('여러 상태 중 그 시각을 감싸는 두 상태를 씀', () => {
-    const c: Sample = { at: 1100, x: 8, y: 8, angle: deg(30) }
+    const c: Sample = { at: 1100, x: 8, y: 8, angle: deg(30), pose: 'stand' }
     expect(sampleAt([a, b, c], 1075).x).toBeCloseTo(6)
   })
 
@@ -48,7 +53,10 @@ describe('record', () => {
     const history = new Map<string, Sample[]>()
     record(history, [p('a', 1), p('b', 2)], 1000)
     record(history, [p('a', 3), p('b', 4)], 1050)
-    expect(history.get('a')).toEqual([{ at: 1000, x: 1, y: 0, angle: 0 }, { at: 1050, x: 3, y: 0, angle: 0 }])
+    expect(history.get('a')).toEqual([
+      { at: 1000, x: 1, y: 0, angle: 0, pose: 'stand' },
+      { at: 1050, x: 3, y: 0, angle: 0, pose: 'stand' },
+    ])
     expect(history.get('b')?.map((s) => s.x)).toEqual([2, 4])
   })
 

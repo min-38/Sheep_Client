@@ -42,11 +42,31 @@ export function playShot(audio: AudioContext, when: number, from?: { right: numb
   const volume = new GainNode(audio)
   volume.gain.setValueAtTime(0.5, when)
   volume.gain.exponentialRampToValueAtTime(0.001, when + 0.25)
-  let out: AudioNode = source.connect(volume)
+  place(audio, source.connect(volume), from)
+  source.start(when)
+}
+
+// 발소리 한 걸음을 when(AudioContext 시각, 초)에 냄. 방향과 거리는 총소리와 같음.
+// ponytail: 낮은 잡음으로 합성한 임시음(약 0.06초). CC0 효과음을 찾으면 소리 부분만 고침 (시스템 기획서 사운드)
+export function playStep(audio: AudioContext, when: number, from?: { right: number; front: number }) {
+  const noise = new AudioBuffer({ length: Math.round(audio.sampleRate * 0.06), sampleRate: audio.sampleRate })
+  const data = noise.getChannelData(0)
+  for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1
+  const source = new AudioBufferSourceNode(audio, { buffer: noise })
+  // 높은 소리를 걸러 모래를 밟는 둔한 소리로
+  const low = new BiquadFilterNode(audio, { type: 'lowpass', frequency: 500 })
+  const volume = new GainNode(audio)
+  volume.gain.setValueAtTime(0.3, when)
+  volume.gain.exponentialRampToValueAtTime(0.001, when + 0.06)
+  place(audio, source.connect(low).connect(volume), from)
+  source.start(when)
+}
+
+// from이 있으면 그 자리에서 들리게(HRTF) 내보내고, 없으면 가운데서 들림
+function place(audio: AudioContext, out: AudioNode, from?: { right: number; front: number }) {
   if (from) {
     const where = { positionX: from.right, positionY: 0, positionZ: -from.front }
     out = out.connect(new PannerNode(audio, { panningModel: 'HRTF', refDistance: 4, ...where }))
   }
   out.connect(audio.destination)
-  source.start(when)
 }
