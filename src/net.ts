@@ -1,10 +1,16 @@
 import { toServerTime } from './clock.ts'
 import type { Grid } from './raycast.ts'
+import type { RoomInfo } from './roomlist.ts'
 
 // 기술 설계서 메시지 표를 손으로 옮김. 표가 바뀌면 여기도 고침
 export type ClientMessage =
-  | { type: 'createRoom' }
-  | { type: 'joinRoom'; code: string }
+  // nickname은 normalizeNickname, name은 normalizeRoomName을 거친 이름. maxPlayers는 2~8. private가 true면 비공개 방 (랜덤 입장에 안 나옴)
+  | { type: 'createRoom'; nickname: string; name: string; maxPlayers: number; private: boolean }
+  | { type: 'joinRoom'; code: string; nickname: string }
+  // 들어갈 수 있는 공개 방 중 사람이 가장 많은 방에 넣고, 없으면 새 공개 방을 만듦. 답은 joined 또는 roomCreated
+  | { type: 'quickJoin'; nickname: string }
+  // 공개 방 목록 요청. 방에 들어가기 전에도 보냄
+  | { type: 'listRooms' }
   // angle은 라디안, 0 이상 2π 미만. 범위 밖이면 서버가 버림
   | { type: 'turn'; angle: number }
   // 값을 보냄. 두 번 보내도 결과가 같음
@@ -43,9 +49,10 @@ export type ShotResult =
   | { zone: null; height: null; offset: null; down: boolean }
 
 export type ServerMessage =
-  | { type: 'roomCreated'; code: string; playerId: string }
-  | { type: 'joined'; code: string; playerId: string }
-  | { type: 'error'; reason: 'notFound' | 'full' | 'playing' }
+  // name은 방 이름, private는 비공개 방인지. 둘 다 술집 칠판에 적음
+  | { type: 'roomCreated'; code: string; playerId: string; name: string; private: boolean }
+  | { type: 'joined'; code: string; playerId: string; name: string; private: boolean }
+  | { type: 'error'; reason: 'notFound' | 'full' | 'playing' | 'nickname' | 'roomName' | 'maxPlayers' }
   | { type: 'map'; width: number; height: number; cells: Grid }
   | { type: 'state'; tick: number; players: PlayerState[] }
   // clockSync의 답. t0은 보낸 값 그대로, ts는 서버 시각(ms)
@@ -62,6 +69,8 @@ export type ServerMessage =
   | ({ type: 'shotResult' } & ShotResult)
   // 몸을 맞았지만 쓰러지지 않았을 때 맞은 사람에게만 옴
   | { type: 'wounded' }
+  // listRooms의 답. 서버가 들어갈 수 있는 방부터 정렬해 보냄
+  | { type: 'rooms'; rooms: RoomInfo[] }
 
 // 쏜 순간 내 시각(ms, performance.now())을 서버 시계로 바꿔 보냄. 서버는 이 시각으로 발사 간격을 재고, M5부터 쏜 순서를 가림
 export const fireMessage = (angle: number, pitch: number, shotAt: number, offset: number): ClientMessage => ({ type: 'fire', angle, pitch, at: toServerTime(shotAt, offset) })
@@ -80,9 +89,11 @@ export function parseServerMessage(text: string): ServerMessage | null {
   switch (m?.type) {
     case 'roomCreated':
     case 'joined':
-      return typeof m.code === 'string' && typeof m.playerId === 'string' ? { type: m.type, code: m.code, playerId: m.playerId } : null
+      return typeof m.code === 'string' && typeof m.playerId === 'string' && typeof m.name === 'string' && typeof m.private === 'boolean'
+        ? { type: m.type, code: m.code, playerId: m.playerId, name: m.name, private: m.private }
+        : null
     case 'error':
-      return m.reason === 'notFound' || m.reason === 'full' || m.reason === 'playing' ? { type: 'error', reason: m.reason } : null
+      return ['notFound', 'full', 'playing', 'nickname', 'roomName', 'maxPlayers'].includes(m.reason) ? { type: 'error', reason: m.reason } : null
     case 'map':
       return isGrid(m.cells, m.width, m.height) ? { type: 'map', width: m.width, height: m.height, cells: m.cells } : null
     case 'state':
@@ -116,12 +127,22 @@ export function parseServerMessage(text: string): ServerMessage | null {
     }
     case 'wounded':
       return { type: 'wounded' }
+    case 'rooms':
+      return Array.isArray(m.rooms) && m.rooms.every(isRoom) ? { type: 'rooms', rooms: m.rooms } : null
     default:
       return null
   }
 }
 
 const isColor = (c: unknown) => Number.isInteger(c) && (c as number) >= 0 && (c as number) < 8
+
+const isRoom = (r: any): r is RoomInfo =>
+  typeof r?.code === 'string' &&
+  typeof r.name === 'string' &&
+  Array.isArray(r.players) &&
+  r.players.every((p: any) => typeof p?.nickname === 'string' && isColor(p.color)) &&
+  Number.isInteger(r.max) &&
+  typeof r.playing === 'boolean'
 
 const isPlayer = (p: any): p is PlayerState =>
   typeof p?.id === 'string' &&

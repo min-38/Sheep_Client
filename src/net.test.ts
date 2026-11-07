@@ -3,9 +3,43 @@ import { fireMessage, parseServerMessage, stopMessage } from './net.ts'
 
 describe('parseServerMessage', () => {
   test('방 만들기와 입장 응답은 내 플레이어 id를 받음', () => {
-    expect(parseServerMessage('{"type":"roomCreated","code":"AB12CD","playerId":"p1"}')).toEqual({ type: 'roomCreated', code: 'AB12CD', playerId: 'p1' })
-    expect(parseServerMessage('{"type":"joined","code":"AB12CD","playerId":"p1"}')).toEqual({ type: 'joined', code: 'AB12CD', playerId: 'p1' })
-    expect(parseServerMessage('{"type":"joined","code":"AB12CD"}')).toBeNull()
+    expect(parseServerMessage('{"type":"roomCreated","code":"AB12CD","playerId":"p1","name":"먼지 낀 술집","private":false}')).toEqual({
+      type: 'roomCreated',
+      code: 'AB12CD',
+      playerId: 'p1',
+      name: '먼지 낀 술집',
+      private: false,
+    })
+    expect(parseServerMessage('{"type":"joined","code":"AB12CD","playerId":"p1","name":"비밀 금광","private":true}')).toEqual({
+      type: 'joined',
+      code: 'AB12CD',
+      playerId: 'p1',
+      name: '비밀 금광',
+      private: true,
+    })
+    expect(parseServerMessage('{"type":"joined","code":"AB12CD","name":"비밀 금광","private":true}')).toBeNull()
+  })
+
+  test('입장 응답에 방 이름과 비공개 여부가 없으면 버림 (기술 설계서 메시지 roomCreated)', () => {
+    expect(parseServerMessage('{"type":"joined","code":"AB12CD","playerId":"p1","private":true}')).toBeNull()
+    expect(parseServerMessage('{"type":"joined","code":"AB12CD","playerId":"p1","name":"비밀 금광"}')).toBeNull()
+    expect(parseServerMessage('{"type":"joined","code":"AB12CD","playerId":"p1","name":"비밀 금광","private":"true"}')).toBeNull()
+  })
+
+  test('닉네임, 방 이름, 인원 제한 거절도 받음', () => {
+    expect(parseServerMessage('{"type":"error","reason":"nickname"}')).toEqual({ type: 'error', reason: 'nickname' })
+    expect(parseServerMessage('{"type":"error","reason":"roomName"}')).toEqual({ type: 'error', reason: 'roomName' })
+    expect(parseServerMessage('{"type":"error","reason":"maxPlayers"}')).toEqual({ type: 'error', reason: 'maxPlayers' })
+  })
+
+  test('상태의 닉네임은 문자열, 색은 0~7 정수만 받음 (기술 설계서 메시지 state)', () => {
+    const player = (extra: string) => `{"type":"state","tick":1,"players":[{"id":"p1","x":1,"y":1,"angle":0,"pose":"stand","ready":false${extra}}]}`
+    expect(parseServerMessage(player(',"nickname":"보안관","color":3'))).not.toBeNull()
+    expect(parseServerMessage(player(',"color":3'))).toBeNull()
+    expect(parseServerMessage(player(',"nickname":"보안관"'))).toBeNull()
+    expect(parseServerMessage(player(',"nickname":7,"color":3'))).toBeNull()
+    expect(parseServerMessage(player(',"nickname":"보안관","color":8'))).toBeNull()
+    expect(parseServerMessage(player(',"nickname":"보안관","color":1.5'))).toBeNull()
   })
 
   test('상태의 닉네임은 문자열, 색은 0~7 정수만 받음 (기술 설계서 메시지 state)', () => {
@@ -193,5 +227,24 @@ describe('stopMessage', () => {
   test('누른 순간 내 시각을 서버 시계로 바꿔 보냄', () => {
     expect(stopMessage(1000, 4000)).toEqual({ type: 'stop', at: 5000 })
     expect(stopMessage(1000, -500)).toEqual({ type: 'stop', at: 500 })
+  })
+})
+
+describe('rooms', () => {
+  const room = '{"code":"AB12CD","name":"먼지 낀 술집","players":[{"nickname":"보안관","color":0}],"max":8,"playing":false}'
+
+  test('공개 방 목록을 받은 순서대로 읽음 (기술 설계서 메시지 rooms)', () => {
+    expect(parseServerMessage(`{"type":"rooms","rooms":[${room}]}`)).toEqual({
+      type: 'rooms',
+      rooms: [{ code: 'AB12CD', name: '먼지 낀 술집', players: [{ nickname: '보안관', color: 0 }], max: 8, playing: false }],
+    })
+    expect(parseServerMessage('{"type":"rooms","rooms":[]}')).toEqual({ type: 'rooms', rooms: [] })
+  })
+
+  test('모양이 틀린 방이 하나라도 있으면 버림', () => {
+    expect(parseServerMessage('{"type":"rooms"}')).toBeNull()
+    expect(parseServerMessage(`{"type":"rooms","rooms":[${room.replace('"name":"먼지 낀 술집",', '')}]}`)).toBeNull()
+    expect(parseServerMessage(`{"type":"rooms","rooms":[${room.replace('"color":0', '"color":8')}]}`)).toBeNull()
+    expect(parseServerMessage(`{"type":"rooms","rooms":[${room.replace('"playing":false', '"playing":"no"')}]}`)).toBeNull()
   })
 })
