@@ -16,6 +16,7 @@ import { makeCamera, renderFrame } from './render.ts'
 import { loaded, pull, ROUNDS } from './revolver.ts'
 import type { Rig } from './rig.ts'
 import { banner, dueling, formatTime, joins, locked, resultText, stepIndex, timeLeft, walking, type Schedule } from './round.ts'
+import { drawPortrait, drawSaloon, POSTER_SLOTS, posterSlots, startBartender, stepBartender } from './saloon.ts'
 import { readSettings, radiansPerPixel, type Hand, type Settings } from './settings.ts'
 import { heardFrom, loadEffects, play, playSignal, playStep, setEffectsVolume, stampOf, toAudioTime } from './sound.ts'
 import type { Sprite, Thing } from './sprite.ts'
@@ -97,6 +98,7 @@ function applyState(players: readonly PlayerState[]) {
   placed = true
   record(history, players, now)
   colors = new Map(players.map((p) => [p.id, p.color]))
+  showPosters(players)
   // 내 준비 여부도 서버가 정함. 누르면 이 값을 뒤집어 보냄
   ready = me.ready
   readyButton.textContent = ready ? '준비 풀기' : '준비'
@@ -242,9 +244,19 @@ canvas.addEventListener('mousedown', (e) => {
   send(fireMessage(aim.angle, aim.pitch, e.timeStamp, clock.offset))
 })
 
+// 술집 주인. 프레임마다 지난 시간만큼 움직임
+let bartender = startBartender(performance.now())
+let lastFrame = performance.now()
+
 function frame(now: number) {
   const s = sway(now, scaleAt(unsteady, now))
-  if (grid && placed) {
+  const dt = now - lastFrame
+  lastFrame = now
+  if (!saloon.hidden) {
+    // 판 사이에는 결투장 대신 술집 한 장면을 그림 (시스템 기획서 방 화면 M8 대기실 짜임)
+    bartender = stepBartender(bartender, now, dt, Math.random)
+    drawSaloon(ctx, bartender, now)
+  } else if (grid && placed) {
     // 내 자리도 다른 사람처럼 INTERP_DELAY 전을 그림. 받은 그대로 그리면 걷는 동안 20Hz로 끊겨 보임
     const view = myView(now)
     const things = [...othersAt(now - INTERP_DELAY), ...props]
@@ -309,7 +321,56 @@ const nameOk = document.querySelector<HTMLButtonElement>('#name-ok')!
 const codeInput = document.querySelector<HTMLInputElement>('#code')!
 const status = document.querySelector<HTMLParagraphElement>('#status')!
 const room = document.querySelector<HTMLOutputElement>('#room')!
-const readyBar = document.querySelector<HTMLDivElement>('#ready-bar')!
+// 술집 대기실. 방에 들어가 판이 시작되기 전과 판이 끝난 뒤에 보임
+const saloon = document.querySelector<HTMLDivElement>('#saloon')!
+const boardName = document.querySelector<HTMLParagraphElement>('#board-name')!
+const boardCode = document.querySelector<HTMLParagraphElement>('#board-code')!
+const boardPrivate = document.querySelector<HTMLParagraphElement>('#board-private')!
+
+// 포스터 8장 (시스템 기획서 방 화면 포스터). 자리 번호가 목수건 색 번호라 초상화는 처음 한 번만 그림.
+// 닉네임은 사용자가 넣은 이름이라 textContent로만 넣음
+const posterViews = Array.from({ length: POSTER_SLOTS }, (_, color) => {
+  const li = document.createElement('li')
+  li.className = 'poster'
+  const wanted = document.createElement('span')
+  wanted.className = 'wanted'
+  wanted.textContent = 'WANTED'
+  const face = document.createElement('canvas')
+  face.width = face.height = 16
+  drawPortrait(face.getContext('2d')!, color)
+  const nick = document.createElement('span')
+  nick.className = 'nick'
+  const bounty = document.createElement('span')
+  bounty.className = 'bounty'
+  const star = document.createElement('i')
+  star.className = 'star'
+  star.setAttribute('role', 'img')
+  star.setAttribute('aria-label', '내 포스터')
+  const stamp = document.createElement('span')
+  stamp.className = 'stamp'
+  // ponytail: 임시 문구. 게임 안 문구 스타일이 정해지면 바꿈
+  stamp.textContent = '준비'
+  li.append(wanted, face, nick, bounty, star, stamp)
+  document.querySelector('#posters')!.append(li)
+  return { li, wanted, face, nick, bounty, star, stamp }
+})
+// 마지막으로 그린 포스터. state는 20Hz로 오지만 바뀔 때만 다시 넣어 화면 낭독기가 되풀이해 읽지 않게 함
+let shownPosters = ''
+function showPosters(players: readonly PlayerState[]) {
+  const slots = posterSlots(players, myId)
+  const key = JSON.stringify(slots)
+  if (key === shownPosters) return
+  shownPosters = key
+  slots.forEach((p, i) => {
+    const v = posterViews[i]
+    v.li.classList.toggle('empty', p === null)
+    for (const part of [v.wanted, v.face, v.nick, v.bounty]) part.hidden = p === null
+    v.nick.textContent = p?.nickname ?? ''
+    v.bounty.textContent = p?.bounty ?? ''
+    v.star.hidden = !p?.mine
+    v.stamp.hidden = !p?.ready
+  })
+}
 const readyButton = document.querySelector<HTMLButtonElement>('#ready')!
 const readyCount = document.querySelector<HTMLOutputElement>('#ready-count')!
 const bannerText = document.querySelector<HTMLOutputElement>('#banner')!
@@ -466,7 +527,9 @@ function endResult(r: RoundResult) {
     downs.clear()
     gun = loaded(ROUNDS)
     blood = onGameEnd()
-    readyBar.hidden = false
+    // 판이 끝나 술집으로 돌아감. 버튼을 누를 수 있게 포인터 잠금을 풂
+    saloon.hidden = false
+    document.exitPointerLock()
   } else {
     // 쓰러졌다 다시 서는 나(함께 쓰러짐)는 혈흔을 그 라운드 전으로 되돌림. 서버가 반샷을 되돌리는 것과 같음. 일으키기 전에 봐야 가를 수 있음
     if (myId !== null && downs.has(myId) && r.playerIds.includes(myId)) blood = onRevived(blood)
@@ -494,7 +557,7 @@ ws.addEventListener('close', () => {
   createPanel.hidden = true
   lobby.hidden = false
   showStep()
-  readyBar.hidden = true
+  saloon.hidden = true
   room.value = ''
   status.textContent = '서버와 연결되지 않음. 새로고침해 다시 접속'
 })
@@ -506,11 +569,19 @@ function receive(data: string) {
     case 'joined':
       lobby.hidden = true
       showStep()
-      readyBar.hidden = false
-      // ponytail: 술집 칠판이 생기기 전까지 오른쪽 위 방 코드 옆에 방 이름과 비공개를 적음 (M8 C5에서 옮김)
-      room.value = `${m.name} · ${m.code}${m.private ? ' · 비공개' : ''}`
+      saloon.hidden = false
+      // 칠판에 방 이름, 코드, 비공개를 적음. 판 도중에는 칠판이 없어 코드만 오른쪽 위에 둠 (시스템 기획서 방 화면)
+      boardName.textContent = m.name
+      boardCode.textContent = m.code
+      boardPrivate.hidden = !m.private
+      room.value = m.code
       myId = m.playerId
       placed = false
+      // 앞서 있던 방의 사람들이 남지 않게 비움. 나가기로 다른 방에 다시 들어올 수 있음
+      history.clear()
+      shots.clear()
+      downs.clear()
+      shownPosters = ''
       schedule = {}
       standing = null
       break
@@ -540,7 +611,7 @@ function receive(data: string) {
       // 새 판은 카운트다운부터 다시 받음. 판 도중의 ready는 서버가 버리므로 준비 버튼을 숨김 (기술 설계서 메시지 ready)
       if (m.phase === 'countdown') {
         schedule = {}
-        readyBar.hidden = true
+        saloon.hidden = true
         // 재대결이면 재대결하는 사람만, 새 판이면 방 사람 모두가 섬. 앞 판 결과는 이 시각에 끝나므로 아직 남아 있음
         standing = result?.outcome === 'rematch' ? result.playerIds.length : history.size
         reloading = myId !== null && joins(result, myId)
@@ -595,6 +666,16 @@ function receive(data: string) {
     case 'rooms':
       if (!roomStep.hidden) showRooms(m.rooms)
       break
+    case 'left':
+      // 첫 화면으로 돌아감. 다음 방에 들어가면 그 방의 맵과 상태를 새로 받음
+      saloon.hidden = true
+      lobby.hidden = false
+      room.value = ''
+      myId = null
+      grid = null
+      placed = false
+      showStep()
+      break
   }
 }
 
@@ -640,7 +721,8 @@ document.querySelector('#create-form')!.addEventListener('submit', (e) => {
   createPanel.hidden = true
   enterWith((nickname) => ({ type: 'createRoom', nickname, name, maxPlayers: Number(maxPlayersSelect.value), private: privateBox.checked }))
 })
-// ponytail: 포인터 잠금 중에는 Esc로 커서를 풀어야 누를 수 있음. 조작이 정해지면 키로도 누르게 함
+// 술집의 나가기. 답(left)이 오면 첫 화면으로 돌아감
+document.querySelector('#leave')!.addEventListener('click', () => send({ type: 'leaveRoom' }))
 readyButton.addEventListener('click', () => {
   if (!audio) {
     audio = new AudioContext()
