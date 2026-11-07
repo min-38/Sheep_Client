@@ -26,8 +26,8 @@ const block = ([az, half, bottom, top]: readonly number[]): Block => ({
 })
 
 // 해는 늘 같은 방위(도)에 있고 시간대마다 높이만 바뀜. 석양에는 아래 반이 먼 메사에 걸림
-const SUN_AZ = 200
-const SUN_HALF = 2
+export const SUN_AZ = 200
+export const SUN_HALF = 2
 // 높이와 상관없이 화면에서 정사각형으로 보이게 위아래도 방위와 같은 폭을 둠
 function sunAt(height: number): Block {
   const r = SUN_HALF * DEG
@@ -74,6 +74,102 @@ const halves = (lit: boolean) =>
 const NEAR_LIT = halves(true)
 const NEAR_SHADE = halves(false)
 
+// 먼 서부 마을의 건물 하나. 덩어리는 [가운데에서 방위 차, 반폭, 아래 높이각, 위 높이각](도).
+// lit은 앞면, shade는 지붕과 해 반대쪽 옆면이고 해가 왼쪽일 때의 모양임. 시야 66°·480px에서 1px이 약 0.155°라 가는 부분도 0.2° 이상으로 둠
+type Building = { lit: number[][]; shade: number[][] }
+// 술집: 지붕보다 높은 네모 앞벽(false front). 옆 몸채가 앞벽보다 낮아 앞벽만 솟아 보임
+const SALOON: Building = {
+  lit: [
+    [0, 1.1, 0, 1.5],
+    [0, 0.5, 1.5, 1.7],
+  ],
+  shade: [
+    [1.5, 0.4, 0, 1.1],
+    [0, 1.25, 0.55, 0.75],
+    [0, 0.2, 0, 0.4],
+  ],
+}
+// 집: 계단진 지붕으로 박공 모양을 냄
+const HOUSE: Building = {
+  lit: [[0, 0.7, 0, 0.7]],
+  shade: [
+    [0, 0.8, 0.7, 0.9],
+    [0, 0.6, 0.9, 1.1],
+    [0, 0.4, 1.1, 1.3],
+    [0, 0.2, 1.3, 1.5],
+    [0.85, 0.15, 0, 0.6],
+  ],
+}
+const SMALL_HOUSE: Building = {
+  lit: [[0, 0.5, 0, 0.6]],
+  shade: [
+    [0, 0.6, 0.6, 0.8],
+    [0, 0.4, 0.8, 1],
+    [0, 0.2, 1, 1.2],
+    [0.62, 0.12, 0, 0.5],
+  ],
+}
+// 교회: 왼쪽에 종탑과 뾰족한 끝, 십자가
+const CHURCH: Building = {
+  lit: [
+    [0, 0.9, 0, 0.8],
+    [-1.25, 0.3, 0, 1.6],
+  ],
+  shade: [
+    [0, 0.95, 0.8, 1],
+    [0, 0.65, 1, 1.2],
+    [0, 0.35, 1.2, 1.4],
+    [1.1, 0.15, 0, 0.7],
+    [-1.25, 0.12, 1.15, 1.4],
+    [-1.25, 0.25, 1.6, 1.8],
+    [-1.25, 0.12, 1.8, 2.05],
+    [-1.25, 0.1, 2.05, 2.65],
+    [-1.25, 0.25, 2.25, 2.45],
+  ],
+}
+// 급수탑: 다리 둘과 가로대 위에 통, 그 위에 뚜껑
+const WATER_TOWER: Building = {
+  lit: [[0, 0.5, 0.9, 1.5]],
+  shade: [
+    [-0.4, 0.1, 0, 0.9],
+    [0.4, 0.1, 0, 0.9],
+    [0, 0.4, 0.4, 0.6],
+    [0, 0.6, 1.5, 1.7],
+    [0, 0.3, 1.7, 1.9],
+  ],
+}
+// 풍차: 위로 갈수록 좁은 탑 끝(높이 2°)에 작은 네모를 대각선으로 이어 붙인 X자 날개
+const WINDMILL: Building = {
+  lit: [-0.5, -0.25, 0.25, 0.5].flatMap((d) => [2 + d, 2 - d].map((c) => [d, 0.13, c - 0.13, c + 0.13])),
+  shade: [
+    [0, 0.3, 0, 0.5],
+    [0, 0.2, 0.5, 1.2],
+    [0, 0.1, 1.2, 2],
+    [0, 0.15, 1.85, 2.15],
+  ],
+}
+// [가운데 방위, 건물]. 큰 마을은 해가 걸린 먼 메사(196°)와 가까운 메사(242°) 사이 빈 하늘에 둬 석양에 해 옆 실루엣으로 보이고 메사를 가리지 않음.
+// 작은 마을은 가장 높은 가까운 메사(22°)와 먼 메사(62°) 사이 빈 하늘에 둠.
+// ponytail: 크기·방위·색은 정지 그림으로만 맞춘 값임. 플레이테스트에서 안 보이거나 시선을 빼앗으면 고침
+const TOWN_PLAN: [number, Building][] = [
+  [216.1, WATER_TOWER],
+  [217.6, HOUSE],
+  [219.9, SALOON],
+  [222.5, SMALL_HOUSE],
+  [224.9, CHURCH],
+  [226.9, WINDMILL],
+  [38, WATER_TOWER],
+  [39.8, HOUSE],
+  [41.4, WINDMILL],
+]
+// 건물을 제 방위에 펼침. 해가 오른쪽이면 좌우를 뒤집어 그늘 옆면이 늘 해 반대쪽에 옴
+const town = (lit: boolean) =>
+  TOWN_PLAN.flatMap(([az, b]) => {
+    const flip = Math.sin((SUN_AZ - az) * DEG) > 0 ? -1 : 1
+    return (lit ? b.lit : b.shade).map(([dx, half, bottom, top]) => block([az + flip * dx, half, bottom, top]))
+  })
+export const TOWN = { lit: town(true), shade: town(false) }
+
 // 빛 색조를 곱하기 전의 색
 const SAND_NEAR: RGB = [232, 198, 142]
 // 지평선 쪽 모래는 조금 어둡게 (시스템 기획서 결투장 바닥)
@@ -83,6 +179,10 @@ const MESA_SHADE: RGB = [134, 68, 46]
 const CLOUD: RGB = [255, 255, 255]
 // 먼 메사에 섞는 지평선 하늘빛의 비율
 const HAZE = 0.45
+// 마을의 낡은 나무색. 먼 메사보다 앞이라 하늘빛을 덜 섞음
+const WOOD: RGB = [110, 76, 54]
+const WOOD_SHADE: RGB = [64, 44, 36]
+const TOWN_HAZE = 0.3
 
 const lit = (c: RGB, light: RGB): RGB => [
   Math.round((c[0] * light[0]) / 255),
@@ -105,6 +205,9 @@ function makeSky({ top, horizon, sun, sunHeight, light, clouds }: Time): Sky {
       { blocks: [sunAt(sunHeight)], color: pack(...sun) },
       { blocks: clouds ? CLOUDS : [], color: pack(...lit(CLOUD, light)) },
       { blocks: FAR_MESAS, color: blend(mesa, horizon, HAZE) },
+      // 마을은 먼 메사 앞, 가까운 메사 뒤에 있어 그 사이 층에 둠
+      { blocks: TOWN.lit, color: blend(lit(WOOD, light), horizon, TOWN_HAZE) },
+      { blocks: TOWN.shade, color: blend(lit(WOOD_SHADE, light), horizon, TOWN_HAZE) },
       { blocks: NEAR_LIT, color: pack(...mesa) },
       { blocks: NEAR_SHADE, color: pack(...lit(MESA_SHADE, light)) },
     ],
