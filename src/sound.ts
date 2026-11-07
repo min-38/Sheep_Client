@@ -17,6 +17,25 @@ export function stampOf(audio: AudioContext): AudioStamp {
   return { contextTime: audio.currentTime, performanceTime: performance.now() }
 }
 
+// 모든 효과음이 지나는 크기 조절 하나. 설정의 효과음 크기를 여기에만 걸어 소리마다 고치지 않음.
+// 배경음악은 여기를 지나지 않아 음악을 꺼도 총소리는 들림 (컨셉 기획서 화면 설정)
+let effectsVolume = 1
+let effectsBus: GainNode | null = null
+
+function effectsOut(audio: AudioContext): AudioNode {
+  if (effectsBus?.context !== audio) {
+    effectsBus = new GainNode(audio, { gain: effectsVolume })
+    effectsBus.connect(audio.destination)
+  }
+  return effectsBus
+}
+
+// 효과음 크기(0~1). AudioContext를 만들기 전에 불러도 만들 때 이 값을 씀
+export function setEffectsVolume(volume: number) {
+  effectsVolume = volume
+  if (effectsBus) effectsBus.gain.value = volume
+}
+
 // 초. "시작!" 신호음 길이
 const SIGNAL_SECONDS = 0.3
 
@@ -27,7 +46,7 @@ export function playSignal(audio: AudioContext, when: number) {
   const volume = new GainNode(audio)
   volume.gain.setValueAtTime(0.3, when)
   volume.gain.exponentialRampToValueAtTime(0.001, when + SIGNAL_SECONDS)
-  tone.connect(volume).connect(audio.destination)
+  tone.connect(volume).connect(effectsOut(audio))
   tone.start(when)
   tone.stop(when + SIGNAL_SECONDS)
 }
@@ -92,5 +111,5 @@ function place(audio: AudioContext, out: AudioNode, from?: { right: number; fron
     const where = { positionX: from.right, positionY: 0, positionZ: -from.front }
     out = out.connect(new PannerNode(audio, { panningModel: 'HRTF', refDistance: 4, ...where }))
   }
-  out.connect(audio.destination)
+  out.connect(effectsOut(audio))
 }

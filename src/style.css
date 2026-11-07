@@ -365,7 +365,8 @@ body {
 
 /* 줄마다 폭을 같게 나눔 */
 #lobby .row,
-#create-panel .row {
+#create-panel .row,
+#settings-panel .row {
   display: flex;
   align-items: center;
   gap: 1cqw;
@@ -375,8 +376,9 @@ body {
   flex: 1;
 }
 
-/* 방 만들기 창. 첫 화면 위를 어둡게 덮고 가운데에 낡은 종이 한 장 */
-#create-panel {
+/* 방 만들기 창과 설정 창. 화면 위를 어둡게 덮고 가운데에 낡은 종이 한 장 */
+#create-panel,
+#settings-panel {
   position: absolute;
   inset: 0;
   display: grid;
@@ -385,11 +387,13 @@ body {
   font: 2cqw / 1.2 sans-serif;
 }
 
-#create-panel[hidden] {
+#create-panel[hidden],
+#settings-panel[hidden] {
   display: none;
 }
 
-#create-panel .sheet {
+#create-panel .sheet,
+#settings-panel .sheet {
   display: grid;
   gap: 1.2cqw;
   width: 34cqw;
@@ -401,7 +405,8 @@ body {
   color: #3d2412;
 }
 
-#create-title {
+#create-title,
+#settings-title {
   margin: 0;
   font: 900 3cqw / 1 sans-serif;
   text-align: center;
@@ -409,9 +414,35 @@ body {
 
 #create-panel button,
 #create-panel input,
-#create-panel select {
+#create-panel select,
+#settings-panel button,
+.settings-open {
   font: inherit;
   padding: 0.6cqw 1.2cqw;
+}
+
+/* 이름 칸은 같은 폭으로 두고 막대가 남는 폭을 다 씀. 값은 막대 오른쪽에 같은 폭으로 */
+#settings-panel .row > span {
+  flex: 0 0 9cqw;
+}
+
+#settings-panel input[type='range'] {
+  flex: 1;
+  accent-color: #8a5a32;
+}
+
+#settings-panel output {
+  flex: 0 0 5cqw;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+#settings-panel input[type='radio'] {
+  accent-color: #8a5a32;
+}
+
+#settings-panel label:not(.row) {
+  cursor: pointer;
 }
 
 #room-name {

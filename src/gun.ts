@@ -51,8 +51,12 @@ function unit([x, y, z]: Vec3): Vec3 {
 const dot = (a: Vec3, b: Vec3) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2]
 const mean = (vs: Vec3[]): Vec3 => [0, 1, 2].map((k) => vs.reduce((s, v) => s + v[k], 0) / vs.length) as Vec3
 
-// 모델 → 눈 좌표. 모델 원점을 중심으로 돌린 뒤 GUN_POS로 옮김. 꼭짓점 평균은 부품이 움직이면 같이 움직여 기준으로 쓰지 않음
-export function transform(mesh: Mesh, pose: GunPose): Vec3[] {
+// 총을 든 손. 1은 오른손, -1은 왼손이고 모델과 GUN_POS를 좌우로 뒤집음 (컨셉 기획서 화면 1인칭 총)
+export type Side = 1 | -1
+
+// 모델 → 눈 좌표. 모델 원점을 중심으로 돌린 뒤 GUN_POS로 옮김. 꼭짓점 평균은 부품이 움직이면 같이 움직여 기준으로 쓰지 않음.
+// 왼손은 돌리기 전에 뒤집어, 흔들림은 오른손처럼 조준점과 같은 쪽으로 돎
+export function transform(mesh: Mesh, pose: GunPose, side: Side = 1): Vec3[] {
   const up = pose.pitch + pose.kick * KICK_PITCH
   const cosUp = Math.cos(up)
   const sinUp = Math.sin(up)
@@ -60,14 +64,14 @@ export function transform(mesh: Mesh, pose: GunPose): Vec3[] {
   const sinYaw = Math.sin(pose.yaw)
   return mesh.vertices.map(([mx, my, mz]) => {
     // 모델은 총열이 +x, 위가 +y인 오른손 좌표. 눈 좌표는 왼손이라 x와 z를 맞바꾸면 모양이 거울에 비친 듯 뒤집히지 않음
-    const x = mz * SCALE
+    const x = side * mz * SCALE
     const y = my * SCALE
     const z = mx * SCALE
     // 총구를 위로 든 뒤(x축) 오른쪽으로 돌림(y축)
     const y1 = y * cosUp + z * sinUp
     const z1 = z * cosUp - y * sinUp
     return [
-      x * cosYaw + z1 * sinYaw + GUN_POS[0],
+      x * cosYaw + z1 * sinYaw + side * GUN_POS[0],
       y1 + GUN_POS[1] - pose.lower * LOWER_BY,
       z1 * cosYaw - x * sinYaw + GUN_POS[2] - pose.kick * KICK_BACK,
     ]
@@ -146,8 +150,8 @@ export function shade(color: RGB, normal: Vec3): RGB {
 }
 
 // putImageData 뒤에 부름. 발사 불꽃을 옮길 총구의 화면 자리(내부 해상도 px)를 돌려줌
-export function drawGun(ctx: CanvasRenderingContext2D, mesh: Mesh, pose: GunPose, w: number, h: number, proj: number): { x: number; y: number } {
-  const verts = transform(mesh, pose)
+export function drawGun(ctx: CanvasRenderingContext2D, mesh: Mesh, pose: GunPose, w: number, h: number, proj: number, side: Side = 1): { x: number; y: number } {
+  const verts = transform(mesh, pose, side)
   const toScreen = ([x, y, z]: Vec3) => ({ x: w / 2 + (proj * x) / z, y: h / 2 - (proj * y) / z })
   const screen = verts.map(toScreen)
   ctx.lineWidth = 1
@@ -156,7 +160,8 @@ export function drawGun(ctx: CanvasRenderingContext2D, mesh: Mesh, pose: GunPose
     const f = mesh.faces[i]
     if (f.v.some((k) => verts[k][2] < NEAR)) continue
     // 눈을 등진 면은 앞면에 가려지므로 칠하지 않음. 칠할 면이 반으로 줄고 화가 알고리즘이 틀릴 일도 줄어듦
-    const normal = faceNormal(verts, f.v)
+    // 뒤집은 왼손 총은 감김도 뒤집혀 법선이 안쪽을 향하므로 되돌림
+    const normal = faceNormal(verts, f.v).map((n) => side * n) as Vec3
     if (dot(normal, verts[f.v[0]]) >= 0) continue
     const [r, g, b] = shade(f.color, normal)
     ctx.fillStyle = ctx.strokeStyle = `rgb(${r} ${g} ${b})`

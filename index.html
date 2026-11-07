@@ -44,6 +44,7 @@
       <div id="ready-bar" hidden>
         <button type="button" id="ready">준비</button>
         <output id="ready-count"></output>
+        <button type="button" class="settings-open">설정</button>
       </div>
       <!-- 첫 화면. 위에서부터 제목, 닉네임, 랜덤 입장, 방 만들기, 방 코드로 입장 (시스템 기획서 방 화면 M8 첫 화면) -->
       <form id="lobby">
@@ -67,6 +68,7 @@
             <button type="button" id="create" class="plank">방 만들기</button>
           </div>
         </fieldset>
+        <button type="button" class="plank settings-open">설정</button>
         <p id="status" role="status">서버에 접속하는 중</p>
       </form>
       <!-- 방 만들기 창. 방 이름, 인원 제한, 비공개 여부를 정해 생성하거나 취소함 (시스템 기획서 방 화면 방 만들기 창) -->
@@ -95,6 +97,33 @@
             <button id="create-ok" class="plank">생성</button>
             <button type="button" id="create-cancel" class="plank">취소</button>
           </div>
+        </form>
+      </div>
+      <!-- 설정 창. 첫 화면과 대기실에서 같은 판을 띄움. 바꾸면 바로 적용하고 브라우저에 기억함 (시스템 기획서 방 화면 설정) -->
+      <div id="settings-panel" role="dialog" aria-modal="true" aria-labelledby="settings-title" hidden>
+        <form id="settings-form" class="sheet">
+          <h2 id="settings-title">설정</h2>
+          <label class="row">
+            <span>감도</span>
+            <input type="range" id="sensitivity" min="25" max="400" step="5" />
+            <output id="sensitivity-value"></output>
+          </label>
+          <label class="row">
+            <span>배경음악</span>
+            <input type="range" id="music" min="0" max="100" step="5" />
+            <output id="music-value"></output>
+          </label>
+          <label class="row">
+            <span>효과음</span>
+            <input type="range" id="effects" min="0" max="100" step="5" />
+            <output id="effects-value"></output>
+          </label>
+          <div class="row" role="radiogroup" aria-label="총을 든 손">
+            <span>총을 든 손</span>
+            <label><input type="radio" name="hand" value="right" /> 오른손</label>
+            <label><input type="radio" name="hand" value="left" /> 왼손</label>
+          </div>
+          <button id="settings-close" class="plank">닫기</button>
         </form>
       </div>
     </div>

@@ -16,7 +16,8 @@ import { makeCamera, renderFrame } from './render.ts'
 import { loaded, pull, ROUNDS } from './revolver.ts'
 import type { Rig } from './rig.ts'
 import { banner, dueling, formatTime, joins, locked, resultText, stepIndex, timeLeft, walking, type Schedule } from './round.ts'
-import { heardFrom, loadEffects, play, playSignal, playStep, stampOf, toAudioTime } from './sound.ts'
+import { readSettings, radiansPerPixel, type Hand, type Settings } from './settings.ts'
+import { heardFrom, loadEffects, play, playSignal, playStep, setEffectsVolume, stampOf, toAudioTime } from './sound.ts'
 import type { Sprite, Thing } from './sprite.ts'
 import { afterTurn, aimAt, crosshairOffset, scaleAt, steady, sway } from './sway.ts'
 import { tilt, turn } from './turn.ts'
@@ -27,8 +28,6 @@ const H = 270
 const FOV = 66
 // 투영면까지의 거리(px). renderFrame과 같은 값이라야 조준점이 총알이 갈 곳에 놓임
 const PROJ = W / (2 * Math.tan((FOV * Math.PI) / 360))
-// 라디안/px. ponytail: 임시 감도. 시스템 기획서 조작의 감도가 정해지면 그 값으로 바꿈
-const SENSITIVITY = 0.003
 // ms. 시스템 기획서 리볼버 발사 간격. 서버와 같은 값이어야 내가 센 탄 수가 서버와 어긋나지 않음
 const FIRE_INTERVAL = 250
 // ms. 발사 불꽃을 띄워 두는 시간. ponytail: 임시 값(시스템 기획서 HUD). 플레이해 보며 다시 정함
@@ -46,6 +45,14 @@ canvas.height = H
 const ctx = canvas.getContext('2d')!
 const image = ctx.createImageData(W, H)
 const pixels = new Uint32Array(image.data.buffer)
+
+// 브라우저에 기억한 설정. 사생활 보호 모드처럼 저장소를 막으면 던지므로 그때는 기본값으로 두고 기억하지 않음
+const SAVED_SETTINGS = 'settings'
+let settings: Settings = readSettings(null)
+try {
+  settings = readSettings(localStorage.getItem(SAVED_SETTINGS))
+} catch {}
+setEffectsVolume(settings.effects)
 
 // 서버가 보낸 결투장. 받기 전에는 그리지도 쏘지도 않음
 let grid: Grid | null = null
@@ -147,9 +154,10 @@ canvas.addEventListener('click', () => canvas.requestPointerLock())
 let unsteady = steady
 document.addEventListener('mousemove', (e) => {
   if (document.pointerLockElement !== canvas || inputLocked(e.timeStamp)) return
-  angle = turn(angle, e.movementX, SENSITIVITY)
-  pitch = tilt(pitch, e.movementY, SENSITIVITY)
-  unsteady = afterTurn(unsteady, Math.hypot(e.movementX, e.movementY) * SENSITIVITY, e.timeStamp)
+  const sensitivity = radiansPerPixel(settings)
+  angle = turn(angle, e.movementX, sensitivity)
+  pitch = tilt(pitch, e.movementY, sensitivity)
+  unsteady = afterTurn(unsteady, Math.hypot(e.movementX, e.movementY) * sensitivity, e.timeStamp)
 })
 
 const ammo = document.querySelector<SVGSVGElement>('#ammo')!
@@ -250,7 +258,7 @@ function frame(now: number) {
     const hold = clock ? lift(schedule, toServerTime(now, clock.offset), reloading) : { lower: 1, kick: 0 }
     const plays = clock ? gunClips(schedule, toServerTime(now, clock.offset), reloading, toServerTime(gun.lastShot, clock.offset)) : []
     const kick = Math.max(hold.kick, 1 - (now - gun.lastShot) / RECOIL_MS)
-    const muzzle = drawGun(ctx, revolverMesh(revolver, plays, gun.rounds), { ...s, kick, lower: hold.lower }, W, H, PROJ)
+    const muzzle = drawGun(ctx, revolverMesh(revolver, plays, gun.rounds), { ...s, kick, lower: hold.lower }, W, H, PROJ, settings.hand === 'left' ? -1 : 1)
     flash.style.transform = `translate(${(muzzle.x * 100) / W}cqw, ${(muzzle.y * 100) / W}cqw)`
     // 마우스 이벤트가 아니라 여기서 보내야 마지막으로 멈춘 각도도 빠지지 않고 감
     if (angle !== sentAngle && now - sentAt >= TURN_INTERVAL && ws.readyState === WebSocket.OPEN) {
@@ -656,4 +664,50 @@ lobby.addEventListener('submit', (e) => {
     return
   }
   enterWith((nickname) => ({ type: 'joinRoom', code: codeInput.value, nickname }))
+})
+
+// 설정 창 (시스템 기획서 방 화면 설정). 첫 화면과 대기실의 설정 버튼이 같은 창을 엶. 값을 움직이는 대로 적용하고 기억함.
+// ponytail: 배경음악이 아직 없어 그 크기는 기억만 함. 배경음악을 넣을 때 이 값으로 음악 GainNode를 맞춤
+const settingsPanel = document.querySelector<HTMLDivElement>('#settings-panel')!
+const settingsForm = document.querySelector<HTMLFormElement>('#settings-form')!
+const sliders = {
+  sensitivity: document.querySelector<HTMLInputElement>('#sensitivity')!,
+  music: document.querySelector<HTMLInputElement>('#music')!,
+  effects: document.querySelector<HTMLInputElement>('#effects')!,
+}
+
+// 막대는 % 정수, 설정은 배율이라 100으로 나눔. 값 글자는 막대 옆에 %로
+function showSettings() {
+  for (const key of ['sensitivity', 'music', 'effects'] as const) {
+    sliders[key].value = String(Math.round(settings[key] * 100))
+    document.querySelector<HTMLOutputElement>(`#${key}-value`)!.value = `${sliders[key].value}%`
+  }
+  settingsForm.querySelector<HTMLInputElement>(`input[name="hand"][value="${settings.hand}"]`)!.checked = true
+}
+
+settingsForm.addEventListener('input', () => {
+  // 막대의 min·max가 설정 범위와 같아 읽은 값은 늘 범위 안임
+  const hand = settingsForm.querySelector<HTMLInputElement>('input[name="hand"]:checked')!.value as Hand
+  const percent = (key: keyof typeof sliders) => Number(sliders[key].value) / 100
+  settings = { sensitivity: percent('sensitivity'), music: percent('music'), effects: percent('effects'), hand }
+  setEffectsVolume(settings.effects)
+  try {
+    localStorage.setItem(SAVED_SETTINGS, JSON.stringify(settings))
+  } catch {}
+  showSettings()
+})
+
+for (const button of document.querySelectorAll('.settings-open')) {
+  button.addEventListener('click', () => {
+    showSettings()
+    settingsPanel.hidden = false
+    document.querySelector<HTMLButtonElement>('#settings-close')!.focus()
+  })
+}
+settingsForm.addEventListener('submit', (e) => {
+  e.preventDefault()
+  settingsPanel.hidden = true
+})
+settingsPanel.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') settingsPanel.hidden = true
 })
