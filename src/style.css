@@ -49,13 +49,13 @@ body {
   filter: drop-shadow(0 0 1px #000);
 }
 
-/* 내 발사 불꽃. 리볼버 그림이 생기면 총구 자리로 옮김 (기술 설계서 렌더링 무기) */
+/* 내 발사 불꽃. main.ts가 리볼버를 그리며 구한 총구 자리로 transform을 써서 옮김 (기술 설계서 렌더링 무기) */
 #flash {
-  left: 50%;
-  bottom: 0;
-  width: 14cqw;
+  left: 0;
+  top: 0;
+  width: 6cqw;
   aspect-ratio: 1;
-  translate: -50% 35%;
+  translate: -50% -50%;
   background: radial-gradient(closest-side, #fffbe0, #ffd56a 45%, #ff9a2a00);
 }
 
