@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest'
 import { toServerTime } from './clock.ts'
-import { banner, dueling, GO_SHOWN, locked, resultText, type Schedule } from './round.ts'
+import { banner, DUEL_LIMIT, dueling, formatTime, GO_SHOWN, locked, resultText, timeLeft, type Schedule } from './round.ts'
 
 // 서버가 알리는 순서: 카운트다운 시각, 카운트다운이 시작할 때 걷기 시각, 걷기가 시작할 때 결투 시각 (기술 설계서 메시지 phase)
 const full: Schedule = { countdown: 10000, walk: 13000, duel: 16000 }
@@ -98,5 +98,32 @@ describe('resultText', () => {
     expect(resultText({ outcome: 'rematch', playerIds: ['p1', 'p2'], rounds: 2 }, 'p1')).toBe('재대결 2명')
     // 재대결에 끼지 못한 사람도 같은 글자를 봄
     expect(resultText({ outcome: 'rematch', playerIds: ['p1', 'p2', 'p3'], rounds: 3 }, 'p4')).toBe('재대결 3명')
+  })
+})
+
+describe('timeLeft', () => {
+  test('결투 시각 전에는 없음', () => {
+    expect(timeLeft({}, 500)).toBeNull()
+    expect(timeLeft({ duel: 1000 }, 500)).toBeNull()
+  })
+
+  test('결투 시각부터 제한 시간을 셈', () => {
+    expect(timeLeft({ duel: 1000 }, 1000)).toBe(DUEL_LIMIT)
+    expect(timeLeft({ duel: 1000 }, 4000)).toBe(DUEL_LIMIT - 3000)
+  })
+
+  test('제한 시각이 지나면 0', () => {
+    expect(timeLeft({ duel: 1000 }, 1000 + DUEL_LIMIT)).toBe(0)
+    expect(timeLeft({ duel: 1000 }, 12000)).toBe(0)
+  })
+})
+
+describe('formatTime', () => {
+  test('초를 올림해 분:초로 씀', () => {
+    expect(formatTime(7000)).toBe('0:07')
+    expect(formatTime(6001)).toBe('0:07')
+    expect(formatTime(10000)).toBe('0:10')
+    expect(formatTime(0)).toBe('0:00')
+    expect(formatTime(61000)).toBe('1:01')
   })
 })

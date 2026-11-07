@@ -27,7 +27,18 @@
         </svg>
         <output id="hit-stamp"></output>
       </figure>
-      <output id="ammo" aria-label="남은 총알"></output>
+      <!-- 리볼버 실린더 6칸. 장전된 칸만 금색 (시스템 기획서 HUD 탄 수). 첫 칸이 맨 위이고 시계 방향 -->
+      <svg id="ammo" viewBox="0 0 100 100" role="img" aria-label="남은 총알">
+        <circle class="cylinder" cx="50" cy="50" r="46" />
+        <circle class="chamber" cx="50" cy="22" r="10" />
+        <circle class="chamber" cx="74.2" cy="36" r="10" />
+        <circle class="chamber" cx="74.2" cy="64" r="10" />
+        <circle class="chamber" cx="50" cy="78" r="10" />
+        <circle class="chamber" cx="25.8" cy="64" r="10" />
+        <circle class="chamber" cx="25.8" cy="36" r="10" />
+        <circle class="pin" cx="50" cy="50" r="6" />
+      </svg>
+      <output id="timer" aria-label="남은 시간" hidden></output>
       <output id="banner" aria-label="판 신호"></output>
       <output id="room" aria-label="방 코드"></output>
       <div id="ready-bar" hidden>

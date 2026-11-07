@@ -1,47 +1,111 @@
 import { pack } from './render.ts'
 import type { Sprite } from './sprite.ts'
 
-const W = 32
+// 그림 크기(px). 든 총이 몸 밖으로 나와도 그리게 몸 폭의 두 배로 잡고 몸은 가운데에 둠.
+// 그리는 크기는 그림 비율로 정해지므로 몸은 폭 32일 때와 같은 크기로 보임
+const W = 64
 const H = 64
+const CENTER = W / 2
+// 몸 반지름(px). 머리는 그 절반
+const R = 16
 const HEAD = 18
+const STEP = Math.PI / 4
 // 앞은 밝은 짚, 뒤는 어두운 헌 옷. 돌아선 쪽이 한눈에 보이게 크게 다르게 둠
 const FRONT = [214, 182, 104] as const
 const BACK = [104, 66, 40] as const
+const ARM = pack(150, 104, 58)
+const GUN = pack(38, 36, 34)
 const FLASH = pack(255, 232, 128)
-// 불꽃 중심 높이(가슴)와 반지름(px)
-const CHEST = 30
-const FLASH_R = 5
+const FLASH_R = 7
+// 어깨, 겨눈 손, 관자놀이 높이(px)와 팔·총열 길이(px)
+const SHOULDER = 24
+const AIM_Y = 27
+const TEMPLE_Y = 9
+const ARM_LEN = 24
+const BARREL = 6
+
+// ms. 시간 초과로 쓰러진 사람이 총을 머리에 대고 있는 시간과 그 뒤 불꽃 시간. 그다음엔 쓰러진 그림.
+// ponytail: 임시 값(시스템 기획서 판 흐름 시간). 플레이해 보며 정함
+export const SUICIDE_AIM = 600
+export const SUICIDE_FLASH = 100
+
+// 시간 초과로 쓰러진 뒤 지난 시간(ms)으로 고른 자살 단계. 0은 총을 댐, 1은 불꽃, null은 다 끝나 쓰러진 그림
+export const suicideStage = (elapsed: number): 0 | 1 | null => (elapsed < SUICIDE_AIM ? 0 : elapsed < SUICIDE_AIM + SUICIDE_FLASH ? 1 : null)
 
 // 8방향 허수아비 임시 도형. 몸과 머리는 원기둥이고, 겉면이 바라보는 쪽을 향하면 앞 색으로 칠함.
 // k번째 장은 나를 보던 허수아비가 시계 방향으로 k·45° 돈 모습 (frameIndex와 같은 순서)
-// flash면 쏘는 순간의 그림. 바라보는 쪽 가슴 앞에 불꽃을 띄움
 // ponytail: 임시 그림. 기술 설계서 에셋대로 도형 모델을 렌더한 스프라이트 시트가 생기면 바꿈
-export function makeScarecrowFrames(flash = false): Sprite[] {
+export const makeScarecrowFrames = (): Sprite[] => Array.from({ length: 8 }, (_, k) => frame(k * STEP, null, true))
+
+// "시작!" 뒤 리볼버를 바라보는 쪽으로 겨눈 모습 (컨셉 기획서 규칙 조준은 따로 누르지 않음).
+// flash면 쏘는 순간의 그림. 총구 앞에 불꽃을 띄움
+export function makeAimingFrames(flash = false): Sprite[] {
   return Array.from({ length: 8 }, (_, k) => {
-    const turned = (k * Math.PI) / 4
-    const pixels = new Uint32Array(W * H)
-    // 바라보는 쪽 겉면의 가로 자리(아래 u와 같은 단위). 등을 보이면 몸에 가려 그리지 않음
-    const muzzle = flash && Math.cos(turned) > -0.5 ? -0.8 * Math.sin(turned) : null
-    for (let y = 0; y < H; y++) {
-      // 머리는 몸 폭의 절반
-      const radius = y < HEAD ? 0.5 : 1
-      for (let x = 0; x < W; x++) {
-        if (muzzle !== null && Math.hypot(x + 0.5 - ((muzzle + 1) * W) / 2, y + 0.5 - CHEST) < FLASH_R) {
-          pixels[y * W + x] = FLASH
-          continue
-        }
-        // 원기둥 가로 위치 -1(왼쪽 끝) ~ 1(오른쪽 끝)
-        const u = (((x + 0.5) / W) * 2 - 1) / radius
-        if (Math.abs(u) > 1) continue
-        // 이 겉면은 나를 향한 쪽에서 (내가 볼 때) 오른쪽으로 asin(u)만큼 기움. 바라보는 쪽과 90° 안이면 앞면
-        const [r, g, b] = Math.cos(Math.asin(u) + turned) > 0 ? FRONT : BACK
-        // 가장자리를 어둡게 해서 둥글게 보이게 함
-        const shade = 0.55 + 0.45 * Math.sqrt(1 - u * u)
-        pixels[y * W + x] = pack(Math.round(r * shade), Math.round(g * shade), Math.round(b * shade))
-      }
+    const turned = k * STEP
+    // 바라보는 쪽이 화면에서 가로로 놓이는 방향. 나를 보면 0이라 총구가 가슴 가운데에 보임
+    const fx = -Math.sin(turned)
+    const hand = CENTER + fx * ARM_LEN
+    const muzzle = hand + fx * BARREL
+    const held = (p: Uint32Array) => {
+      limb(p, CENTER, SHOULDER, hand, AIM_Y, 3, ARM)
+      limb(p, hand, AIM_Y, muzzle, AIM_Y, 2, GUN)
+      disc(p, hand, AIM_Y, 4, GUN)
+      if (flash) disc(p, muzzle, AIM_Y, FLASH_R, FLASH)
     }
-    return { w: W, h: H, pixels }
+    return frame(turned, held, Math.cos(turned) >= 0)
   })
+}
+
+// 시간 초과 자살 모습 두 단계 [총을 오른쪽 관자놀이에 댐, 머리 옆 불꽃], 각 8방향 (컨셉 기획서 규칙 제한 시간)
+export function makeSuicideFrames(): Sprite[][] {
+  const stage = (flash: boolean) =>
+    Array.from({ length: 8 }, (_, k) => {
+      const turned = k * STEP
+      // 오른손 쪽이 화면에서 가로로 놓이는 방향. 나를 보면 내 왼쪽
+      const rx = -Math.cos(turned)
+      const hand = CENTER + rx * (R / 2 + 3)
+      const held = (p: Uint32Array) => {
+        limb(p, CENTER + rx * (R - 4), SHOULDER, hand, TEMPLE_Y, 3, ARM)
+        disc(p, hand, TEMPLE_Y, 4, GUN)
+        if (flash) disc(p, CENTER + rx * (R / 2), TEMPLE_Y, FLASH_R, FLASH)
+      }
+      return frame(turned, held, Math.sin(turned) >= 0)
+    })
+  return [stage(false), stage(true)]
+}
+
+// 몸과 든 것을 칠한 한 장. 든 것이 몸 뒤면 먼저 칠해 몸이 덮게 함
+function frame(turned: number, held: ((p: Uint32Array) => void) | null, front: boolean): Sprite {
+  const pixels = new Uint32Array(W * H)
+  if (held && !front) held(pixels)
+  for (let y = 0; y < H; y++) {
+    // 머리는 몸 폭의 절반
+    const radius = y < HEAD ? 0.5 : 1
+    for (let x = CENTER - R; x < CENTER + R; x++) {
+      // 원기둥 가로 위치 -1(왼쪽 끝) ~ 1(오른쪽 끝)
+      const u = ((x + 0.5 - CENTER) / R) / radius
+      if (Math.abs(u) > 1) continue
+      // 이 겉면은 나를 향한 쪽에서 (내가 볼 때) 오른쪽으로 asin(u)만큼 기움. 바라보는 쪽과 90° 안이면 앞면
+      const [r, g, b] = Math.cos(Math.asin(u) + turned) > 0 ? FRONT : BACK
+      // 가장자리를 어둡게 해서 둥글게 보이게 함
+      const shade = 0.55 + 0.45 * Math.sqrt(1 - u * u)
+      pixels[y * W + x] = pack(Math.round(r * shade), Math.round(g * shade), Math.round(b * shade))
+    }
+  }
+  if (held && front) held(pixels)
+  return { w: W, h: H, pixels }
+}
+
+function disc(pixels: Uint32Array, cx: number, cy: number, r: number, color: number) {
+  for (let y = Math.max(0, Math.floor(cy - r)); y < Math.min(H, Math.ceil(cy + r)); y++)
+    for (let x = Math.max(0, Math.floor(cx - r)); x < Math.min(W, Math.ceil(cx + r)); x++)
+      if (Math.hypot(x + 0.5 - cx, y + 0.5 - cy) < r) pixels[y * W + x] = color
+}
+
+// 굵기 r인 선. 원을 촘촘히 이어 칠함
+function limb(pixels: Uint32Array, x0: number, y0: number, x1: number, y1: number, r: number, color: number) {
+  const n = Math.ceil(Math.hypot(x1 - x0, y1 - y0)) + 1
+  for (let i = 0; i <= n; i++) disc(pixels, x0 + ((x1 - x0) * i) / n, y0 + ((y1 - y0) * i) / n, r, color)
 }
 
 // 쓰러진 허수아비 임시 도형. 바닥에 가로로 누운 몸과 왼쪽 끝 머리. 어느 쪽에서 봐도 같은 그림.

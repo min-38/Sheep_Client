@@ -31,6 +31,7 @@ body {
 #flash,
 #hit-card,
 #ammo,
+#timer,
 #banner,
 #room {
   position: absolute;
@@ -46,7 +47,7 @@ body {
 /* 내 사격 결과 카드. 총이 오른쪽 아래라 왼쪽 아래 탄 수 위에 낡은 종이로 띄움 (시스템 기획서 HUD) */
 #hit-card {
   left: 2cqw;
-  bottom: 6cqw;
+  bottom: 8cqw;
   width: 8cqw;
   margin: 0;
   padding: 0.8cqw 0.8cqw 3cqw;
@@ -114,7 +115,6 @@ body {
   background: radial-gradient(closest-side, #fffbe0, #ffd56a 45%, #ff9a2a00);
 }
 
-#ammo,
 #banner,
 #room {
   color: #f2dfa7;
@@ -123,9 +123,52 @@ body {
   text-shadow: 0 0 0.3cqw #000;
 }
 
+/* 리볼버 실린더. 사격 결과 카드 아래 왼쪽 아래 구석 (시스템 기획서 HUD) */
 #ammo {
   left: 2cqw;
   bottom: 1.5cqw;
+  width: 5.5cqw;
+  filter: drop-shadow(0 0 0.3cqw #000);
+}
+
+#ammo .cylinder {
+  fill: #6b6863;
+  stroke: #2b2925;
+  stroke-width: 3;
+}
+
+#ammo .chamber {
+  fill: #1b1a18;
+  stroke: #3b3934;
+  stroke-width: 2;
+}
+
+#ammo .chamber.loaded {
+  fill: #e2b23c;
+  stroke: #fff0b0;
+}
+
+#ammo .pin {
+  fill: #2b2925;
+}
+
+/* 남은 시간. 화면 위 가운데 나무 팻말에 못 두 개 (시스템 기획서 HUD) */
+#timer {
+  left: 50%;
+  top: 1cqw;
+  translate: -50% 0;
+  padding: 0.5cqw 2.2cqw;
+  border: 0.3cqw solid #3d2412;
+  border-radius: 0.4cqw;
+  background:
+    radial-gradient(circle, #2a1a0e 0.25cqw, #0000 0.3cqw) 0.8cqw 50% / 0.6cqw 0.6cqw no-repeat,
+    radial-gradient(circle, #2a1a0e 0.25cqw, #0000 0.3cqw) calc(100% - 0.8cqw) 50% / 0.6cqw 0.6cqw no-repeat,
+    repeating-linear-gradient(180deg, #8a5a32 0 0.9cqw, #7a4c28 0.9cqw 1.2cqw);
+  box-shadow: 0 0.3cqw 0.6cqw #0009;
+  color: #f7e6bd;
+  font: bold 2.6cqw / 1 Georgia, serif;
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 0.15cqw 0 #3d2412;
 }
 
 /* 카운트다운과 "시작!". 조준점을 가리지 않게 위로 올림 */

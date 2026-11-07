@@ -15,6 +15,20 @@ export function banner(s: Schedule, now: number): string {
   return String(3 - Math.floor(((now - s.countdown) * 3) / (s.walk - s.countdown)))
 }
 
+// ms. 결투 시각("시작!")부터 쏠 수 있는 시간. 서버 RoundFlow.DuelLimit과 같은 값이어야 남은 시간이 0일 때 서버가 시간 초과를 정함.
+// ponytail: 임시 값(시스템 기획서 판 흐름 시간). 플레이해 보며 정함
+export const DUEL_LIMIT = 10000
+
+// now(서버 시계)에 남은 시간(ms). 결투 시각 전에는 null, 제한 시각이 지나면 0
+export const timeLeft = (s: Schedule, now: number): number | null =>
+  s.duel === undefined || now < s.duel ? null : Math.max(0, s.duel + DUEL_LIMIT - now)
+
+// 남은 시간 글자 "0:07". 초를 올림해 0:00은 정말 끝났을 때만 보임
+export function formatTime(ms: number): string {
+  const s = Math.ceil(ms / 1000)
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
+}
+
 // 카운트다운부터 "시작!"까지 내 돌기와 발사를 막음. 그동안은 서버가 나를 돌리고 걷게 함 (기술 설계서 서버/클라 역할 분리)
 export const locked = (s: Schedule, now: number) =>
   s.countdown !== undefined && now >= s.countdown && !(s.duel !== undefined && now >= s.duel)

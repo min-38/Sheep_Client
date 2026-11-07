@@ -85,10 +85,16 @@ describe('parseServerMessage', () => {
     expect(parseServerMessage('{"type":"shot","playerId":"p2","angle":"3.14"}')).toBeNull()
   })
 
-  test('탈락은 쓰러진 사람을 받음', () => {
-    expect(parseServerMessage('{"type":"eliminated","playerId":"p2"}')).toEqual({ type: 'eliminated', playerId: 'p2' })
-    expect(parseServerMessage('{"type":"eliminated"}')).toBeNull()
-    expect(parseServerMessage('{"type":"eliminated","playerId":2}')).toBeNull()
+  test('탈락은 쓰러진 사람과 사유를 받음', () => {
+    expect(parseServerMessage('{"type":"eliminated","playerId":"p2","reason":"shot"}')).toEqual({ type: 'eliminated', playerId: 'p2', reason: 'shot' })
+    expect(parseServerMessage('{"type":"eliminated","playerId":"p2","reason":"timeout"}')).toEqual({ type: 'eliminated', playerId: 'p2', reason: 'timeout' })
+    expect(parseServerMessage('{"type":"eliminated","reason":"shot"}')).toBeNull()
+    expect(parseServerMessage('{"type":"eliminated","playerId":2,"reason":"shot"}')).toBeNull()
+  })
+
+  test('사유가 없거나 표에 없는 탈락은 버림', () => {
+    expect(parseServerMessage('{"type":"eliminated","playerId":"p2"}')).toBeNull()
+    expect(parseServerMessage('{"type":"eliminated","playerId":"p2","reason":"fall"}')).toBeNull()
   })
 
   test('사격 결과는 맞은 부위, 높이, 오른쪽 거리, 쓰러졌는지를 받음', () => {
