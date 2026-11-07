@@ -11,6 +11,8 @@ export type ClientMessage =
   | { type: 'quickJoin'; nickname: string }
   // 공개 방 목록 요청. 방에 들어가기 전에도 보냄
   | { type: 'listRooms' }
+  // 대기실(술집)의 나가기. 답은 left
+  | { type: 'leaveRoom' }
   // angle은 라디안, 0 이상 2π 미만. 범위 밖이면 서버가 버림
   | { type: 'turn'; angle: number }
   // 값을 보냄. 두 번 보내도 결과가 같음
@@ -24,7 +26,7 @@ export type ClientMessage =
   | { type: 'stop'; at: number }
 
 // x·y는 칸 단위(map의 [y][x]와 같은 축), angle은 turn과 같음. pose는 동작 (서 있음, 걷기, 쓰러짐).
-// nickname은 포스터에 쓰는 이름, color는 목수건 색 번호 0~7 (시스템 기획서 사람 색의 순서)
+// nickname은 포스터에 쓰는 이름, color는 목수건 색 번호 0~7 (시스템 기획서 사람 색의 순서). wins는 이 방에서 이긴 횟수이고 × $100이 현상금
 export type PlayerState = {
   id: string
   x: number
@@ -34,6 +36,7 @@ export type PlayerState = {
   ready: boolean
   nickname: string
   color: number
+  wins: number
 }
 
 // 서버가 알리는 판 단계. lobby는 판이 끝나 준비 중으로 돌아가는 시각임
@@ -71,6 +74,8 @@ export type ServerMessage =
   | { type: 'wounded' }
   // listRooms의 답. 서버가 들어갈 수 있는 방부터 정렬해 보냄
   | { type: 'rooms'; rooms: RoomInfo[] }
+  // leaveRoom의 답. 첫 화면으로 돌아감
+  | { type: 'left' }
 
 // 쏜 순간 내 시각(ms, performance.now())을 서버 시계로 바꿔 보냄. 서버는 이 시각으로 발사 간격을 재고, M5부터 쏜 순서를 가림
 export const fireMessage = (angle: number, pitch: number, shotAt: number, offset: number): ClientMessage => ({ type: 'fire', angle, pitch, at: toServerTime(shotAt, offset) })
@@ -129,6 +134,8 @@ export function parseServerMessage(text: string): ServerMessage | null {
       return { type: 'wounded' }
     case 'rooms':
       return Array.isArray(m.rooms) && m.rooms.every(isRoom) ? { type: 'rooms', rooms: m.rooms } : null
+    case 'left':
+      return { type: 'left' }
     default:
       return null
   }
@@ -150,7 +157,9 @@ const isPlayer = (p: any): p is PlayerState =>
   (p.pose === 'stand' || p.pose === 'walk' || p.pose === 'down') &&
   typeof p.ready === 'boolean' &&
   typeof p.nickname === 'string' &&
-  isColor(p.color)
+  isColor(p.color) &&
+  Number.isInteger(p.wins) &&
+  p.wins >= 0
 
 // 레이캐스터는 칸이 다 숫자이고 모든 줄 길이가 같다고 봄
 function isGrid(cells: unknown, width: unknown, height: unknown): cells is Grid {

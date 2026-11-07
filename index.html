@@ -41,10 +41,25 @@
       <output id="timer" aria-label="남은 시간" hidden></output>
       <output id="banner" aria-label="판 신호"></output>
       <output id="room" aria-label="방 코드"></output>
-      <div id="ready-bar" hidden>
-        <button type="button" id="ready">준비</button>
-        <output id="ready-count"></output>
-        <button type="button" class="settings-open">설정</button>
+      <!-- 술집 대기실. 방에 들어가 판이 시작되기 전과 판이 끝난 뒤에 보임. 벽, 선반, 카운터, 술집 주인은 캔버스에 그리고
+           글자가 있는 것만 여기 얹음 (시스템 기획서 방 화면 M8 대기실 짜임) -->
+      <div id="saloon" hidden>
+        <!-- 왼쪽 벽 포스터 8자리. 목수건 색 번호가 자리 번호 -->
+        <ol id="posters" aria-label="방에 있는 사람"></ol>
+        <div id="chalkboard" aria-label="방">
+          <p id="board-name"></p>
+          <p id="board-code"></p>
+          <p id="board-private" hidden>비공개</p>
+        </div>
+        <!-- 카운터 앞면. 왼쪽부터 나가기, 준비, 설정 -->
+        <div id="counter">
+          <button type="button" id="leave" class="plank">나가기</button>
+          <div id="ready-box">
+            <button type="button" id="ready" class="plank">준비</button>
+            <output id="ready-count"></output>
+          </div>
+          <button type="button" class="plank settings-open">설정</button>
+        </div>
       </div>
       <!-- 첫 화면. 위에서부터 제목, 닉네임, 랜덤 입장, 방 만들기, 방 코드로 입장 (시스템 기획서 방 화면 M8 첫 화면) -->
       <form id="lobby">

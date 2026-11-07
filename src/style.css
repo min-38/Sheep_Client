@@ -1,3 +1,17 @@
+/* 포스터와 제목 글꼴 (시스템 기획서 방 화면 글꼴, CREDITS.md). Rye는 이름이 지켜진 글꼴이라 고치지 않은 원본을 넣고,
+   Black Han Sans는 woff2로만 바꿈. 받는 동안은 기본 글꼴로 먼저 보임 */
+@font-face {
+  font-family: 'Rye';
+  src: url('./assets/fonts/Rye-Regular.ttf') format('truetype');
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Black Han Sans';
+  src: url('./assets/fonts/black-han-sans.woff2') format('woff2');
+  font-display: swap;
+}
+
 html,
 body {
   margin: 0;
@@ -204,11 +218,11 @@ body {
   font: 2cqw / 1.2 sans-serif;
 }
 
-/* 블록 글자처럼 아래로 두께를 줌. ponytail: 임시 글꼴. 술집 작업(M8 C5)에서 Black Han Sans를 넣으면 바꿈 */
+/* 블록 글자처럼 아래로 두께를 줌 */
 #title {
   margin: 0 0 1.5cqw;
   color: #f7d27a;
-  font: 900 7cqw / 1 sans-serif;
+  font: 7cqw / 1 'Black Han Sans', sans-serif;
   letter-spacing: 0.3cqw;
   -webkit-text-stroke: 0.12cqw #6e3a14;
   /* 같은 색을 촘촘히 겹쳐 아래로 이어진 두께로 보이게 함. 띄엄띄엄 겹치면 판이 여러 장 쌓인 것처럼 보임 */
@@ -222,8 +236,8 @@ body {
     0 1.2cqw 1.2cqw #000b;
 }
 
-/* 첫 화면 동안은 게임 HUD를 숨김. 첫 화면 배경이 비쳐 보여 그대로 두면 실린더와 조준점이 겹침 */
-#game:has(#lobby:not([hidden])) :is(#ammo, #crosshair) {
+/* 첫 화면과 술집 동안은 게임 HUD를 숨김. 그대로 두면 실린더와 조준점이 겹침. 방 코드는 술집 칠판에 있음 */
+#game:has(#lobby:not([hidden]), #saloon:not([hidden])) :is(#ammo, #crosshair, #room) {
   visibility: hidden;
 }
 
@@ -483,7 +497,7 @@ body {
 /* display: grid·flex가 hidden 속성의 display: none을 덮어씀 */
 #lobby[hidden],
 #lobby fieldset[hidden],
-#ready-bar[hidden] {
+#saloon[hidden] {
   display: none;
 }
 
@@ -500,7 +514,7 @@ body {
 
 #lobby button,
 #lobby input,
-#ready {
+#counter button {
   font: inherit;
   padding: 0.6cqw 1.2cqw;
 }
@@ -515,16 +529,174 @@ body {
   text-shadow: 0 0 0.3cqw #000;
 }
 
-/* 방에 있는 동안 아래 가운데. 눌러야 해서 HUD와 달리 클릭을 받음 */
-#ready-bar {
+/* 술집 대기실. 화면을 다 덮어 빈 곳을 눌러도 캔버스의 포인터 잠금이 걸리지 않음.
+   자리는 saloon.ts가 캔버스(480×270)에 그린 px 그대로이고, 100cqw가 480px임 */
+#saloon {
   position: absolute;
+  inset: 0;
+  font: 2cqw / 1.2 sans-serif;
+}
+
+/* 왼쪽 벽의 포스터 8자리, 4장씩 2줄 */
+#posters {
+  position: absolute;
+  left: calc(14 * 100cqw / 480);
+  top: calc(16 * 100cqw / 480);
+  display: grid;
+  grid-template-columns: repeat(4, calc(54 * 100cqw / 480));
+  grid-auto-rows: calc(72 * 100cqw / 480);
+  gap: calc(10 * 100cqw / 480);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* 낡은 종이에 위 가운데 못 하나. 손으로 붙인 듯 조금씩 기욺 */
+.poster {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  align-content: start;
+  gap: 0.3cqw;
+  padding: 1.1cqw 0.5cqw 0;
+  background: radial-gradient(ellipse closest-side, #f1e0b3 70%, #d4b479 140%);
+  box-shadow: 0 0.3cqw 0.6cqw #0008;
+  color: #4a2e18;
+  rotate: var(--tilt, 0deg);
+}
+
+.poster::before {
+  content: '';
+  position: absolute;
+  top: 0.3cqw;
   left: 50%;
-  bottom: 1.5cqw;
+  width: 0.7cqw;
+  aspect-ratio: 1;
   translate: -50% 0;
+  border-radius: 50%;
+  background: #2a1a0e;
+}
+
+.poster:nth-child(1) { --tilt: -2deg; }
+.poster:nth-child(2) { --tilt: 1.5deg; }
+.poster:nth-child(3) { --tilt: -1deg; }
+.poster:nth-child(4) { --tilt: 2deg; }
+.poster:nth-child(5) { --tilt: 1deg; }
+.poster:nth-child(6) { --tilt: -1.5deg; }
+.poster:nth-child(7) { --tilt: 2deg; }
+.poster:nth-child(8) { --tilt: -2deg; }
+
+/* 빈자리는 점선 테두리와 못만 */
+.poster.empty {
+  background: none;
+  box-shadow: none;
+  outline: 0.2cqw dashed #f1e0b366;
+  outline-offset: -0.2cqw;
+}
+
+.poster .wanted {
+  font: 2.1cqw / 1 'Rye', serif;
+  letter-spacing: 0.1cqw;
+}
+
+.poster canvas {
+  width: 7cqw;
+  aspect-ratio: 1;
+  image-rendering: pixelated;
+}
+
+.poster .nick {
+  max-width: 100%;
+  overflow: hidden;
+  font: 1.7cqw / 1.1 'Black Han Sans', sans-serif;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.poster .bounty {
+  font: 1.5cqw / 1 'Rye', serif;
+}
+
+/* 내 포스터의 금색 보안관 별 */
+.poster .star {
+  position: absolute;
+  top: -0.9cqw;
+  right: -0.9cqw;
+  width: 3cqw;
+  aspect-ratio: 1;
+  background: linear-gradient(#ffe48a, #c8961e);
+  clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%);
+  filter: drop-shadow(0 0.1cqw 0.1cqw #0009);
+}
+
+/* 준비 도장. 목수건 색을 가리지 않게 얼굴 쪽에 비스듬히 */
+.poster .stamp {
+  position: absolute;
+  top: 4.4cqw;
+  left: 50%;
+  translate: -50% 0;
+  rotate: -14deg;
+  padding: 0.2cqw 0.6cqw;
+  border: 0.3cqw solid #c0262d;
+  border-radius: 0.3cqw;
+  color: #c0262d;
+  font: 2cqw / 1 'Black Han Sans', sans-serif;
+  opacity: 0.85;
+}
+
+/* 칠판 글씨. 분필처럼 흐린 흰색 */
+#chalkboard {
+  position: absolute;
+  left: calc(368 * 100cqw / 480);
+  top: calc(18 * 100cqw / 480);
+  width: calc(94 * 100cqw / 480);
+  height: calc(54 * 100cqw / 480);
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 0.4cqw;
+  color: #e8ecdfdd;
+  font-family: 'Black Han Sans', sans-serif;
+  text-shadow: 0 0 0.15cqw #e8ecdf88;
+}
+
+#chalkboard p {
+  max-width: calc(94 * 100cqw / 480);
+  margin: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+#board-name {
+  font-size: 1.8cqw;
+}
+
+#board-code {
+  font-size: 2.8cqw;
+  letter-spacing: 0.4cqw;
+}
+
+#board-private {
+  font-size: 1.3cqw;
+}
+
+/* 카운터 앞면의 버튼. 왼쪽 나가기, 가운데 준비, 오른쪽 설정 */
+#counter {
+  position: absolute;
+  left: calc(40 * 100cqw / 480);
+  right: calc(40 * 100cqw / 480);
+  top: calc(204 * 100cqw / 480);
+  height: calc(44 * 100cqw / 480);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+#ready-box {
   display: flex;
   align-items: center;
   gap: 1cqw;
   color: #f2dfa7;
-  font: 2cqw / 1.2 sans-serif;
   text-shadow: 0 0 0.3cqw #000;
 }
