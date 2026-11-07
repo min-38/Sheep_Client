@@ -16,7 +16,7 @@ import { makeCamera, renderFrame } from './render.ts'
 import { loaded, pull, ROUNDS } from './revolver.ts'
 import type { Rig } from './rig.ts'
 import { banner, dueling, formatTime, joins, locked, resultText, stepIndex, timeLeft, walking, type Schedule } from './round.ts'
-import { drawPortrait, drawSaloon, POSTER_SLOTS, posterSlots, startBartender, stepBartender } from './saloon.ts'
+import { bountyRise, drawPortrait, drawSaloon, POSTER_SLOTS, posterSlots, startBartender, stepBartender } from './saloon.ts'
 import { readSettings, radiansPerPixel, type Hand, type Settings } from './settings.ts'
 import { heardFrom, loadEffects, play, playSignal, playStep, setEffectsVolume, stampOf, toAudioTime } from './sound.ts'
 import type { Sprite, Thing } from './sprite.ts'
@@ -74,6 +74,8 @@ let sentAt = -Infinity
 const history = new Map<string, Sample[]>()
 // 사람마다 목수건 색 번호. state마다 새로 받음
 let colors = new Map<string, number>()
+// 마지막으로 받은 state의 사람들. 판 끝 포스터에 이긴 사람의 닉네임, 색, 이긴 횟수를 적는 데 씀
+let roster: readonly PlayerState[] = []
 // 1인칭 리볼버 모델. 부품이 뼈대로 움직임 (컨셉 기획서 아트와 사운드 1인칭 총)
 const revolver = revolverData as Rig
 // 이번 카운트다운에 내가 끼어 장전하는지. 카운트다운을 받을 때 장전 소리와 같은 조건으로 정함
@@ -98,6 +100,7 @@ function applyState(players: readonly PlayerState[]) {
   placed = true
   record(history, players, now)
   colors = new Map(players.map((p) => [p.id, p.color]))
+  roster = players
   showPosters(players)
   // 내 준비 여부도 서버가 정함. 누르면 이 값을 뒤집어 보냄
   ready = me.ready
@@ -293,10 +296,15 @@ function frame(now: number) {
     endResult(result)
     result = null
   }
-  // 내가 쓰러진 것과 판 결과도 INTERP_DELAY 뒤에 알림. 나를 맞힌 사람의 불꽃보다 먼저 뜨지 않게 함
+  // 내가 쓰러진 것과 판 결과도 INTERP_DELAY 뒤에 알림. 나를 맞힌 사람의 불꽃보다 먼저 뜨지 않게 함.
+  // 승리는 글자 대신 이긴 사람의 포스터를 띄움
+  const shown = result && now - INTERP_DELAY >= result.at ? result : null
+  if (shown?.outcome === 'win' && winView.hidden) showWinner(shown.playerIds[0])
   const text =
-    result && now - INTERP_DELAY >= result.at
-      ? resultText(result, myId)
+    shown
+      ? winView.hidden
+        ? resultText(shown, myId)
+        : ''
       : myId !== null && isDown(myId, now - INTERP_DELAY)
         ? '쓰러짐'
         : clock
@@ -354,6 +362,22 @@ const posterViews = Array.from({ length: POSTER_SLOTS }, (_, color) => {
   document.querySelector('#posters')!.append(li)
   return { li, wanted, face, nick, bounty, star, stamp }
 })
+// 판 끝 포스터 (시스템 기획서 방 화면 M8 판 끝). HUD의 승리·패배 글자 대신 띄우고 결과 시간이 끝나면(endResult) 닫음
+const winView = document.querySelector<HTMLDivElement>('#win')!
+const winFace = document.querySelector<HTMLCanvasElement>('#win-face')!.getContext('2d')!
+
+// 승리가 정해진 틱의 state에 이미 오른 이긴 횟수가 와서, 결과를 띄우는 INTERP_DELAY 뒤에는 roster에 있음.
+// 이긴 사람이 그사이 나갔으면 띄우지 않고 글자로 알림
+function showWinner(id: string) {
+  const p = roster.find((q) => q.id === id)
+  if (!p) return
+  winFace.clearRect(0, 0, 16, 16)
+  drawPortrait(winFace, p.color)
+  document.querySelector('#win-name')!.textContent = p.nickname
+  document.querySelector<HTMLOutputElement>('#win-bounty')!.value = bountyRise(p.wins)
+  winView.hidden = false
+}
+
 // 마지막으로 그린 포스터. state는 20Hz로 오지만 바뀔 때만 다시 넣어 화면 낭독기가 되풀이해 읽지 않게 함
 let shownPosters = ''
 function showPosters(players: readonly PlayerState[]) {
@@ -520,6 +544,7 @@ const inputLocked = (now: number) =>
 // 결과 시간이 끝나면 부름. 승리면 준비 중으로 돌아가 처음처럼, 재대결이면 재대결하는 사람만 일으키고 다시 장전함
 function endResult(r: RoundResult) {
   hitCard.hidden = true
+  winView.hidden = true
   if (r.outcome === 'win') {
     schedule = {}
     standing = null
@@ -558,6 +583,7 @@ ws.addEventListener('close', () => {
   lobby.hidden = false
   showStep()
   saloon.hidden = true
+  winView.hidden = true
   room.value = ''
   status.textContent = '서버와 연결되지 않음. 새로고침해 다시 접속'
 })

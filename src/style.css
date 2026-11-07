@@ -644,6 +644,54 @@ body {
   opacity: 0.85;
 }
 
+/* 판 끝 포스터. 화면을 어둡게 덮고 가운데에 술집 포스터를 크게. 클릭은 캔버스로 넘김 */
+#win {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 2cqw;
+  background: #000b;
+  pointer-events: none;
+}
+
+#win[hidden] {
+  display: none;
+}
+
+#win .poster {
+  width: 22cqw;
+  height: 30cqw;
+  box-sizing: border-box;
+  padding-top: 2.2cqw;
+  gap: 0.8cqw;
+}
+
+#win .wanted {
+  font-size: 4.2cqw;
+}
+
+#win canvas {
+  width: 14cqw;
+}
+
+#win .nick {
+  font-size: 3.4cqw;
+}
+
+#win .stamp {
+  top: 9cqw;
+  border-width: 0.5cqw;
+  font-size: 4.4cqw;
+}
+
+#win-bounty {
+  color: #f7d27a;
+  font: 3cqw / 1 'Rye', serif;
+  text-shadow: 0 0.2cqw 0 #3d2412, 0 0 0.6cqw #000;
+}
+
 /* 칠판 글씨. 분필처럼 흐린 흰색 */
 #chalkboard {
   position: absolute;

@@ -114,6 +114,17 @@
           </div>
         </form>
       </div>
+      <!-- 판 끝 포스터. 승리가 정해지면 모두의 화면을 어둡게 하고 이긴 사람의 포스터를 크게 띄움 (시스템 기획서 방 화면 M8 판 끝) -->
+      <div id="win" hidden>
+        <div class="poster">
+          <span class="wanted">WANTED</span>
+          <canvas id="win-face" width="16" height="16"></canvas>
+          <span class="nick" id="win-name"></span>
+          <!-- ponytail: 임시 문구. 게임 안 문구 스타일이 정해지면 바꿈 -->
+          <span class="stamp">승리</span>
+        </div>
+        <output id="win-bounty"></output>
+      </div>
       <!-- 설정 창. 첫 화면과 대기실에서 같은 판을 띄움. 바꾸면 바로 적용하고 브라우저에 기억함 (시스템 기획서 방 화면 설정) -->
       <div id="settings-panel" role="dialog" aria-modal="true" aria-labelledby="settings-title" hidden>
         <form id="settings-form" class="sheet">
