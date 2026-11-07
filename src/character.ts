@@ -1,6 +1,7 @@
 import { HEAD } from './hitcard.ts'
 import { pack } from './render.ts'
 import { PX_PER_CELL, type Sprite } from './sprite.ts'
+import { MAX_PITCH } from './turn.ts'
 
 // 블록 캐릭터 (컨셉 기획서 아트). 상자를 쌓아 사람을 만들고 8방향에서 본 모습을 코드로 그림.
 // 모델 좌표는 블록 단위이고 x는 그 사람의 오른쪽, y는 위, z는 앞. 원점은 두 발 사이 바닥
@@ -11,8 +12,16 @@ type RGB = readonly [number, number, number]
 type Box = { c: V; axes: readonly [V, V, V]; half: V; rgb: RGB }
 
 // 동작별 8방향 그림. k번째 장은 나를 보던 사람이 시계 방향으로 k·45° 돈 모습 (frameIndex와 같은 순서).
-// walk는 번갈아 보여 줄 두 장, suicide는 [총을 머리에 댐, 불꽃] 두 단계
-export type Poses = { stand: Sprite[]; walk: Sprite[][]; aim: Sprite[]; fire: Sprite[]; suicide: Sprite[][]; fallen: Sprite[] }
+// walk는 번갈아 보여 줄 두 장, aim과 fire는 위아래 시선 단계(AIM_PITCHES)마다 한 벌, suicide는 [총을 머리에 댐, 불꽃] 두 단계
+export type Poses = { stand: Sprite[]; walk: Sprite[][]; aim: Sprite[][]; fire: Sprite[][]; suicide: Sprite[][]; fallen: Sprite[] }
+
+// 겨눈 그림을 미리 그려 두는 위아래 시선(라디안, 위가 +). 다른 사람의 시선을 가장 가까운 단계로 그림.
+// ponytail: 5단계(0.25라디안 간격). 3D로 매 프레임 그리면(SHEEP-87) 단계 없이 이어짐
+export const AIM_PITCHES = [-1, -0.5, 0, 0.5, 1].map((k) => k * MAX_PITCH)
+
+// state의 pitch로 고른 단계 번호. 범위 밖은 끝 단계
+export const pitchLevel = (pitch: number) =>
+  Math.max(0, Math.min(AIM_PITCHES.length - 1, Math.round(((pitch / MAX_PITCH + 1) * (AIM_PITCHES.length - 1)) / 2)))
 
 // 목수건 색. 들어온 순서(state의 color)대로 (시스템 기획서 사람 색)
 export const SCARVES = [0xd83a3a, 0x4fb3e8, 0x34a853, 0xf2cf2a, 0xf08a1c, 0xee77b8, 0xf4f4f4, 0x2a2a2a]
@@ -47,6 +56,8 @@ const PX = (PX_PER_CELL * HEAD.top) / TALL
 const HAT_TOP = 36.5
 // 오른쪽 어깨 관절. 팔은 여기를 축으로 돎
 const SHOULDER: V = [6, 22, 0]
+// 목. 위아래를 볼 때 머리가 여기를 축으로 돎
+const NECK: V = [0, 24, 0]
 // 라디안. 걸을 때 팔다리를 앞뒤로 흔드는 각도. ponytail: 임시 값. 플레이해 보며 정함
 const SWING = 0.45
 // 라디안. 쏠 때 반동으로 팔이 들리는 각도. ponytail: 임시 값. 플레이해 보며 정함
@@ -78,6 +89,14 @@ function rod(p: V, d: V, from: number, to: number, size: number, color: RGB): Bo
 
 // 어깨나 엉덩이에서 아래로 뻗은 팔다리를 앞(+)뒤로 a만큼 흔든 방향
 const down = (a: number): V => [0, -Math.cos(a), Math.sin(a)]
+// 앞을 보다 위(+)아래로 a만큼 든 방향
+const ahead = (a: number): V => [0, Math.sin(a), Math.cos(a)]
+
+// 목을 축으로 상자를 위(+)아래로 a만큼 끄덕임. 앞(z)이 위(y)로 들림
+function nod(b: Box, a: number): Box {
+  const turn = (v: V): V => [v[0], v[1] * Math.cos(a) + v[2] * Math.sin(a), v[2] * Math.cos(a) - v[1] * Math.sin(a)]
+  return { ...b, c: add(NECK, turn(add(b.c, NECK, -1))), axes: [turn(b.axes[0]), turn(b.axes[1]), turn(b.axes[2])] }
+}
 
 // 셔츠 소매 끝에 손
 const arm = (p: V, d: V) => [rod(p, d, -2, 8, 4, SHIRT), rod(p, d, 8, 10, 4, SKIN)]
@@ -103,15 +122,19 @@ function temple(flash: boolean): Box[] {
   return flash ? [...boxes, box(3, 27.5, -2.5, 8, 32.5, 2.5, FLASH)] : boxes
 }
 
-// 사람 하나. 오른팔(right)은 동작마다 달라 따로 받음. swing은 걸을 때 흔드는 각도(+면 오른다리가 앞). holstered면 권총집에 총이 꽂혀 있음
-function figure(scarf: RGB, swing: number, right: Box[], holstered: boolean): Box[] {
-  const boxes = [
-    // 머리와 눈, 모자. 모자는 판정에 넣지 않아 키 위로 나옴
+// 사람 하나. 오른팔(right)은 동작마다 달라 따로 받음. swing은 걸을 때 흔드는 각도(+면 오른다리가 앞). holstered면 권총집에 총이 꽂혀 있음.
+// look은 위아래 시선(라디안, 위가 +)이고 머리만 그만큼 듦
+function figure(scarf: RGB, swing: number, right: Box[], holstered: boolean, look = 0): Box[] {
+  // 머리와 눈, 모자. 모자는 판정에 넣지 않아 키 위로 나옴
+  const head = [
     box(-4, 24, -4, 4, 32, 4, SKIN),
     box(-2.5, 27, 4, -1.5, 29, 4.01, EYE),
     box(1.5, 27, 4, 2.5, 29, 4.01, EYE),
     box(-6, 32, -6, 6, 33, 6, HAT),
     box(-3.5, 33, -3.5, 3.5, HAT_TOP, 3.5, HAT),
+  ]
+  const boxes = [
+    ...head.map((b) => nod(b, look)),
     // 몸통은 조끼이고, 앞이 열려 셔츠가 보임. 목수건은 목에 두르고 앞으로 늘어뜨림
     box(-4, 12, -2, 4, 24, 2, VEST),
     box(-1.25, 12, 2, 1.25, 21.5, 2.01, SHIRT),
@@ -142,12 +165,13 @@ const lay = (b: Box): Box => {
 function build(scarf: RGB): Poses {
   const stand = figure(scarf, 0, arm(SHOULDER, down(0)), true)
   const walk = (a: number) => frames(figure(scarf, a, arm(SHOULDER, down(-a)), true))
-  const aimed = (d: V, flash: boolean) => frames(figure(scarf, 0, holding(d, flash), false))
+  // 위아래 시선(pitch)만큼 머리를 들고 오른팔과 총을 그쪽으로 뻗음. 쏠 때는 반동으로 팔만 더 들림
+  const aimed = (pitch: number, flash: boolean) => frames(figure(scarf, 0, holding(ahead(flash ? pitch + RECOIL : pitch), flash), false, pitch))
   return {
     stand: frames(stand),
     walk: [walk(SWING), walk(-SWING)],
-    aim: aimed(Z, false),
-    fire: aimed([0, Math.sin(RECOIL), Math.cos(RECOIL)], true),
+    aim: AIM_PITCHES.map((p) => aimed(p, false)),
+    fire: AIM_PITCHES.map((p) => aimed(p, true)),
     suicide: [false, true].map((flash) => frames(figure(scarf, 0, temple(flash), false))),
     fallen: frames(stand.map(lay)),
   }
@@ -156,7 +180,7 @@ function build(scarf: RGB): Poses {
 const cache: Poses[] = []
 
 // 목수건 색 번호(state의 color, 0~7)의 모든 동작 그림. 색마다 처음 부를 때 한 번 만듦.
-// ponytail: 한 색에 약 0.1초 걸려 새 사람이 들어올 때 한 번 끊김. 거슬리면 픽셀마다 상자가 덮는 범위만 검사함
+// ponytail: 위아래 단계가 늘어 한 색에 약 0.2초 걸려 새 사람이 들어올 때 한 번 끊김. 거슬리면 픽셀마다 상자가 덮는 범위만 검사함
 export const characterFrames = (color: number): Poses => (cache[color] ??= build(rgb(SCARVES[color])))
 
 // 상자들을 8방향에서 수평으로 본 그림. 가장 낮은 곳이 그림 아래 끝(바닥), 세로축(원점)이 가로 가운데.

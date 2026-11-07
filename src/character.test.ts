@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { characterFrames, SCARVES, SUICIDE_AIM, SUICIDE_FLASH, suicideStage } from './character.ts'
+import { AIM_PITCHES, characterFrames, pitchLevel, SCARVES, SUICIDE_AIM, SUICIDE_FLASH, suicideStage } from './character.ts'
 import { BODY, HEAD } from './hitcard.ts'
 import { PX_PER_CELL, type Sprite } from './sprite.ts'
 
@@ -26,10 +26,12 @@ describe('characterFrames', () => {
   const red = characterFrames(0)
   const stand = red.stand[0]
   const mid = stand.w / 2
+  // 정면을 보고 겨눈 그림
+  const aim = red.aim[pitchLevel(0)]
 
-  test('모든 동작이 8방향이고 빈 그림이 없음', () => {
-    const sets = [red.stand, ...red.walk, red.aim, red.fire, ...red.suicide, red.fallen]
-    expect(sets).toHaveLength(8)
+  test('모든 동작이 8방향이고 빈 그림이 없음. 겨눈 그림과 발사는 위아래 단계마다 있음', () => {
+    const sets = [red.stand, ...red.walk, ...red.aim, ...red.fire, ...red.suicide, red.fallen]
+    expect(sets).toHaveLength(6 + 2 * AIM_PITCHES.length)
     for (const frames of sets) {
       expect(frames).toHaveLength(8)
       for (const f of frames) expect(f.pixels.some((c) => c !== 0)).toBe(true)
@@ -63,8 +65,34 @@ describe('characterFrames', () => {
     // 겨눈 팔과 총이 바라보는 쪽으로 나옴
     const left = (s: Sprite) => s.pixels.filter((c, i) => c !== 0 && i % s.w < s.w / 2).length
     const right = (s: Sprite) => s.pixels.filter((c, i) => c !== 0 && i % s.w >= s.w / 2).length
-    expect(left(red.aim[2])).toBeGreaterThan(right(red.aim[2]) * 1.2)
-    expect(right(red.aim[6])).toBeGreaterThan(left(red.aim[6]) * 1.2)
+    expect(left(aim[2])).toBeGreaterThan(right(aim[2]) * 1.2)
+    expect(right(aim[6])).toBeGreaterThan(left(aim[6]) * 1.2)
+  })
+
+  test('위를 보면 옆에서 본 총구가 높고, 아래를 보면 낮음', () => {
+    // 2번 장은 화면 왼쪽을 봐 겨눈 총이 가장 왼쪽에 나옴. 그 열에 칠한 칸들의 바닥에서 높이(px)
+    const muzzle = (s: Sprite) => {
+      for (let x = 0; x < s.w; x++) {
+        const ys = [...Array(s.h).keys()].filter((y) => at(s, x, y) !== 0)
+        if (ys.length > 0) return s.h - ys.reduce((a, b) => a + b) / ys.length
+      }
+      return NaN
+    }
+    const [down, , level, , up] = red.aim.map((frames) => muzzle(frames[2]))
+    expect(up).toBeGreaterThan(level + 5)
+    expect(down).toBeLessThan(level - 5)
+  })
+
+  test('위를 보면 머리가 들려 모자 꼭대기가 뒤로, 아래를 보면 앞으로 감', () => {
+    // 2번 장은 화면 왼쪽이 앞. 가장 위 줄에 칠한 칸들의 가로 가운데(px)
+    const top = (s: Sprite) => {
+      const y = s.pixels.findIndex((c) => c !== 0) / s.w | 0
+      const xs = [...Array(s.w).keys()].filter((x) => at(s, x, y) !== 0)
+      return xs.reduce((a, b) => a + b) / xs.length - s.w / 2
+    }
+    const [down, , level, , up] = red.aim.map((frames) => top(frames[2]))
+    expect(up).toBeGreaterThan(level + 3)
+    expect(down).toBeLessThan(level - 3)
   })
 
   test('목수건은 들어온 순서의 색 (시스템 기획서 사람 색)', () => {
@@ -96,7 +124,7 @@ describe('characterFrames', () => {
   })
 
   test('쏘면 팔이 들리고 불꽃이 보임', () => {
-    for (const k of [0, 2, 6]) expect(differs(red.fire[k], red.aim[k])).toBe(true)
+    for (const [i, frames] of red.fire.entries()) for (const k of [0, 2, 6]) expect(differs(frames[k], red.aim[i][k])).toBe(true)
   })
 
   test('자살 모습은 나를 볼 때 머리에 댄 총이 보이고, 다음 단계에 불꽃이 더해짐', () => {
@@ -108,6 +136,20 @@ describe('characterFrames', () => {
   test('쓰러지면 옆으로 누워 몸 폭만큼만 높음', () => {
     for (const f of red.fallen) near(f.h, BODY.radius * 2)
     expect(red.fallen[0].w).toBeGreaterThan(red.fallen[0].h * 2)
+  })
+})
+
+describe('pitchLevel', () => {
+  test('위아래 시선을 가장 가까운 단계로 고르고, 범위 밖은 끝 단계 (시스템 기획서 조작 위아래 보기)', () => {
+    expect(AIM_PITCHES).toEqual([-0.5, -0.25, 0, 0.25, 0.5])
+    expect(pitchLevel(0)).toBe(2)
+    expect(pitchLevel(0.5)).toBe(4)
+    expect(pitchLevel(-0.5)).toBe(0)
+    expect(pitchLevel(0.13)).toBe(3)
+    expect(pitchLevel(0.12)).toBe(2)
+    expect(pitchLevel(-0.2)).toBe(1)
+    expect(pitchLevel(9)).toBe(4)
+    expect(pitchLevel(-9)).toBe(0)
   })
 })
 
