@@ -18,9 +18,10 @@ import type { Rig } from './rig.ts'
 import { banner, dueling, formatTime, joins, locked, resultText, stepIndex, timeLeft, walking, type Schedule } from './round.ts'
 import { bountyRise, drawPortrait, drawSaloon, POSTER_SLOTS, posterSlots, startBartender, stepBartender } from './saloon.ts'
 import { readSettings, radiansPerPixel, type Hand, type Settings } from './settings.ts'
+import { nextTarget } from './spectate.ts'
 import { heardFrom, loadEffects, play, playSignal, playStep, setEffectsVolume, stampOf, toAudioTime } from './sound.ts'
 import type { Sprite, Thing } from './sprite.ts'
-import { afterTurn, aimAt, crosshairOffset, scaleAt, steady, sway } from './sway.ts'
+import { afterTurn, aimAt, crosshairOffset, scaleAt, steady, sway, type Unsteady } from './sway.ts'
 import { tilt, turn } from './turn.ts'
 
 // 내부 해상도. 이 크기로 그리고 CSS로 확대함 (기술 설계서 렌더링)
@@ -39,6 +40,9 @@ const TURN_INTERVAL = 50
 const INTERP_DELAY = 100
 // 한 번 맞출 때 재는 횟수. 그중 왕복이 가장 짧은 값을 씀 (기술 설계서 시간 맞추기)
 const SYNC_COUNT = 5
+// ms. 쓰러져 "쓰러짐"을 보인 뒤 관전으로 넘어가기까지. 함께 쓰러짐으로 늦게 오는 내 shotResult(맞고 D 안에 쏜 발사)가 그 안에 다 와서,
+// 관전을 시작한 뒤 오는 shotResult는 관전 대상의 복사본임. ponytail: 임시 값(시스템 기획서 HUD 관전). 플레이해 보며 정함
+const SPECTATE_AFTER = 1000
 
 const canvas = document.querySelector<HTMLCanvasElement>('#screen')!
 canvas.width = W
@@ -90,6 +94,10 @@ const isDown = (id: string, t: number) => (downs.get(id)?.at ?? Infinity) <= t
 // 서버가 알린 판 결과와 받은 시각(ms). 탈락처럼 INTERP_DELAY 뒤에 띄움.
 // end는 결과 바로 뒤에 오는 phase의 시각(서버 시계, 승리면 lobby, 재대결이면 countdown)이고 이때 endResult로 끝냄
 let result: (RoundResult & { at: number; end?: number }) | null = null
+// 관전 중인 사람과 그 사람 화면의 HUD (컨셉 기획서 규칙 탈락한 뒤). 관전하지 않으면 null.
+// rounds는 spectating을 받기 전에는 모름. lastShot은 그 사람의 불꽃을 띄우는 시각(ms, 내 시계), seen은 지난 프레임에 그린 그 사람의 시선
+type Watch = { id: string; wounded: boolean; rounds: number | null; lastShot: number; unsteady: Unsteady; seen: { angle: number; pitch: number } | null }
+let watch: Watch | null = null
 
 function applyState(players: readonly PlayerState[]) {
   const me = players.find((p) => p.id === myId)
@@ -105,6 +113,7 @@ function applyState(players: readonly PlayerState[]) {
   record(history, players, now)
   colors = new Map(players.map((p) => [p.id, p.color]))
   roster = players
+  pickWatch(now)
   showPosters(players)
   // 내 준비 여부도 서버가 정함. 누르면 이 값을 뒤집어 보냄
   ready = me.ready
@@ -114,10 +123,32 @@ function applyState(players: readonly PlayerState[]) {
   if (readyCount.value !== count) readyCount.value = count
 }
 
-// 지금 내 자리와 시선. 자리는 다른 사람처럼 INTERP_DELAY 전이고, 시선은 잠긴 동안 서버가 돌린 각도, 아니면 내 입력
-function myView(now: number) {
+// 지금 그릴 눈. 관전 중이면 그 사람, 아니면 나. 자리는 다른 사람처럼 INTERP_DELAY 전이고,
+// 내 시선은 잠긴 동안 서버가 돌린 각도, 아니면 내 입력. 관전하는 사람의 시선은 state로 받은 것을 보간함
+function eyes(now: number) {
+  if (watch) {
+    const s = sampleAt(history.get(watch.id)!, now - INTERP_DELAY)
+    return { id: watch.id, x: s.x, y: s.y, angle: s.angle, pitch: s.pitch }
+  }
   const me = sampleAt(history.get(myId!)!, now - INTERP_DELAY)
-  return { x: me.x, y: me.y, angle: inputLocked(now) ? me.angle : angle }
+  return { id: myId!, x: me.x, y: me.y, angle: inputLocked(now) ? me.angle : angle, pitch }
+}
+
+// 쓰러지고 SPECTATE_AFTER가 지나면 관전함. 보던 사람이 쓰러지거나 나가면 다음 사람, 아무도 서 있지 않으면 내 화면.
+// 마지막 state로 가려 서버가 받아 주는 대상(서 있는 사람)과 같음
+function pickWatch(now: number) {
+  if (myId === null || !isDown(myId, now - INTERP_DELAY - SPECTATE_AFTER)) return
+  if (watch && roster.some((p) => p.id === watch!.id && p.pose !== 'down')) return
+  watchPlayer(nextTarget(roster, myId, watch?.id ?? null))
+}
+
+// id의 눈으로 보기 시작함. 그 사람의 HUD는 spectating과 복사돼 오는 메시지로 새로 채우고, 앞 사람의 사격 결과 카드는 닫음
+function watchPlayer(id: string | null) {
+  if (id === (watch?.id ?? null)) return
+  watch = id === null ? null : { id, wounded: false, rounds: null, lastShot: -Infinity, unsteady: steady, seen: null }
+  hitCard.hidden = true
+  if (id !== null) send({ type: 'spectate', playerId: id })
+  showAmmo()
 }
 
 // 다른 사람의 발사. 불꽃과 총소리 모두 state처럼 INTERP_DELAY 뒤에 내어 돌기, 발사, 쓰러짐의 순서를 지킴.
@@ -125,19 +156,26 @@ function myView(now: number) {
 function showShot(id: string, shotAngle: number) {
   const now = performance.now()
   shots.set(id, { at: now, angle: shotAngle })
+  // 관전 중인 사람이 쏘면 그 사람 화면의 불꽃, 반동, 실린더도 다른 사람의 불꽃처럼 INTERP_DELAY 뒤에 보임
+  if (watch?.id === id) {
+    watch.lastShot = now + INTERP_DELAY
+    if (watch.rounds !== null) watch.rounds = Math.max(0, watch.rounds - 1)
+    showAmmo()
+  }
   const samples = history.get(id)
   if (!audio || !placed || !samples) return
-  const view = myView(now)
+  const view = eyes(now)
   const shooter = sampleAt(samples, now - INTERP_DELAY)
   play(audio, 'shot', toAudioTime(now + INTERP_DELAY, stampOf(audio)), heardFrom(view.x, view.y, view.angle, shooter.x, shooter.y))
 }
 
-function othersAt(t: number): Thing[] {
+// viewer는 눈이 되는 사람이라 그리지 않음. 관전 중이면 쓰러진 나도 보임
+function othersAt(t: number, viewer: string): Thing[] {
   const duel = clock !== null && dueling(schedule, toServerTime(t, clock.offset))
   // 걷는 사람은 발소리를 내는 걸음마다 다리를 바꿈. 걷기 시각 조금 전이면 -1이라 & 1로 묶음
   const step = clock !== null && schedule.walk !== undefined ? stepIndex(schedule.walk, toServerTime(t, clock.offset)) & 1 : 0
   return [...history]
-    .filter(([id]) => id !== myId)
+    .filter(([id]) => id !== viewer)
     .map(([id, samples]) => {
       const s = sampleAt(samples, t)
       const shot = shots.get(id)
@@ -173,10 +211,12 @@ document.addEventListener('mousemove', (e) => {
 const ammo = document.querySelector<SVGSVGElement>('#ammo')!
 const chambers = ammo.querySelectorAll('.chamber')
 let gun = loaded(ROUNDS)
-// 6칸 실린더에서 장전된 칸만 금색. 위 칸부터 채움 (시스템 기획서 HUD 탄 수)
+// 6칸 실린더에서 장전된 칸만 금색. 위 칸부터 채움 (시스템 기획서 HUD 탄 수). 관전 중이면 그 사람의 총알이고, spectating 전에는 몰라 숨김
 function showAmmo() {
-  chambers.forEach((c, i) => c.classList.toggle('loaded', i < gun.rounds))
-  ammo.setAttribute('aria-label', `남은 총알 ${gun.rounds}발`)
+  const rounds = watch ? watch.rounds : gun.rounds
+  ammo.style.visibility = rounds === null ? 'hidden' : ''
+  chambers.forEach((c, i) => c.classList.toggle('loaded', i < (rounds ?? 0)))
+  ammo.setAttribute('aria-label', `남은 총알 ${rounds ?? 0}발`)
 }
 showAmmo()
 
@@ -221,7 +261,7 @@ function playSteps(now: number) {
   const serverT = toServerTime(t, clock.offset)
   if (!walking(schedule, serverT)) return
   const step = stepIndex(schedule.walk, serverT)
-  const view = myView(now)
+  const view = eyes(now)
   for (const [id, samples] of history) {
     const s = sampleAt(samples, t)
     // 다음 라운드에 끼지 못해 쓰러진 채인 나는 걷지 않음
@@ -252,33 +292,53 @@ canvas.addEventListener('mousedown', (e) => {
   send(fireMessage(aim.angle, aim.pitch, e.timeStamp, clock.offset))
 })
 
+// 관전 중 왼쪽 클릭은 다음 서 있는 사람 (컨셉 기획서 규칙 탈락한 뒤). 쓰러져 있어 멈추기와 쏘기는 받지 않음
+canvas.addEventListener('mousedown', (e) => {
+  if (e.button !== 0 || !watch || myId === null) return
+  watchPlayer(nextTarget(roster, myId, watch.id))
+})
+
 // 술집 주인. 프레임마다 지난 시간만큼 움직임
 let bartender = startBartender(performance.now())
 let lastFrame = performance.now()
 
 function frame(now: number) {
-  const s = sway(now, scaleAt(unsteady, now))
+  const view = grid && placed ? eyes(now) : null
+  // 관전하는 사람의 흔들림 배율은 그 사람이 돈 각도만큼 흉내 냄. 흔들림 자체는 보내지 않고 같은 공식으로 그림 (기술 설계서 미정 사항)
+  if (watch && view) {
+    if (watch.seen) {
+      const d = Math.abs(view.angle - watch.seen.angle) % (2 * Math.PI)
+      watch.unsteady = afterTurn(watch.unsteady, Math.hypot(Math.min(d, 2 * Math.PI - d), view.pitch - watch.seen.pitch), now)
+    }
+    watch.seen = { angle: view.angle, pitch: view.pitch }
+  }
+  const s = sway(now, scaleAt(watch ? watch.unsteady : unsteady, now))
+  // 눈이 되는 사람의 마지막 발사. 관전하는 사람의 불꽃은 INTERP_DELAY 뒤라 아직 보일 때가 아니면 없는 것으로 봄
+  const lastShot = watch ? watch.lastShot : gun.lastShot
+  const fired = lastShot <= now ? lastShot : -Infinity
   const dt = now - lastFrame
   lastFrame = now
   if (!saloon.hidden) {
     // 판 사이에는 결투장 대신 술집 한 장면을 그림 (시스템 기획서 방 화면 M8 대기실 짜임)
     bartender = stepBartender(bartender, now, dt, Math.random)
     drawSaloon(ctx, bartender, now)
-  } else if (grid && placed) {
+  } else if (grid && view) {
     // 내 자리도 다른 사람처럼 INTERP_DELAY 전을 그림. 받은 그대로 그리면 걷는 동안 20Hz로 끊겨 보임
-    const view = myView(now)
-    const things = [...othersAt(now - INTERP_DELAY), ...props]
-    renderFrame(pixels, W, H, grid, makeCamera(view.x, view.y, view.angle, FOV, pitch), things, SKIES[timeOfDay(standing ?? history.size)])
+    const things = [...othersAt(now - INTERP_DELAY, view.id), ...props]
+    renderFrame(pixels, W, H, grid, makeCamera(view.x, view.y, view.angle, FOV, view.pitch), things, SKIES[timeOfDay(standing ?? history.size)])
     ctx.putImageData(image, 0, 0)
     playSteps(now)
     // 총은 시점에 붙어 있어 위아래 시선과 상관없이 같은 자리에 있고, 조준점과 같은 흔들림으로 돎.
     // ponytail: 총에는 시간대 빛 색조를 곱하지 않음. 석양에 총만 밝아 보여 거슬리면 drawGun에 빛 색조를 넘겨 면 색에 곱함
     // 들어 올리기는 보이기만 함. 조준점과 발사는 총을 다 들기 전에도 그대로임
     // 부품 움직임도 서버 시계로 재어 AudioContext로 예약한 장전·공이치기 소리와 맞음
-    const hold = clock ? lift(schedule, toServerTime(now, clock.offset), reloading) : { lower: 1, kick: 0 }
-    const plays = clock ? gunClips(schedule, toServerTime(now, clock.offset), reloading, toServerTime(gun.lastShot, clock.offset)) : []
-    const kick = Math.max(hold.kick, 1 - (now - gun.lastShot) / RECOIL_MS)
-    const muzzle = drawGun(ctx, revolverMesh(revolver, plays, gun.rounds), { ...s, kick, lower: hold.lower }, W, H, PROJ, settings.hand === 'left' ? -1 : 1)
+    // 관전하는 사람은 서 있어 카운트다운이면 이번 라운드에 끼어 장전함. 총을 든 손은 그 사람 설정을 몰라 내 설정으로 그림
+    const loading = watch ? true : reloading
+    const hold = clock ? lift(schedule, toServerTime(now, clock.offset), loading) : { lower: 1, kick: 0 }
+    const plays = clock ? gunClips(schedule, toServerTime(now, clock.offset), loading, toServerTime(fired, clock.offset)) : []
+    const kick = Math.max(hold.kick, 1 - (now - fired) / RECOIL_MS)
+    const rounds = watch ? (watch.rounds ?? 0) : gun.rounds
+    const muzzle = drawGun(ctx, revolverMesh(revolver, plays, rounds), { ...s, kick, lower: hold.lower }, W, H, PROJ, settings.hand === 'left' ? -1 : 1)
     flash.style.transform = `translate(${(muzzle.x * 100) / W}cqw, ${(muzzle.y * 100) / W}cqw)`
     // 마우스 이벤트가 아니라 여기서 보내야 마지막으로 멈춘 각도도 빠지지 않고 감
     if ((angle !== sentAngle || pitch !== sentPitch) && now - sentAt >= TURN_INTERVAL && ws.readyState === WebSocket.OPEN) {
@@ -293,10 +353,10 @@ function frame(now: number) {
     renderFrame(pixels, W, H, BACKDROP, makeCamera(cam.x, cam.y, cam.angle, FOV, BACKDROP_PITCH), BACKDROP_THINGS, SKIES.sunset)
     ctx.putImageData(image, 0, 0)
   }
-  flash.hidden = now - gun.lastShot >= FLASH_SHOWN
-  bloodView.hidden = !blood.shown
+  flash.hidden = now - fired >= FLASH_SHOWN
+  bloodView.hidden = !(watch ? watch.wounded : blood.shown)
   // 내부 px를 cqw로 바꿈. 화면 폭 100cqw가 내부 폭 W px임
-  const aim = crosshairOffset(s, pitch, PROJ)
+  const aim = crosshairOffset(s, view?.pitch ?? pitch, PROJ)
   crosshair.style.transform = `translate(${(aim.x * 100) / W}cqw, ${(aim.y * 100) / W}cqw)`
   if (result?.end !== undefined && clock && toServerTime(now, clock.offset) >= result.end) {
     endResult(result)
@@ -311,12 +371,16 @@ function frame(now: number) {
       ? winView.hidden
         ? resultText(shown, myId)
         : ''
-      : myId !== null && isDown(myId, now - INTERP_DELAY)
+      : myId !== null && isDown(myId, now - INTERP_DELAY) && !watch
         ? '쓰러짐'
         : clock
           ? banner(schedule, toServerTime(now, clock.offset))
           : ''
   if (bannerText.value !== text) bannerText.value = text
+  // 관전 중에는 그 사람 화면 그대로라 누구의 눈인지 적어 둠. ponytail: 임시 문구
+  const watchText = watch ? `관전 ${roster.find((p) => p.id === watch!.id)?.nickname ?? ''}` : ''
+  watching.hidden = watch === null
+  if (watching.value !== watchText) watching.value = watchText
   // 결투 중에만 보임. 결과를 받으면 숨김 (시스템 기획서 HUD 남은 시간)
   const left = clock && !result ? timeLeft(schedule, toServerTime(now, clock.offset)) : null
   timer.hidden = left === null
@@ -405,6 +469,7 @@ const readyButton = document.querySelector<HTMLButtonElement>('#ready')!
 const readyCount = document.querySelector<HTMLOutputElement>('#ready-count')!
 const bannerText = document.querySelector<HTMLOutputElement>('#banner')!
 const timer = document.querySelector<HTMLOutputElement>('#timer')!
+const watching = document.querySelector<HTMLOutputElement>('#watching')!
 let ready = false
 // 준비 버튼을 처음 누를 때 만들고 효과음도 이때 받기 시작함. 브라우저는 사용자 입력 전에 만든 AudioContext의 소리를 막음 (기술 설계서 사운드 구현)
 let audio: AudioContext | null = null
@@ -558,6 +623,7 @@ function endResult(r: RoundResult) {
     downs.clear()
     gun = loaded(ROUNDS)
     blood = onGameEnd()
+    watch = null
     // 판이 끝나 술집으로 돌아감. 버튼을 누를 수 있게 포인터 잠금을 풂
     saloon.hidden = false
     document.exitPointerLock()
@@ -566,6 +632,9 @@ function endResult(r: RoundResult) {
     if (myId !== null && downs.has(myId) && r.playerIds.includes(myId)) blood = onRevived(blood)
     for (const id of r.playerIds) downs.delete(id)
     if (myId !== null && r.playerIds.includes(myId)) gun = loaded(r.rounds)
+    // 관전하던 사람은 다시 장전하고, 내가 다시 서면 관전이 풀림. 서버도 이때 관전을 풂
+    if (watch && r.playerIds.includes(watch.id)) watch = { ...watch, rounds: r.rounds, lastShot: -Infinity }
+    if (myId !== null && r.playerIds.includes(myId)) watch = null
   }
   showAmmo()
 }
@@ -613,6 +682,7 @@ function receive(data: string) {
       history.clear()
       shots.clear()
       downs.clear()
+      watch = null
       shownPosters = ''
       schedule = {}
       standing = null
@@ -693,7 +763,17 @@ function receive(data: string) {
       showHitCard(m)
       break
     case 'wounded':
-      blood = onWounded(blood)
+      // 쓰러진 나는 맞지 않아, 관전 중에 오는 것은 관전 대상의 복사본임
+      if (watch) watch.wounded = true
+      else blood = onWounded(blood)
+      break
+    case 'spectating':
+      // 관전을 시작할 때 그 사람의 혈흔과 실린더. 그 뒤로는 복사된 wounded와 그 사람의 shot으로 바꿈
+      if (watch?.id === m.playerId) {
+        watch.wounded ||= m.wounds > 0
+        watch.rounds = m.ammo
+        showAmmo()
+      }
       break
     case 'rooms':
       if (!roomStep.hidden) showRooms(m.rooms)
@@ -706,6 +786,7 @@ function receive(data: string) {
       myId = null
       grid = null
       placed = false
+      watch = null
       showStep()
       break
   }
