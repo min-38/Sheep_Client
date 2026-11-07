@@ -13,10 +13,17 @@ const eight = (w: number, ...pixels: number[]): Sprite[] => Array(8).fill({ w, h
 const solid = (color: number) => eight(1, color)
 const at = (x: number, y: number, frames = solid(RED)): Thing => ({ x, y, facing: 0, frames })
 
-function draw(things: Thing[], zbuf = new Float64Array(W).fill(Infinity)) {
+function draw(things: Thing[], zbuf = new Float64Array(W).fill(Infinity), camera = cam) {
   const pixels = new Uint32Array(W * H)
-  drawSprites(pixels, W, H, zbuf, cam, things)
+  drawSprites(pixels, W, H, zbuf, camera, things)
   return pixels
+}
+
+// 가운데 세로줄에서 칠한 가장 아래 줄 다음 번호
+function bottomRow(pixels: Uint32Array) {
+  let bottom = 0
+  for (let y = 0; y < H; y++) if (pixels[y * W + W / 2] !== 0) bottom = y + 1
+  return bottom
 }
 
 // 무언가 그려진 가로줄 번호들
@@ -81,11 +88,15 @@ describe('drawSprites', () => {
   })
 
   test('발이 벽 아래 끝과 같은 높이에 닿음', () => {
-    const pixels = draw([at(4, 0)])
-    let bottom = 0
-    for (let y = 0; y < H; y++) if (pixels[y * W + W / 2] !== 0) bottom = y + 1
     // 거리 4인 벽의 아래 끝: h/2 + proj·0.5/4, proj = W/2
-    expect(bottom).toBeCloseTo(H / 2 + (W / 2) * 0.5 / 4, 0)
+    expect(bottomRow(draw([at(4, 0)]))).toBeCloseTo(H / 2 + (W / 2) * 0.5 / 4, 0)
+  })
+
+  test('위를 보면 지평선을 따라 아래로 밀려 그려짐', () => {
+    const level = bottomRow(draw([at(4, 0)]))
+    const up = bottomRow(draw([at(4, 0)], undefined, makeCamera(0, 0, 0, 90, 0.2)))
+    // 지평선이 proj·tan(0.2)만큼 내려감. proj = W/2
+    expect(up - level).toBeCloseTo((W / 2) * Math.tan(0.2), 0)
   })
 
   test('카메라 뒤에 있으면 그리지 않음', () => {

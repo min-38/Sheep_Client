@@ -1,4 +1,4 @@
-import type { Camera } from './render.ts'
+import { horizonY, type Camera } from './render.ts'
 
 // 스프라이트 한 장. 픽셀 형식은 render.ts의 pack과 같고, 0은 투명
 export type Sprite = { w: number; h: number; pixels: Uint32Array }
@@ -38,8 +38,8 @@ export function drawSprites(pixels: Uint32Array, w: number, h: number, zbuf: Flo
     const tex = t.frames[frameIndex(cam.x, cam.y, t.x, t.y, t.facing)]
     const height = (proj * HEIGHT) / depth
     const width = (height * tex.w) / tex.h
-    // 발은 벽 아래 끝과 같은 높이 (눈높이는 벽의 절반)
-    const bottom = h / 2 + (proj * 0.5) / depth
+    // 발은 벽 아래 끝과 같은 높이 (눈높이는 벽의 절반). 위아래를 보면 지평선을 따라 밀림
+    const bottom = horizonY(h, proj, cam.pitch) + (proj * 0.5) / depth
     const top = bottom - height
     const left = (w / 2) * (1 + side / depth) - width / 2
     // 픽셀 중심이 그림 안에 드는 픽셀만 칠함

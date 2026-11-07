@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { turn } from './turn.ts'
+import { MAX_PITCH, tilt, turn } from './turn.ts'
 
 const TAU = Math.PI * 2
 
@@ -29,5 +29,19 @@ describe('turn', () => {
 
   test('움직이지 않으면 그대로', () => {
     expect(turn(2, 0, 0.01)).toBe(2)
+  })
+})
+
+describe('tilt', () => {
+  test('마우스를 아래로 움직이면 시선이 내려감', () => {
+    expect(tilt(0, 10, 0.003)).toBeCloseTo(-0.03)
+  })
+
+  test('위로 끝까지 올려도 MAX_PITCH에서 멈춤', () => {
+    expect(tilt(0.49, -1000, 0.003)).toBe(MAX_PITCH)
+  })
+
+  test('아래로 끝까지 내려도 -MAX_PITCH에서 멈춤', () => {
+    expect(tilt(-0.49, 1000, 0.003)).toBe(-MAX_PITCH)
   })
 })
