@@ -3,8 +3,9 @@ import mtlText from './assets/revolver.mtl?raw'
 import objText from './assets/revolver.obj?raw'
 import { best, measure, toLocalTime, toServerTime, type ClockSample } from './clock.ts'
 import { drawGun, RECOIL_MS } from './gun.ts'
+import { dotPosition, noBlood, onGameEnd, onRevived, onWalk, onWounded, resultLabel } from './hitcard.ts'
 import { record, sampleAt, type Sample } from './interpolate.ts'
-import { fireMessage, parseServerMessage, type ClientMessage, type PlayerState, type RoundResult } from './net.ts'
+import { fireMessage, parseServerMessage, type ClientMessage, type PlayerState, type RoundResult, type ShotResult } from './net.ts'
 import { parseMtl, parseObj } from './obj.ts'
 import type { Grid } from './raycast.ts'
 import { makeCamera, renderFrame } from './render.ts'
@@ -132,6 +133,23 @@ showAmmo()
 
 const flash = document.querySelector<HTMLDivElement>('#flash')!
 const crosshair = document.querySelector<HTMLDivElement>('#crosshair')!
+const hitCard = document.querySelector<HTMLElement>('#hit-card')!
+const hitHole = document.querySelector<SVGCircleElement>('#hit-hole')!
+const hitStamp = document.querySelector<HTMLOutputElement>('#hit-stamp')!
+const bloodView = document.querySelector<HTMLDivElement>('#blood')!
+// 반샷 혈흔. 판이 끝날 때까지 남아 한 발만 더 맞으면 쓰러진다는 표시를 겸함 (컨셉 기획서 화면 혈흔)
+let blood = noBlood
+
+// 서버 판정이 확정된 결과라 받은 때부터 띄우고 그 라운드 결과 시간이 끝날 때(endResult) 닫음. 빗나가면 구멍 없이 도장만 (컨셉 기획서 화면 내 사격 결과)
+function showHitCard(r: ShotResult) {
+  hitCard.hidden = false
+  hitStamp.value = resultLabel(r)
+  hitHole.style.visibility = r.zone === null ? 'hidden' : 'visible'
+  if (r.zone === null) return
+  const dot = dotPosition(r.offset, r.height)
+  hitHole.setAttribute('cx', String(dot.x))
+  hitHole.setAttribute('cy', String(dot.y))
+}
 
 // ponytail: 임시 쏘기 키(왼쪽 클릭). 시스템 기획서 조작의 쏘기 키가 정해지면 바꿈.
 // 잠금 전 클릭은 잠금만 걸고 쏘지 않음. "시작!" 전, 쓰러진 뒤, 판 결과가 정해진 뒤의 발사는 서버가 버리므로 탄 수도 줄이지 않음
@@ -168,6 +186,7 @@ function frame(now: number) {
     }
   }
   flash.hidden = now - gun.lastShot >= FLASH_SHOWN
+  bloodView.hidden = !blood.shown
   // 내부 px를 cqw로 바꿈. 화면 폭 100cqw가 내부 폭 W px임
   const aim = crosshairOffset(s, pitch, PROJ)
   crosshair.style.transform = `translate(${(aim.x * 100) / W}cqw, ${(aim.y * 100) / W}cqw)`
@@ -222,13 +241,17 @@ const inputLocked = (now: number) =>
   (myId !== null && downAt.has(myId)) || (clock !== null && locked(schedule, toServerTime(now, clock.offset)))
 // 결과 시간이 끝나면 부름. 승리면 준비 중으로 돌아가 처음처럼, 재대결이면 재대결하는 사람만 일으키고 다시 장전함
 function endResult(r: RoundResult) {
+  hitCard.hidden = true
   if (r.outcome === 'win') {
     schedule = {}
     pitch = 0
     downAt.clear()
     gun = loaded(ROUNDS)
+    blood = onGameEnd()
     readyBar.hidden = false
   } else {
+    // 쓰러졌다 다시 서는 나(함께 쓰러짐)는 혈흔을 그 라운드 전으로 되돌림. 서버가 반샷을 되돌리는 것과 같음. 일으키기 전에 봐야 가를 수 있음
+    if (myId !== null && downAt.has(myId) && r.playerIds.includes(myId)) blood = onRevived(blood)
     for (const id of r.playerIds) downAt.delete(id)
     if (myId !== null && r.playerIds.includes(myId)) gun = loaded(r.rounds)
   }
@@ -294,6 +317,15 @@ function receive(data: string) {
         schedule = {}
         readyBar.hidden = true
       }
+      if (m.phase === 'walk') {
+        // 걷기 시각은 다음 라운드 카운트다운이 시작한 뒤에 와 결과 시간은 이미 끝났음. 창이 숨어 그리기가 멈췄으면 결과를 여기서 먼저 끝내야
+        // 혈흔을 되돌린 뒤에 이번 라운드 시작 값으로 기억함
+        if (result?.end !== undefined) {
+          endResult(result)
+          result = null
+        }
+        blood = onWalk(blood)
+      }
       schedule[m.phase] = m.at
       // 신호음은 프레임을 기다리지 않고 AudioContext 시계로 결투 시각에 맞춰 예약함 (기술 설계서 시간 맞추기)
       if (m.phase === 'duel' && audio && clock) playSignal(audio, toAudioTime(toLocalTime(m.at, clock.offset), stampOf(audio)))
@@ -309,6 +341,12 @@ function receive(data: string) {
       // 창이 숨어 그리기가 멈춘 동안에는 앞 결과가 끝나지 않은 채 다음 결과가 올 수 있어 먼저 끝냄
       if (result) endResult(result)
       result = { ...m, at: performance.now() }
+      break
+    case 'shotResult':
+      showHitCard(m)
+      break
+    case 'wounded':
+      blood = onWounded(blood)
       break
   }
 }
