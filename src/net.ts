@@ -3,8 +3,8 @@ import type { Grid } from './raycast.ts'
 
 // 기술 설계서 메시지 표를 손으로 옮김. 표가 바뀌면 여기도 고침
 export type ClientMessage =
-  // nickname은 normalizeNickname을 거친 이름. private가 true면 비공개 방 (랜덤 입장에 안 나옴)
-  | { type: 'createRoom'; nickname: string; private: boolean }
+  // nickname은 normalizeNickname, name은 normalizeRoomName을 거친 이름. maxPlayers는 2~8. private가 true면 비공개 방 (랜덤 입장에 안 나옴)
+  | { type: 'createRoom'; nickname: string; name: string; maxPlayers: number; private: boolean }
   | { type: 'joinRoom'; code: string; nickname: string }
   // 들어갈 수 있는 공개 방 중 사람이 가장 많은 방에 넣고, 없으면 새 공개 방을 만듦. 답은 joined 또는 roomCreated
   | { type: 'quickJoin'; nickname: string }
@@ -46,9 +46,10 @@ export type ShotResult =
   | { zone: null; height: null; offset: null; down: boolean }
 
 export type ServerMessage =
-  | { type: 'roomCreated'; code: string; playerId: string }
-  | { type: 'joined'; code: string; playerId: string }
-  | { type: 'error'; reason: 'notFound' | 'full' | 'playing' | 'nickname' }
+  // name은 방 이름, private는 비공개 방인지. 둘 다 술집 칠판에 적음
+  | { type: 'roomCreated'; code: string; playerId: string; name: string; private: boolean }
+  | { type: 'joined'; code: string; playerId: string; name: string; private: boolean }
+  | { type: 'error'; reason: 'notFound' | 'full' | 'playing' | 'nickname' | 'roomName' | 'maxPlayers' }
   | { type: 'map'; width: number; height: number; cells: Grid }
   | { type: 'state'; tick: number; players: PlayerState[] }
   // clockSync의 답. t0은 보낸 값 그대로, ts는 서버 시각(ms)
@@ -83,9 +84,11 @@ export function parseServerMessage(text: string): ServerMessage | null {
   switch (m?.type) {
     case 'roomCreated':
     case 'joined':
-      return typeof m.code === 'string' && typeof m.playerId === 'string' ? { type: m.type, code: m.code, playerId: m.playerId } : null
+      return typeof m.code === 'string' && typeof m.playerId === 'string' && typeof m.name === 'string' && typeof m.private === 'boolean'
+        ? { type: m.type, code: m.code, playerId: m.playerId, name: m.name, private: m.private }
+        : null
     case 'error':
-      return ['notFound', 'full', 'playing', 'nickname'].includes(m.reason) ? { type: 'error', reason: m.reason } : null
+      return ['notFound', 'full', 'playing', 'nickname', 'roomName', 'maxPlayers'].includes(m.reason) ? { type: 'error', reason: m.reason } : null
     case 'map':
       return isGrid(m.cells, m.width, m.height) ? { type: 'map', width: m.width, height: m.height, cells: m.cells } : null
     case 'state':

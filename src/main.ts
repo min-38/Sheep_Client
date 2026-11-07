@@ -7,6 +7,7 @@ import { dotPosition, noBlood, onGameEnd, onRevived, onWalk, onWounded, resultLa
 import { record, sampleAt, type Sample } from './interpolate.ts'
 import { fireMessage, parseServerMessage, stopMessage, type ClientMessage, type PlayerState, type RoundResult, type ShotResult } from './net.ts'
 import { normalizeNickname } from './nickname.ts'
+import { normalizeRoomName, randomRoomName } from './roomname.ts'
 import { parseMtl, parseObj } from './obj.ts'
 import type { Grid } from './raycast.ts'
 import { makeCamera, renderFrame } from './render.ts'
@@ -284,7 +285,14 @@ const timer = document.querySelector<HTMLOutputElement>('#timer')!
 let ready = false
 // 준비 버튼을 처음 누를 때 만듦. 브라우저는 사용자 입력 전에 만든 AudioContext의 소리를 막음 (기술 설계서 사운드 구현)
 let audio: AudioContext | null = null
-const REASONS = { notFound: '없는 방 코드', full: '꽉 찬 방', playing: '판이 진행 중인 방', nickname: '닉네임 규칙에 맞지 않음' }
+const REASONS = {
+  notFound: '없는 방 코드',
+  full: '꽉 찬 방',
+  playing: '판이 진행 중인 방',
+  nickname: '닉네임 규칙에 맞지 않음',
+  roomName: '방 이름 규칙에 맞지 않음',
+  maxPlayers: '인원은 2~8명',
+}
 const nicknameInput = document.querySelector<HTMLInputElement>('#nickname')!
 const nicknameRule = document.querySelector<HTMLParagraphElement>('#nickname-rule')!
 const privateBox = document.querySelector<HTMLInputElement>('#private')!
@@ -371,6 +379,7 @@ ws.addEventListener('open', () => {
 ws.addEventListener('close', () => {
   document.exitPointerLock()
   controls.disabled = true
+  createPanel.hidden = true
   lobby.hidden = false
   readyBar.hidden = true
   room.value = ''
@@ -384,7 +393,8 @@ function receive(data: string) {
     case 'joined':
       lobby.hidden = true
       readyBar.hidden = false
-      room.value = `방 ${m.code}`
+      // ponytail: 술집 칠판이 생기기 전까지 오른쪽 위 방 코드 옆에 방 이름과 비공개를 적음 (M8 C5에서 옮김)
+      room.value = `${m.name} · ${m.code}${m.private ? ' · 비공개' : ''}`
       myId = m.playerId
       placed = false
       schedule = {}
@@ -453,9 +463,47 @@ function receive(data: string) {
 }
 
 document.querySelector('#quick')!.addEventListener('click', () => enterWith((nickname) => ({ type: 'quickJoin', nickname })))
-document.querySelector('#create')!.addEventListener('click', () =>
-  enterWith((nickname) => ({ type: 'createRoom', nickname, private: privateBox.checked })),
-)
+// 방 만들기 창 (시스템 기획서 방 화면 방 만들기 창). 열 때마다 무작위 이름, 8명, 공개로 채움
+const createPanel = document.querySelector<HTMLDivElement>('#create-panel')!
+const roomNameInput = document.querySelector<HTMLInputElement>('#room-name')!
+const roomNameRule = document.querySelector<HTMLParagraphElement>('#room-name-rule')!
+const maxPlayersSelect = document.querySelector<HTMLSelectElement>('#max-players')!
+const createOk = document.querySelector<HTMLButtonElement>('#create-ok')!
+
+// 맞는 이름이면 그 이름, 틀리면 null. 틀리면 규칙을 빨갛게 보이고 생성 버튼을 막음
+function checkRoomName(): string | null {
+  const name = normalizeRoomName(roomNameInput.value)
+  roomNameRule.hidden = name !== null
+  createOk.disabled = name === null
+  return name
+}
+
+function rollRoomName() {
+  roomNameInput.value = randomRoomName()
+  checkRoomName()
+}
+
+document.querySelector('#create')!.addEventListener('click', () => {
+  if (checkNickname() === null) return
+  rollRoomName()
+  maxPlayersSelect.value = '8'
+  privateBox.checked = false
+  createPanel.hidden = false
+  roomNameInput.select()
+})
+document.querySelector('#dice')!.addEventListener('click', rollRoomName)
+roomNameInput.addEventListener('input', checkRoomName)
+document.querySelector('#create-cancel')!.addEventListener('click', () => (createPanel.hidden = true))
+createPanel.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') createPanel.hidden = true
+})
+document.querySelector('#create-form')!.addEventListener('submit', (e) => {
+  e.preventDefault()
+  const name = checkRoomName()
+  if (name === null) return
+  createPanel.hidden = true
+  enterWith((nickname) => ({ type: 'createRoom', nickname, name, maxPlayers: Number(maxPlayersSelect.value), private: privateBox.checked }))
+})
 // ponytail: 포인터 잠금 중에는 Esc로 커서를 풀어야 누를 수 있음. 조작이 정해지면 키로도 누르게 함
 readyButton.addEventListener('click', () => {
   audio ??= new AudioContext()

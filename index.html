@@ -52,10 +52,7 @@
           <input id="nickname" aria-label="닉네임" aria-describedby="nickname-rule" placeholder="닉네임" maxlength="12" autocomplete="nickname" spellcheck="false" />
           <p id="nickname-rule" hidden>2~8자, 한글·영문·숫자만</p>
           <button type="button" id="quick" class="plank">랜덤 입장</button>
-          <div class="row">
-            <button type="button" id="create" class="plank">방 만들기</button>
-            <label id="private-box"><input type="checkbox" id="private" /> 비공개</label>
-          </div>
+          <button type="button" id="create" class="plank">방 만들기</button>
           <div class="row">
             <input id="code" aria-label="방 코드" placeholder="방 코드" maxlength="6" pattern="[A-Za-z0-9]{6}" required autocomplete="off" spellcheck="false" />
             <button id="join" class="plank">입장</button>
@@ -63,6 +60,34 @@
         </fieldset>
         <p id="status" role="status">서버에 접속하는 중</p>
       </form>
+      <!-- 방 만들기 창. 방 이름, 인원 제한, 비공개 여부를 정해 생성하거나 취소함 (시스템 기획서 방 화면 방 만들기 창) -->
+      <div id="create-panel" role="dialog" aria-modal="true" aria-labelledby="create-title" hidden>
+        <form id="create-form" class="sheet">
+          <h2 id="create-title">방 만들기</h2>
+          <div class="row">
+            <input id="room-name" aria-label="방 이름" aria-describedby="room-name-rule" placeholder="방 이름" maxlength="64" autocomplete="off" spellcheck="false" />
+            <button type="button" id="dice" class="plank" aria-label="무작위 이름">🎲</button>
+          </div>
+          <p id="room-name-rule" hidden>2~16자</p>
+          <label class="row">
+            <span>인원</span>
+            <select id="max-players">
+              <option>2</option>
+              <option>3</option>
+              <option>4</option>
+              <option>5</option>
+              <option>6</option>
+              <option>7</option>
+              <option selected>8</option>
+            </select>
+          </label>
+          <label id="private-box"><input type="checkbox" id="private" /> 비공개</label>
+          <div class="row">
+            <button id="create-ok" class="plank">생성</button>
+            <button type="button" id="create-cancel" class="plank">취소</button>
+          </div>
+        </form>
+      </div>
     </div>
     <script type="module" src="/src/main.ts"></script>
   </body>

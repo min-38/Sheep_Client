@@ -3,13 +3,33 @@ import { fireMessage, parseServerMessage, stopMessage } from './net.ts'
 
 describe('parseServerMessage', () => {
   test('방 만들기와 입장 응답은 내 플레이어 id를 받음', () => {
-    expect(parseServerMessage('{"type":"roomCreated","code":"AB12CD","playerId":"p1"}')).toEqual({ type: 'roomCreated', code: 'AB12CD', playerId: 'p1' })
-    expect(parseServerMessage('{"type":"joined","code":"AB12CD","playerId":"p1"}')).toEqual({ type: 'joined', code: 'AB12CD', playerId: 'p1' })
-    expect(parseServerMessage('{"type":"joined","code":"AB12CD"}')).toBeNull()
+    expect(parseServerMessage('{"type":"roomCreated","code":"AB12CD","playerId":"p1","name":"먼지 낀 술집","private":false}')).toEqual({
+      type: 'roomCreated',
+      code: 'AB12CD',
+      playerId: 'p1',
+      name: '먼지 낀 술집',
+      private: false,
+    })
+    expect(parseServerMessage('{"type":"joined","code":"AB12CD","playerId":"p1","name":"비밀 금광","private":true}')).toEqual({
+      type: 'joined',
+      code: 'AB12CD',
+      playerId: 'p1',
+      name: '비밀 금광',
+      private: true,
+    })
+    expect(parseServerMessage('{"type":"joined","code":"AB12CD","name":"비밀 금광","private":true}')).toBeNull()
   })
 
-  test('닉네임 거절도 입장 거절로 받음', () => {
+  test('입장 응답에 방 이름과 비공개 여부가 없으면 버림 (기술 설계서 메시지 roomCreated)', () => {
+    expect(parseServerMessage('{"type":"joined","code":"AB12CD","playerId":"p1","private":true}')).toBeNull()
+    expect(parseServerMessage('{"type":"joined","code":"AB12CD","playerId":"p1","name":"비밀 금광"}')).toBeNull()
+    expect(parseServerMessage('{"type":"joined","code":"AB12CD","playerId":"p1","name":"비밀 금광","private":"true"}')).toBeNull()
+  })
+
+  test('닉네임, 방 이름, 인원 제한 거절도 받음', () => {
     expect(parseServerMessage('{"type":"error","reason":"nickname"}')).toEqual({ type: 'error', reason: 'nickname' })
+    expect(parseServerMessage('{"type":"error","reason":"roomName"}')).toEqual({ type: 'error', reason: 'roomName' })
+    expect(parseServerMessage('{"type":"error","reason":"maxPlayers"}')).toEqual({ type: 'error', reason: 'maxPlayers' })
   })
 
   test('상태의 닉네임은 문자열, 색은 0~7 정수만 받음 (기술 설계서 메시지 state)', () => {
