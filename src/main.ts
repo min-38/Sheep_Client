@@ -5,14 +5,14 @@ import { best, measure, toLocalTime, toServerTime, type ClockSample } from './cl
 import { drawGun, RECOIL_MS } from './gun.ts'
 import { dotPosition, noBlood, onGameEnd, onRevived, onWalk, onWounded, resultLabel } from './hitcard.ts'
 import { record, sampleAt, type Sample } from './interpolate.ts'
-import { fireMessage, parseServerMessage, type ClientMessage, type PlayerState, type RoundResult, type ShotResult } from './net.ts'
+import { fireMessage, parseServerMessage, stopMessage, type ClientMessage, type PlayerState, type RoundResult, type ShotResult } from './net.ts'
 import { parseMtl, parseObj } from './obj.ts'
 import type { Grid } from './raycast.ts'
 import { makeCamera, renderFrame } from './render.ts'
 import { loaded, pull, ROUNDS } from './revolver.ts'
-import { banner, dueling, formatTime, locked, resultText, timeLeft, type Schedule } from './round.ts'
+import { banner, dueling, formatTime, locked, resultText, stepIndex, timeLeft, walking, type Schedule } from './round.ts'
 import { makeAimingFrames, makeFallenFrames, makeScarecrowFrames, makeSuicideFrames, suicideStage } from './scarecrow.ts'
-import { heardFrom, playShot, playSignal, stampOf, toAudioTime } from './sound.ts'
+import { heardFrom, playShot, playSignal, playStep, stampOf, toAudioTime } from './sound.ts'
 import type { Thing } from './sprite.ts'
 import { aimAt, crosshairOffset, sway } from './sway.ts'
 import { tilt, turn } from './turn.ts'
@@ -168,6 +168,38 @@ function showHitCard(r: ShotResult) {
   hitHole.setAttribute('cy', String(dot.y))
 }
 
+// 이번 라운드에 내가 걷다 멈춘 시각(ms, 내 시계). 안 멈췄으면 null. 한 라운드에 한 번만 멈추고, 멈춘 뒤로는 내 발소리를 내지 않음
+let stoppedAt: number | null = null
+// 사람마다 마지막으로 발소리를 낸 걸음 번호. 걷기 시각을 받을 때 비움
+const lastStep = new Map<string, number>()
+
+// 걷는 동안 왼쪽 클릭은 멈추기 (시스템 기획서 조작). 도는 것과 상관없어 포인터 잠금이 없어도 받음. 그래야 잠그는 첫 클릭으로도 멈춤
+canvas.addEventListener('mousedown', (e) => {
+  if (!clock || e.button !== 0 || stoppedAt !== null || myId === null || downs.has(myId)) return
+  if (!walking(schedule, toServerTime(e.timeStamp, clock.offset))) return
+  stoppedAt = e.timeStamp
+  send(stopMessage(e.timeStamp, clock.offset))
+})
+
+// 걷는 사람마다 걸음 번호가 늘면 그 사람 쪽에서 발소리를 냄. 그래서 누가 멈췄는지 귀로 앎 (컨셉 기획서 아트와 사운드 효과음).
+// 다른 사람은 그림처럼 INTERP_DELAY 전의 동작으로 가르고, 나는 서버 동작을 기다리지 않고 내가 멈춘 시각으로 가름
+function playSteps(now: number) {
+  if (!audio || !clock || schedule.walk === undefined) return
+  const t = now - INTERP_DELAY
+  const serverT = toServerTime(t, clock.offset)
+  if (!walking(schedule, serverT)) return
+  const step = stepIndex(schedule.walk, serverT)
+  const view = myView(now)
+  for (const [id, samples] of history) {
+    const s = sampleAt(samples, t)
+    // 다음 라운드에 끼지 못해 쓰러진 채인 나는 걷지 않음
+    const going = id === myId ? !downs.has(id) && (stoppedAt === null || t < stoppedAt) : s.pose === 'walk'
+    if (!going || step <= (lastStep.get(id) ?? -1)) continue
+    lastStep.set(id, step)
+    playStep(audio, audio.currentTime, id === myId ? undefined : heardFrom(view.x, view.y, view.angle, s.x, s.y))
+  }
+}
+
 // ponytail: 임시 쏘기 키(왼쪽 클릭). 시스템 기획서 조작의 쏘기 키가 정해지면 바꿈.
 // 잠금 전 클릭은 잠금만 걸고 쏘지 않음. "시작!" 전, 쓰러진 뒤, 판 결과가 정해진 뒤의 발사는 서버가 버리므로 탄 수도 줄이지 않음
 canvas.addEventListener('mousedown', (e) => {
@@ -191,6 +223,7 @@ function frame(now: number) {
     const view = myView(now)
     renderFrame(pixels, W, H, grid, makeCamera(view.x, view.y, view.angle, FOV, pitch), othersAt(now - INTERP_DELAY))
     ctx.putImageData(image, 0, 0)
+    playSteps(now)
     // 총은 시점에 붙어 있어 위아래 시선과 상관없이 같은 자리에 있고, 조준점과 같은 흔들림으로 돎
     const kick = Math.max(0, 1 - (now - gun.lastShot) / RECOIL_MS)
     const muzzle = drawGun(ctx, gunModel, { ...s, kick }, W, H, PROJ)
@@ -348,6 +381,8 @@ function receive(data: string) {
           result = null
         }
         blood = onWalk(blood)
+        stoppedAt = null
+        lastStep.clear()
       }
       schedule[m.phase] = m.at
       // 신호음은 프레임을 기다리지 않고 AudioContext 시계로 결투 시각에 맞춰 예약함 (기술 설계서 시간 맞추기)

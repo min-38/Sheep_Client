@@ -29,6 +29,19 @@ export function formatTime(ms: number): string {
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
 }
 
+// ms. 걷는 시간. 서버 RoundFlow.WalkDuration과 같은 값이어야 서버가 멈추기를 받는 동안만 클릭이 멈추기가 됨.
+// ponytail: 임시 값(시스템 기획서 판 흐름 시간). 플레이해 보며 정함
+export const WALK_DURATION = 3000
+
+// ms. 발소리 간격. ponytail: 임시 값(시스템 기획서 사운드). 플레이해 보며 정함
+export const STEP_MS = 500
+
+// now(서버 시계)에 걷는 중인지. 다 걷고 결투 시각을 기다리는 동안은 아님
+export const walking = (s: Schedule, now: number) => s.walk !== undefined && now >= s.walk && now < s.walk + WALK_DURATION
+
+// 걷기 시각부터 t까지 몇 번째 걸음인지. 걸음 번호가 늘 때 발소리를 냄
+export const stepIndex = (walkAt: number, t: number) => Math.floor((t - walkAt) / STEP_MS)
+
 // 카운트다운부터 "시작!"까지 내 돌기와 발사를 막음. 그동안은 서버가 나를 돌리고 걷게 함 (기술 설계서 서버/클라 역할 분리)
 export const locked = (s: Schedule, now: number) =>
   s.countdown !== undefined && now >= s.countdown && !(s.duel !== undefined && now >= s.duel)
