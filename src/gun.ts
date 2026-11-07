@@ -1,12 +1,20 @@
 import type { Mesh, RGB, Vec3 } from './obj.ts'
+import { dueling, type Schedule } from './round.ts'
 
 // 1인칭 리볼버를 Canvas 2D 경로로 직접 그림. 먼 면부터 칠하는 화가 알고리즘 (기술 설계서 렌더링 무기)
 
-// yaw·pitch는 팔 흔들림(sway.ts, 라디안). kick은 반동이고 쏜 순간 1에서 RECOIL_MS 동안 0으로 줄어듦
-export type GunPose = { yaw: number; pitch: number; kick: number }
+// yaw·pitch는 팔 흔들림(sway.ts, 라디안). kick은 반동이고 쏜 순간 1에서 RECOIL_MS 동안 0으로 줄어듦.
+// lower는 총을 내린 정도(0 듦 ~ 1 화면 아래로 다 내림)
+export type GunPose = { yaw: number; pitch: number; kick: number; lower: number }
 
 // ms. ponytail: 임시 값. 플레이해 보며 정함
 export const RECOIL_MS = 150
+// ms. "시작!"부터 총을 다 들어 올리기까지. 다 들면 공이치기를 당김. ponytail: 임시 값. 플레이해 보며 정함
+export const RAISE_MS = 200
+// 공이치기를 당길 때 튀는 크기(쏠 때 반동을 1로). ponytail: 임시 값. 화면을 보며 맞춤
+const COCK_KICK = 0.25
+// 다 내린 총을 GUN_POS에서 내리는 거리(눈 좌표). 지금 모델은 흔들림이 가장 커도 약 0.27이면 화면 아래로 다 숨어 여유를 둠
+const LOWER_BY = 0.35
 // 눈 좌표(x 오른쪽, y 위, z 앞)에서 총 가운데가 놓일 자리. ponytail: 임시 값. 화면을 보며 맞춤
 export const GUN_POS: Vec3 = [0.3, -0.24, 0.75]
 // 모델 한 단위의 눈 좌표 길이. 리볼버 모델은 길이가 약 2임
@@ -50,10 +58,19 @@ export function transform(mesh: Mesh, pose: GunPose): Vec3[] {
     const z1 = z * cosUp - y * sinUp
     return [
       x * cosYaw + z1 * sinYaw + GUN_POS[0],
-      y1 + GUN_POS[1],
+      y1 + GUN_POS[1] - pose.lower * LOWER_BY,
       z1 * cosYaw - x * sinYaw + GUN_POS[2] - pose.kick * KICK_BACK,
     ]
   })
+}
+
+// now(서버 시계)에 총을 내린 정도와 공이치기 반동. "시작!" 전과 판 사이에는 내려 두어 결투가 시작됐음을 화면으로도 알림.
+// "시작!"부터 RAISE_MS 동안 처음에 빨리 들고(ease-out), 다 든 순간 공이치기 소리와 함께 작게 튐. 판 결과가 끝나 schedule을 비우면 다시 내림
+export function lift(s: Schedule, now: number): { lower: number; kick: number } {
+  if (!dueling(s, now)) return { lower: 1, kick: 0 }
+  const since = now - s.duel!
+  if (since < RAISE_MS) return { lower: (1 - since / RAISE_MS) ** 3, kick: 0 }
+  return { lower: 0, kick: COCK_KICK * Math.max(0, 1 - (since - RAISE_MS) / RECOIL_MS) }
 }
 
 // 면의 바깥쪽 단위 법선(Newell 방법, n각형도 됨). 모델의 반시계 감김이 x·z를 맞바꾼 눈 좌표에서는 시계 방향이라 부호를 뒤집음

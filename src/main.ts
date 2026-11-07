@@ -3,7 +3,7 @@ import mtlText from './assets/revolver.mtl?raw'
 import objText from './assets/revolver.obj?raw'
 import { characterFrames, suicideStage, type Poses } from './character.ts'
 import { best, measure, toLocalTime, toServerTime, type ClockSample } from './clock.ts'
-import { drawGun, RECOIL_MS } from './gun.ts'
+import { drawGun, lift, RAISE_MS, RECOIL_MS } from './gun.ts'
 import { dotPosition, noBlood, onGameEnd, onRevived, onWalk, onWounded, resultLabel } from './hitcard.ts'
 import { record, sampleAt, type Sample } from './interpolate.ts'
 import { fireMessage, parseServerMessage, stopMessage, type ClientMessage, type PlayerState, type RoundResult, type ShotResult } from './net.ts'
@@ -14,8 +14,8 @@ import { parseMtl, parseObj } from './obj.ts'
 import type { Grid } from './raycast.ts'
 import { makeCamera, renderFrame } from './render.ts'
 import { loaded, pull, ROUNDS } from './revolver.ts'
-import { banner, dueling, formatTime, locked, resultText, stepIndex, timeLeft, walking, type Schedule } from './round.ts'
-import { heardFrom, playShot, playSignal, playStep, stampOf, toAudioTime } from './sound.ts'
+import { banner, dueling, formatTime, joins, locked, resultText, stepIndex, timeLeft, walking, type Schedule } from './round.ts'
+import { heardFrom, loadEffects, play, playReload, playSignal, playStep, stampOf, toAudioTime } from './sound.ts'
 import type { Sprite, Thing } from './sprite.ts'
 import { afterTurn, aimAt, crosshairOffset, scaleAt, steady, sway } from './sway.ts'
 import { tilt, turn } from './turn.ts'
@@ -106,7 +106,7 @@ function showShot(id: string, shotAngle: number) {
   if (!audio || !placed || !samples) return
   const view = myView(now)
   const shooter = sampleAt(samples, now - INTERP_DELAY)
-  playShot(audio, toAudioTime(now + INTERP_DELAY, stampOf(audio)), heardFrom(view.x, view.y, view.angle, shooter.x, shooter.y))
+  play(audio, 'shot', toAudioTime(now + INTERP_DELAY, stampOf(audio)), heardFrom(view.x, view.y, view.angle, shooter.x, shooter.y))
 }
 
 function othersAt(t: number): Thing[] {
@@ -213,11 +213,15 @@ canvas.addEventListener('mousedown', (e) => {
   if (!grid || !clock || result || document.pointerLockElement !== canvas || e.button !== 0) return
   if (inputLocked(e.timeStamp) || !dueling(schedule, toServerTime(e.timeStamp, clock.offset))) return
   const next = pull(gun, e.timeStamp, FIRE_INTERVAL)
-  if (!next) return
+  if (!next) {
+    // 빈 총은 서버에 알리지 않아 내 화면에서만 들림. 남이 들으면 누가 이미 쐈는지 알게 됨 (시스템 기획서 사운드)
+    if (audio && gun.rounds <= 0) play(audio, 'dryFire', audio.currentTime)
+    return
+  }
   gun = next
   // 불꽃, 탄 수, 총소리는 바로 내고, 명중과 쓰러짐은 서버가 정해 알려 줌
   showAmmo()
-  if (audio) playShot(audio, audio.currentTime)
+  if (audio) play(audio, 'shot', audio.currentTime)
   // 총알은 시선이 아니라 흔들린 총이 가리키는 쪽으로 감. 조준점도 같은 식으로 그려 둘이 맞음
   const aim = aimAt(angle, pitch, e.timeStamp, scaleAt(unsteady, e.timeStamp))
   send(fireMessage(aim.angle, aim.pitch, e.timeStamp, clock.offset))
@@ -232,8 +236,10 @@ function frame(now: number) {
     ctx.putImageData(image, 0, 0)
     playSteps(now)
     // 총은 시점에 붙어 있어 위아래 시선과 상관없이 같은 자리에 있고, 조준점과 같은 흔들림으로 돎
-    const kick = Math.max(0, 1 - (now - gun.lastShot) / RECOIL_MS)
-    const muzzle = drawGun(ctx, gunModel, { ...s, kick }, W, H, PROJ)
+    // 들어 올리기는 보이기만 함. 조준점과 발사는 총을 다 들기 전에도 그대로임
+    const hold = clock ? lift(schedule, toServerTime(now, clock.offset)) : { lower: 1, kick: 0 }
+    const kick = Math.max(hold.kick, 1 - (now - gun.lastShot) / RECOIL_MS)
+    const muzzle = drawGun(ctx, gunModel, { ...s, kick, lower: hold.lower }, W, H, PROJ)
     flash.style.transform = `translate(${(muzzle.x * 100) / W}cqw, ${(muzzle.y * 100) / W}cqw)`
     // 마우스 이벤트가 아니라 여기서 보내야 마지막으로 멈춘 각도도 빠지지 않고 감
     if (angle !== sentAngle && now - sentAt >= TURN_INTERVAL && ws.readyState === WebSocket.OPEN) {
@@ -289,7 +295,7 @@ const readyCount = document.querySelector<HTMLOutputElement>('#ready-count')!
 const bannerText = document.querySelector<HTMLOutputElement>('#banner')!
 const timer = document.querySelector<HTMLOutputElement>('#timer')!
 let ready = false
-// 준비 버튼을 처음 누를 때 만듦. 브라우저는 사용자 입력 전에 만든 AudioContext의 소리를 막음 (기술 설계서 사운드 구현)
+// 준비 버튼을 처음 누를 때 만들고 효과음도 이때 받기 시작함. 브라우저는 사용자 입력 전에 만든 AudioContext의 소리를 막음 (기술 설계서 사운드 구현)
 let audio: AudioContext | null = null
 const REASONS = {
   notFound: '없는 방 코드',
@@ -508,8 +514,18 @@ function receive(data: string) {
         lastStep.clear()
       }
       schedule[m.phase] = m.at
-      // 신호음은 프레임을 기다리지 않고 AudioContext 시계로 결투 시각에 맞춰 예약함 (기술 설계서 시간 맞추기)
-      if (m.phase === 'duel' && audio && clock) playSignal(audio, toAudioTime(toLocalTime(m.at, clock.offset), stampOf(audio)))
+      // 신호음, 장전, 공이치기는 프레임을 기다리지 않고 AudioContext 시계로 그 단계 시각에 맞춰 예약함 (기술 설계서 시간 맞추기).
+      // 장전과 공이치기는 내 것만 들음. 장전은 이번 라운드에 끼는 나만, 공이치기는 "시작!"에 서서 총을 드는 나만
+      if (audio && clock && myId !== null) {
+        const when = toAudioTime(toLocalTime(m.at, clock.offset), stampOf(audio))
+        if (m.phase === 'countdown' && joins(result, myId)) playReload(audio, when)
+        if (m.phase === 'duel') {
+          playSignal(audio, when)
+          // 공이치기는 총을 다 들어 화면이 튀는 순간에 맞춤 (gun.ts lift).
+          // ponytail: 총을 다 드는 RAISE_MS(0.2초) 안에 쏘면 공이치기 소리와 튐이 총소리 뒤에 남. 거슬리면 쏠 때 예약한 공이치기를 멈춤(AudioBufferSourceNode.stop)
+          if (!downs.has(myId)) play(audio, 'cockHammer', when + RAISE_MS / 1000)
+        }
+      }
       break
     case 'shot':
       // 내 불꽃과 총소리는 쏠 때 이미 냄
@@ -579,7 +595,10 @@ document.querySelector('#create-form')!.addEventListener('submit', (e) => {
 })
 // ponytail: 포인터 잠금 중에는 Esc로 커서를 풀어야 누를 수 있음. 조작이 정해지면 키로도 누르게 함
 readyButton.addEventListener('click', () => {
-  audio ??= new AudioContext()
+  if (!audio) {
+    audio = new AudioContext()
+    loadEffects(audio)
+  }
   // 판 사이에 시계를 다시 잼. 판이 시작되기 직전이라 이번 판 시각을 바꾸는 데 가장 새 값이 됨
   if (!ready) syncClock()
   send({ type: 'ready', ready: !ready })

@@ -1,8 +1,11 @@
 import { describe, expect, test } from 'vitest'
-import { drawGun, faceNormal, GUN_POS, paintOrder, shade, transform, type GunPose } from './gun.ts'
-import { parseObj, type Mesh, type RGB } from './obj.ts'
+import mtlText from './assets/revolver.mtl?raw'
+import objText from './assets/revolver.obj?raw'
+import { drawGun, faceNormal, GUN_POS, lift, paintOrder, RAISE_MS, RECOIL_MS, shade, transform, type GunPose } from './gun.ts'
+import { parseMtl, parseObj, type Mesh, type RGB } from './obj.ts'
+import { SCALE_MAX, SWAY_PITCH } from './sway.ts'
 
-const STILL: GunPose = { yaw: 0, pitch: 0, kick: 0 }
+const STILL: GunPose = { yaw: 0, pitch: 0, kick: 0, lower: 0 }
 const GREY: RGB = [100, 100, 100]
 
 // 모델 좌표의 막대. 총열처럼 +x로 길고, 0번이 손잡이 쪽, 1번이 총구 쪽
@@ -76,6 +79,12 @@ describe('transform', () => {
     expect(kicked[1]).toBeGreaterThan(still[1])
   })
 
+  test('다 내리면 흔들림이 가장 커도 리볼버 전체가 화면 아래로 숨음', () => {
+    const revolver = parseObj(objText, parseMtl(mtlText))
+    const verts = transform(revolver, { ...STILL, pitch: SWAY_PITCH * SCALE_MAX, lower: 1 })
+    for (const [, y, z] of verts) expect(135 - (370 * y) / z).toBeGreaterThan(270)
+  })
+
   test('흔들림 yaw가 +면 총구가 오른쪽, pitch가 +면 위로 감', () => {
     const still = transform(stick, STILL)[1]
     expect(transform(stick, { ...STILL, yaw: 0.1 })[1][0]).toBeGreaterThan(still[0])
@@ -124,5 +133,31 @@ describe('drawGun', () => {
     const muzzle = drawGun(ctx, stick, STILL, 480, 270, 370)
     expect(muzzle.x).toBeGreaterThan(240)
     expect(muzzle.y).toBeGreaterThan(135)
+  })
+})
+
+describe('lift', () => {
+  test('"시작!" 전과 판 사이에는 총을 다 내림', () => {
+    expect(lift({}, 5000)).toEqual({ lower: 1, kick: 0 })
+    expect(lift({ countdown: 0, walk: 1000, duel: 5000 }, 4999)).toEqual({ lower: 1, kick: 0 })
+  })
+
+  test('"시작!"부터 RAISE_MS 동안 처음에 빨리 들어 올림', () => {
+    const s = { duel: 1000 }
+    expect(lift(s, 1000).lower).toBe(1)
+    const half = lift(s, 1000 + RAISE_MS / 2).lower
+    expect(half).toBeGreaterThan(0)
+    expect(half).toBeLessThan(0.5)
+    expect(lift(s, 1000 + RAISE_MS).lower).toBe(0)
+  })
+
+  test('다 든 순간 쏠 때보다 작게 튀고 RECOIL_MS 뒤에는 든 채로 멈춤', () => {
+    const s = { duel: 1000 }
+    expect(lift(s, 1000 + RAISE_MS - 1).kick).toBe(0)
+    const jolt = lift(s, 1000 + RAISE_MS).kick
+    expect(jolt).toBeGreaterThan(0)
+    expect(jolt).toBeLessThan(1)
+    expect(lift(s, 1000 + RAISE_MS + RECOIL_MS)).toEqual({ lower: 0, kick: 0 })
+    expect(lift(s, 60000)).toEqual({ lower: 0, kick: 0 })
   })
 })

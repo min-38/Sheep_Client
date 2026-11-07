@@ -5,3 +5,8 @@
 | 파일 | 원본 | 만든 사람 | 라이선스 | 받은 곳 |
 | --- | --- | --- | --- | --- |
 | `src/assets/revolver.obj`, `src/assets/revolver.mtl` | Ultimate Gun Pack의 `OBJ/Revolver_2.obj`, `Revolver_2.mtl` (이름만 바꿈) | Quaternius | [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) | https://quaternius.com/packs/ultimategun.html |
+| `src/assets/audio/shot.mp3` | Snake's SECOND Authentic Gun Sounds Pack의 `Full Sounds/9mm/MP3/9mm Single.mp3` (이름만 바꿈) | f8studios ("Snake") | 퍼블릭 도메인 (작가가 밝힘) | https://f8studios.itch.io/snakes-second-authentic-gun-sounds-pack |
+| `src/assets/audio/load.mp3` | Snake's SECOND Authentic Gun Sounds Pack의 `& More/Revolver/44 Magnum/MP3/44 Magnum Single Load.mp3` (이름만 바꿈) | f8studios ("Snake") | 퍼블릭 도메인 (작가가 밝힘) | https://f8studios.itch.io/snakes-second-authentic-gun-sounds-pack |
+| `src/assets/audio/close-cylinder.mp3` | Snake's SECOND Authentic Gun Sounds Pack의 `& More/Revolver/44 Magnum/MP3/44 Magnum Close Cylinder.mp3` (이름만 바꿈) | f8studios ("Snake") | 퍼블릭 도메인 (작가가 밝힘) | https://f8studios.itch.io/snakes-second-authentic-gun-sounds-pack |
+| `src/assets/audio/cock-hammer.mp3` | Snake's SECOND Authentic Gun Sounds Pack의 `& More/Revolver/44 Magnum/MP3/44 Magnum Cock Hammer.mp3` (이름만 바꿈) | f8studios ("Snake") | 퍼블릭 도메인 (작가가 밝힘) | https://f8studios.itch.io/snakes-second-authentic-gun-sounds-pack |
+| `src/assets/audio/dry-fire.mp3` | Snake's SECOND Authentic Gun Sounds Pack의 `& More/Pistol/MP3/9mm Pistol Dry Fire.mp3` (이름만 바꿈) | f8studios ("Snake") | 퍼블릭 도메인 (작가가 밝힘) | https://f8studios.itch.io/snakes-second-authentic-gun-sounds-pack |
