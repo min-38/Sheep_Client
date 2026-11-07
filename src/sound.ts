@@ -17,8 +17,8 @@ export function stampOf(audio: AudioContext): AudioStamp {
   return { contextTime: audio.currentTime, performanceTime: performance.now() }
 }
 
-// 초. "시작!" 신호음 길이. 공이치기 소리를 이 뒤에 냄
-export const SIGNAL_SECONDS = 0.3
+// 초. "시작!" 신호음 길이
+const SIGNAL_SECONDS = 0.3
 
 // "시작!" 신호음을 when(AudioContext 시각, 초)에 울림. 0.3초 넘게 늦으면 소리가 다 줄어든 뒤라 들리지 않음.
 // ponytail: Web Audio로 합성한 임시음. CC0 효과음으로 바꿀 때 이 함수만 고침 (기술 설계서 사운드 구현)

@@ -2,7 +2,7 @@ import './style.css'
 import mtlText from './assets/revolver.mtl?raw'
 import objText from './assets/revolver.obj?raw'
 import { best, measure, toLocalTime, toServerTime, type ClockSample } from './clock.ts'
-import { drawGun, RECOIL_MS } from './gun.ts'
+import { drawGun, lift, RAISE_MS, RECOIL_MS } from './gun.ts'
 import { dotPosition, noBlood, onGameEnd, onRevived, onWalk, onWounded, resultLabel } from './hitcard.ts'
 import { record, sampleAt, type Sample } from './interpolate.ts'
 import { fireMessage, parseServerMessage, stopMessage, type ClientMessage, type PlayerState, type RoundResult, type ShotResult } from './net.ts'
@@ -12,7 +12,7 @@ import { makeCamera, renderFrame } from './render.ts'
 import { loaded, pull, ROUNDS } from './revolver.ts'
 import { banner, dueling, formatTime, joins, locked, resultText, stepIndex, timeLeft, walking, type Schedule } from './round.ts'
 import { makeAimingFrames, makeFallenFrames, makeScarecrowFrames, makeSuicideFrames, suicideStage } from './scarecrow.ts'
-import { heardFrom, loadEffects, play, playReload, playSignal, playStep, SIGNAL_SECONDS, stampOf, toAudioTime } from './sound.ts'
+import { heardFrom, loadEffects, play, playReload, playSignal, playStep, stampOf, toAudioTime } from './sound.ts'
 import type { Thing } from './sprite.ts'
 import { afterTurn, aimAt, crosshairOffset, scaleAt, steady, sway } from './sway.ts'
 import { tilt, turn } from './turn.ts'
@@ -232,8 +232,10 @@ function frame(now: number) {
     ctx.putImageData(image, 0, 0)
     playSteps(now)
     // 총은 시점에 붙어 있어 위아래 시선과 상관없이 같은 자리에 있고, 조준점과 같은 흔들림으로 돎
-    const kick = Math.max(0, 1 - (now - gun.lastShot) / RECOIL_MS)
-    const muzzle = drawGun(ctx, gunModel, { ...s, kick }, W, H, PROJ)
+    // 들어 올리기는 보이기만 함. 조준점과 발사는 총을 다 들기 전에도 그대로임
+    const hold = clock ? lift(schedule, toServerTime(now, clock.offset)) : { lower: 1, kick: 0 }
+    const kick = Math.max(hold.kick, 1 - (now - gun.lastShot) / RECOIL_MS)
+    const muzzle = drawGun(ctx, gunModel, { ...s, kick, lower: hold.lower }, W, H, PROJ)
     flash.style.transform = `translate(${(muzzle.x * 100) / W}cqw, ${(muzzle.y * 100) / W}cqw)`
     // 마우스 이벤트가 아니라 여기서 보내야 마지막으로 멈춘 각도도 빠지지 않고 감
     if (angle !== sentAngle && now - sentAt >= TURN_INTERVAL && ws.readyState === WebSocket.OPEN) {
@@ -399,8 +401,9 @@ function receive(data: string) {
         if (m.phase === 'countdown' && joins(result, myId)) playReload(audio, when)
         if (m.phase === 'duel') {
           playSignal(audio, when)
-          // ponytail: 신호음이 끝나는 0.3초 안에 쏘면 공이치기가 총소리 뒤에 남. 거슬리면 쏠 때 예약한 공이치기를 멈춤(AudioBufferSourceNode.stop)
-          if (!downs.has(myId)) play(audio, 'cockHammer', when + SIGNAL_SECONDS)
+          // 공이치기는 총을 다 들어 화면이 튀는 순간에 맞춤 (gun.ts lift).
+          // ponytail: 총을 다 드는 RAISE_MS(0.2초) 안에 쏘면 공이치기 소리와 튐이 총소리 뒤에 남. 거슬리면 쏠 때 예약한 공이치기를 멈춤(AudioBufferSourceNode.stop)
+          if (!downs.has(myId)) play(audio, 'cockHammer', when + RAISE_MS / 1000)
         }
       }
       break
