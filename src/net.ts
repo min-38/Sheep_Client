@@ -42,7 +42,8 @@ export type ServerMessage =
   | { type: 'phase'; phase: Phase; at: number }
   // 서버가 받아들인 발사. angle은 fire의 angle 그대로
   | { type: 'shot'; playerId: string; angle: number }
-  | { type: 'eliminated'; playerId: string }
+  // reason은 쓰러진 사유. shot은 머리나 두 번째 반샷을 맞음, timeout은 제한 시간 안에 쏘지 않아 자살함
+  | { type: 'eliminated'; playerId: string; reason: 'shot' | 'timeout' }
   // 결과 시간이 끝나는 시각은 바로 뒤의 phase로 옴 (승리면 lobby, 재대결이면 countdown)
   | ({ type: 'result' } & RoundResult)
   // 판정이 확정된 틱에 쏜 사람에게만 옴. 누구를 맞혔는지는 담지 않음
@@ -82,7 +83,9 @@ export function parseServerMessage(text: string): ServerMessage | null {
     case 'shot':
       return typeof m.playerId === 'string' && Number.isFinite(m.angle) ? { type: 'shot', playerId: m.playerId, angle: m.angle } : null
     case 'eliminated':
-      return typeof m.playerId === 'string' ? { type: 'eliminated', playerId: m.playerId } : null
+      return typeof m.playerId === 'string' && (m.reason === 'shot' || m.reason === 'timeout')
+        ? { type: 'eliminated', playerId: m.playerId, reason: m.reason }
+        : null
     case 'result':
       return (m.outcome === 'win' || m.outcome === 'rematch') &&
         Array.isArray(m.playerIds) &&

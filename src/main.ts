@@ -10,8 +10,8 @@ import { parseMtl, parseObj } from './obj.ts'
 import type { Grid } from './raycast.ts'
 import { makeCamera, renderFrame } from './render.ts'
 import { loaded, pull, ROUNDS } from './revolver.ts'
-import { banner, dueling, locked, resultText, type Schedule } from './round.ts'
-import { makeFallenFrames, makeScarecrowFrames } from './scarecrow.ts'
+import { banner, dueling, formatTime, locked, resultText, timeLeft, type Schedule } from './round.ts'
+import { makeAimingFrames, makeFallenFrames, makeScarecrowFrames, makeSuicideFrames, suicideStage } from './scarecrow.ts'
 import { heardFrom, playShot, playSignal, stampOf, toAudioTime } from './sound.ts'
 import type { Thing } from './sprite.ts'
 import { aimAt, crosshairOffset, sway } from './sway.ts'
@@ -58,15 +58,19 @@ let sentAt = -Infinity
 const history = new Map<string, Sample[]>()
 // ponytail: 허수아비 그림을 임시로 씀. 플레이어 스프라이트 시트가 생기면 바꿈
 const scarecrow = makeScarecrowFrames()
-const firing = makeScarecrowFrames(true)
+// "시작!"부터 서 있는 사람은 총을 겨눈 그림. 발사는 결투 중에만 받으므로 쏘는 그림도 겨눈 그림에 불꽃을 더한 것뿐임
+const aiming = makeAimingFrames()
+const firing = makeAimingFrames(true)
+const suicide = makeSuicideFrames()
 const fallen = makeFallenFrames()
 // 1인칭 리볼버 모델 (컨셉 기획서 아트와 사운드 1인칭 총)
 const gunModel = parseObj(objText, parseMtl(mtlText))
 // 다른 사람이 마지막으로 쏜 것과 쓰러진 것을 받은 시각(ms). state처럼 INTERP_DELAY 뒤에 보여 줘 돌기, 발사, 쓰러짐의 순서를 지킴.
 // ponytail: 사람마다 마지막 발사 하나만 둠. 발사 간격(250ms)이 불꽃(100ms)보다 길어 겹치지 않음. 지연이 크게 흔들려 둘이 붙어 오면 앞 불꽃이 빠짐
 const shots = new Map<string, { at: number; angle: number }>()
-const downAt = new Map<string, number>()
-const isDown = (id: string, t: number) => (downAt.get(id) ?? Infinity) <= t
+// 쓰러진 사람마다 탈락을 받은 시각(ms)과 사유. 시간 초과면 쓰러진 그림 전에 자살 모습을 보여 줌
+const downs = new Map<string, { at: number; reason: 'shot' | 'timeout' }>()
+const isDown = (id: string, t: number) => (downs.get(id)?.at ?? Infinity) <= t
 // 서버가 알린 판 결과와 받은 시각(ms). 탈락처럼 INTERP_DELAY 뒤에 띄움.
 // end는 결과 바로 뒤에 오는 phase의 시각(서버 시계, 승리면 lobby, 재대결이면 countdown)이고 이때 endResult로 끝냄
 let result: (RoundResult & { at: number; end?: number }) | null = null
@@ -107,6 +111,7 @@ function showShot(id: string, shotAngle: number) {
 }
 
 function othersAt(t: number): Thing[] {
+  const duel = clock !== null && dueling(schedule, toServerTime(t, clock.offset))
   return [...history]
     .filter(([id]) => id !== myId)
     .map(([id, samples]) => {
@@ -114,8 +119,15 @@ function othersAt(t: number): Thing[] {
       const shot = shots.get(id)
       const flashing = shot !== undefined && t >= shot.at && t < shot.at + FLASH_SHOWN
       // 불꽃 동안은 쏜 각도로 그림. 돌고 바로 쏘면 돌아간 각도는 다음 state로 늦게 옴
-      return { x: s.x, y: s.y, facing: flashing ? shot.angle : s.angle, frames: isDown(id, t) ? fallen : flashing ? firing : scarecrow }
+      return { x: s.x, y: s.y, facing: flashing ? shot.angle : s.angle, frames: flashing ? firing : poseFrames(id, t, duel) }
     })
+}
+
+function poseFrames(id: string, t: number, duel: boolean) {
+  const down = downs.get(id)
+  if (down === undefined || t < down.at) return duel ? aiming : scarecrow
+  const stage = down.reason === 'timeout' ? suicideStage(t - down.at) : null
+  return stage === null ? fallen : suicide[stage]
 }
 
 // 포인터 잠금 중에만 돌림. 잠금 전에는 커서가 화면 밖으로 나가 이동량이 끊김
@@ -126,9 +138,14 @@ document.addEventListener('mousemove', (e) => {
   pitch = tilt(pitch, e.movementY, SENSITIVITY)
 })
 
-const ammo = document.querySelector<HTMLOutputElement>('#ammo')!
+const ammo = document.querySelector<SVGSVGElement>('#ammo')!
+const chambers = ammo.querySelectorAll('.chamber')
 let gun = loaded(ROUNDS)
-const showAmmo = () => (ammo.value = '●'.repeat(gun.rounds) + '○'.repeat(ROUNDS - gun.rounds))
+// 6칸 실린더에서 장전된 칸만 금색. 위 칸부터 채움 (시스템 기획서 HUD 탄 수)
+function showAmmo() {
+  chambers.forEach((c, i) => c.classList.toggle('loaded', i < gun.rounds))
+  ammo.setAttribute('aria-label', `남은 총알 ${gun.rounds}발`)
+}
 showAmmo()
 
 const flash = document.querySelector<HTMLDivElement>('#flash')!
@@ -204,6 +221,11 @@ function frame(now: number) {
           ? banner(schedule, toServerTime(now, clock.offset))
           : ''
   if (bannerText.value !== text) bannerText.value = text
+  // 결투 중에만 보임. 결과를 받으면 숨김 (시스템 기획서 HUD 남은 시간)
+  const left = clock && !result ? timeLeft(schedule, toServerTime(now, clock.offset)) : null
+  timer.hidden = left === null
+  const clockText = left === null ? '' : formatTime(left)
+  if (timer.value !== clockText) timer.value = clockText
   requestAnimationFrame(frame)
 }
 requestAnimationFrame(frame)
@@ -217,6 +239,7 @@ const readyBar = document.querySelector<HTMLDivElement>('#ready-bar')!
 const readyButton = document.querySelector<HTMLButtonElement>('#ready')!
 const readyCount = document.querySelector<HTMLOutputElement>('#ready-count')!
 const bannerText = document.querySelector<HTMLOutputElement>('#banner')!
+const timer = document.querySelector<HTMLOutputElement>('#timer')!
 let ready = false
 // 준비 버튼을 처음 누를 때 만듦. 브라우저는 사용자 입력 전에 만든 AudioContext의 소리를 막음 (기술 설계서 사운드 구현)
 let audio: AudioContext | null = null
@@ -238,21 +261,21 @@ let schedule: Schedule = {}
 // 시계를 맞추기 전에는 판 시각을 내 시계로 바꿀 수 없어 막지 않음. 그래도 서버가 걷는 동안의 turn은 버림.
 // 쓰러지면 탈락을 받는 즉시 막음. 쓰러졌다는 알림은 늦게 띄워도 그 뒤 입력은 서버가 버리기 때문임
 const inputLocked = (now: number) =>
-  (myId !== null && downAt.has(myId)) || (clock !== null && locked(schedule, toServerTime(now, clock.offset)))
+  (myId !== null && downs.has(myId)) || (clock !== null && locked(schedule, toServerTime(now, clock.offset)))
 // 결과 시간이 끝나면 부름. 승리면 준비 중으로 돌아가 처음처럼, 재대결이면 재대결하는 사람만 일으키고 다시 장전함
 function endResult(r: RoundResult) {
   hitCard.hidden = true
   if (r.outcome === 'win') {
     schedule = {}
     pitch = 0
-    downAt.clear()
+    downs.clear()
     gun = loaded(ROUNDS)
     blood = onGameEnd()
     readyBar.hidden = false
   } else {
     // 쓰러졌다 다시 서는 나(함께 쓰러짐)는 혈흔을 그 라운드 전으로 되돌림. 서버가 반샷을 되돌리는 것과 같음. 일으키기 전에 봐야 가를 수 있음
-    if (myId !== null && downAt.has(myId) && r.playerIds.includes(myId)) blood = onRevived(blood)
-    for (const id of r.playerIds) downAt.delete(id)
+    if (myId !== null && downs.has(myId) && r.playerIds.includes(myId)) blood = onRevived(blood)
+    for (const id of r.playerIds) downs.delete(id)
     if (myId !== null && r.playerIds.includes(myId)) gun = loaded(r.rounds)
   }
   showAmmo()
@@ -335,7 +358,7 @@ function receive(data: string) {
       if (m.playerId !== myId) showShot(m.playerId, m.angle)
       break
     case 'eliminated':
-      downAt.set(m.playerId, performance.now())
+      downs.set(m.playerId, { at: performance.now(), reason: m.reason })
       break
     case 'result':
       // 창이 숨어 그리기가 멈춘 동안에는 앞 결과가 끝나지 않은 채 다음 결과가 올 수 있어 먼저 끝냄
