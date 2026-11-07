@@ -1,21 +1,20 @@
 import './style.css'
-import mtlText from './assets/revolver.mtl?raw'
-import objText from './assets/revolver.obj?raw'
+import revolverData from './assets/revolver-rig.json'
 import { characterFrames, suicideStage, type Poses } from './character.ts'
 import { best, measure, toLocalTime, toServerTime, type ClockSample } from './clock.ts'
-import { drawGun, lift, RAISE_MS, RECOIL_MS } from './gun.ts'
+import { drawGun, gunClips, lift, RAISE_MS, RECOIL_MS, RELOAD_AT, RELOAD_SEATED, RELOAD_SHUT, revolverMesh } from './gun.ts'
 import { dotPosition, noBlood, onGameEnd, onRevived, onWalk, onWounded, resultLabel } from './hitcard.ts'
 import { record, sampleAt, type Sample } from './interpolate.ts'
 import { fireMessage, parseServerMessage, stopMessage, type ClientMessage, type PlayerState, type RoundResult, type ShotResult } from './net.ts'
 import { normalizeNickname } from './nickname.ts'
 import { BANDANA, joinable, memberText, roomStatus, type RoomInfo } from './roomlist.ts'
 import { normalizeRoomName, randomRoomName } from './roomname.ts'
-import { parseMtl, parseObj } from './obj.ts'
 import type { Grid } from './raycast.ts'
 import { makeCamera, renderFrame } from './render.ts'
 import { loaded, pull, ROUNDS } from './revolver.ts'
+import type { Rig } from './rig.ts'
 import { banner, dueling, formatTime, joins, locked, resultText, stepIndex, timeLeft, walking, type Schedule } from './round.ts'
-import { heardFrom, loadEffects, play, playReload, playSignal, playStep, stampOf, toAudioTime } from './sound.ts'
+import { heardFrom, loadEffects, play, playSignal, playStep, stampOf, toAudioTime } from './sound.ts'
 import type { Sprite, Thing } from './sprite.ts'
 import { afterTurn, aimAt, crosshairOffset, scaleAt, steady, sway } from './sway.ts'
 import { tilt, turn } from './turn.ts'
@@ -61,8 +60,10 @@ let sentAt = -Infinity
 const history = new Map<string, Sample[]>()
 // 사람마다 목수건 색 번호. state마다 새로 받음
 let colors = new Map<string, number>()
-// 1인칭 리볼버 모델 (컨셉 기획서 아트와 사운드 1인칭 총)
-const gunModel = parseObj(objText, parseMtl(mtlText))
+// 1인칭 리볼버 모델. 부품이 뼈대로 움직임 (컨셉 기획서 아트와 사운드 1인칭 총)
+const revolver = revolverData as Rig
+// 이번 카운트다운에 내가 끼어 장전하는지. 카운트다운을 받을 때 장전 소리와 같은 조건으로 정함
+let reloading = false
 // 다른 사람이 마지막으로 쏜 것과 쓰러진 것을 받은 시각(ms). state처럼 INTERP_DELAY 뒤에 보여 줘 돌기, 발사, 쓰러짐의 순서를 지킴.
 // ponytail: 사람마다 마지막 발사 하나만 둠. 발사 간격(250ms)이 불꽃(100ms)보다 길어 겹치지 않음. 지연이 크게 흔들려 둘이 붙어 오면 앞 불꽃이 빠짐
 const shots = new Map<string, { at: number; angle: number }>()
@@ -237,9 +238,11 @@ function frame(now: number) {
     playSteps(now)
     // 총은 시점에 붙어 있어 위아래 시선과 상관없이 같은 자리에 있고, 조준점과 같은 흔들림으로 돎
     // 들어 올리기는 보이기만 함. 조준점과 발사는 총을 다 들기 전에도 그대로임
-    const hold = clock ? lift(schedule, toServerTime(now, clock.offset)) : { lower: 1, kick: 0 }
+    // 부품 움직임도 서버 시계로 재어 AudioContext로 예약한 장전·공이치기 소리와 맞음
+    const hold = clock ? lift(schedule, toServerTime(now, clock.offset), reloading) : { lower: 1, kick: 0 }
+    const plays = clock ? gunClips(schedule, toServerTime(now, clock.offset), reloading, toServerTime(gun.lastShot, clock.offset)) : []
     const kick = Math.max(hold.kick, 1 - (now - gun.lastShot) / RECOIL_MS)
-    const muzzle = drawGun(ctx, gunModel, { ...s, kick, lower: hold.lower }, W, H, PROJ)
+    const muzzle = drawGun(ctx, revolverMesh(revolver, plays, gun.rounds), { ...s, kick, lower: hold.lower }, W, H, PROJ)
     flash.style.transform = `translate(${(muzzle.x * 100) / W}cqw, ${(muzzle.y * 100) / W}cqw)`
     // 마우스 이벤트가 아니라 여기서 보내야 마지막으로 멈춘 각도도 빠지지 않고 감
     if (angle !== sentAngle && now - sentAt >= TURN_INTERVAL && ws.readyState === WebSocket.OPEN) {
@@ -501,6 +504,7 @@ function receive(data: string) {
       if (m.phase === 'countdown') {
         schedule = {}
         readyBar.hidden = true
+        reloading = myId !== null && joins(result, myId)
       }
       if (m.phase === 'walk') {
         // 걷기 시각은 다음 라운드 카운트다운이 시작한 뒤에 와 결과 시간은 이미 끝났음. 창이 숨어 그리기가 멈췄으면 결과를 여기서 먼저 끝내야
@@ -518,10 +522,14 @@ function receive(data: string) {
       // 장전과 공이치기는 내 것만 들음. 장전은 이번 라운드에 끼는 나만, 공이치기는 "시작!"에 서서 총을 드는 나만
       if (audio && clock && myId !== null) {
         const when = toAudioTime(toLocalTime(m.at, clock.offset), stampOf(audio))
-        if (m.phase === 'countdown' && joins(result, myId)) playReload(audio, when)
+        // 장전 소리는 Reload 클립에서 총알이 다 들어갈 때, 실린더 닫는 소리는 실린더가 다 닫힐 때 딸깍이 들리게 함 (gun.ts gunClips)
+        if (m.phase === 'countdown' && reloading) {
+          play(audio, 'load', when + RELOAD_AT / 1000 + RELOAD_SEATED)
+          play(audio, 'closeCylinder', when + RELOAD_AT / 1000 + RELOAD_SHUT)
+        }
         if (m.phase === 'duel') {
           playSignal(audio, when)
-          // 공이치기는 총을 다 들어 화면이 튀는 순간에 맞춤 (gun.ts lift).
+          // 공이치기는 총을 다 들어 공이치기가 끝까지 젖혀지고 화면이 튀는 순간에 맞춤 (gun.ts lift, gunClips).
           // ponytail: 총을 다 드는 RAISE_MS(0.2초) 안에 쏘면 공이치기 소리와 튐이 총소리 뒤에 남. 거슬리면 쏠 때 예약한 공이치기를 멈춤(AudioBufferSourceNode.stop)
           if (!downs.has(myId)) play(audio, 'cockHammer', when + RAISE_MS / 1000)
         }
