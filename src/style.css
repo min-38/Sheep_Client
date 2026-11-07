@@ -266,13 +266,101 @@ body {
   color: #9a7a55;
 }
 
-/* 규칙에 맞지 않을 때만 빨간 글자로 보임 */
+/* 늘 흐리게 보이고, 규칙에 맞지 않는 이름을 넣으면 빨간 글자 */
 #nickname-rule {
   margin: -0.4cqw 0 0;
-  color: #ff6b5a;
+  color: #f2dfa7aa;
   font-size: 1.5cqw;
   text-align: center;
   text-shadow: 0 0 0.3cqw #000;
+}
+
+#nickname-rule.bad {
+  color: #ff6b5a;
+}
+
+/* 방 목록 단계는 목록이 들어가게 넓히고 제목을 줄임 */
+#lobby #room-step {
+  width: 48cqw;
+}
+
+#lobby:has(#room-step:not([hidden])) #title {
+  font-size: 4.5cqw;
+  margin-bottom: 0.5cqw;
+}
+
+#who {
+  margin: 0;
+  text-align: center;
+  text-shadow: 0 0 0.3cqw #000;
+}
+
+#rename {
+  padding: 0 0.4cqw;
+  border: 0;
+  background: none;
+  color: #f7d27a;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+/* 방 목록. 들어갈 수 있는 방이 위, 그 안에서는 사람이 많은 방부터 (서버가 정렬함) */
+#room-list {
+  display: grid;
+  align-content: start;
+  gap: 0.5cqw;
+  height: 17cqw;
+  margin: 0;
+  padding: 0.6cqw;
+  overflow-y: auto;
+  border: 0.25cqw solid #3d2412;
+  border-radius: 0.4cqw;
+  background: #1a0c0699;
+  list-style: none;
+}
+
+#room-list li {
+  display: grid;
+  grid-template-columns: 1.3fr 1.7fr auto auto 5.5cqw;
+  align-items: center;
+  gap: 1cqw;
+  padding: 0.5cqw 0.8cqw;
+  border-radius: 0.3cqw;
+  background: #f1e0b3;
+  color: #3d2412;
+  font-size: 1.6cqw;
+}
+
+#room-list li > * {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* 판 진행 중이거나 꽉 찬 방은 흐리게 하고 입장 버튼이 없음 */
+#room-list li.closed {
+  opacity: 0.5;
+}
+
+#room-list li.empty {
+  display: block;
+  background: none;
+  color: #f2dfa7;
+  text-align: center;
+}
+
+#room-list .dot {
+  display: inline-block;
+  width: 1.1cqw;
+  height: 1.1cqw;
+  margin-right: 0.3cqw;
+  border: 0.15cqw solid #3d2412;
+  border-radius: 50%;
+  vertical-align: middle;
+}
+
+#room-list .plank {
+  padding: 0.2cqw 0.6cqw;
 }
 
 /* 줄마다 폭을 같게 나눔 */
@@ -363,6 +451,7 @@ body {
 
 /* display: grid·flex가 hidden 속성의 display: none을 덮어씀 */
 #lobby[hidden],
+#lobby fieldset[hidden],
 #ready-bar[hidden] {
   display: none;
 }

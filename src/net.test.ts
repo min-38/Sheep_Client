@@ -219,3 +219,22 @@ describe('stopMessage', () => {
     expect(stopMessage(1000, -500)).toEqual({ type: 'stop', at: 500 })
   })
 })
+
+describe('rooms', () => {
+  const room = '{"code":"AB12CD","name":"먼지 낀 술집","players":[{"nickname":"보안관","color":0}],"max":8,"playing":false}'
+
+  test('공개 방 목록을 받은 순서대로 읽음 (기술 설계서 메시지 rooms)', () => {
+    expect(parseServerMessage(`{"type":"rooms","rooms":[${room}]}`)).toEqual({
+      type: 'rooms',
+      rooms: [{ code: 'AB12CD', name: '먼지 낀 술집', players: [{ nickname: '보안관', color: 0 }], max: 8, playing: false }],
+    })
+    expect(parseServerMessage('{"type":"rooms","rooms":[]}')).toEqual({ type: 'rooms', rooms: [] })
+  })
+
+  test('모양이 틀린 방이 하나라도 있으면 버림', () => {
+    expect(parseServerMessage('{"type":"rooms"}')).toBeNull()
+    expect(parseServerMessage(`{"type":"rooms","rooms":[${room.replace('"name":"먼지 낀 술집",', '')}]}`)).toBeNull()
+    expect(parseServerMessage(`{"type":"rooms","rooms":[${room.replace('"color":0', '"color":8')}]}`)).toBeNull()
+    expect(parseServerMessage(`{"type":"rooms","rooms":[${room.replace('"playing":false', '"playing":"no"')}]}`)).toBeNull()
+  })
+})

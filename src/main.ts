@@ -7,6 +7,7 @@ import { dotPosition, noBlood, onGameEnd, onRevived, onWalk, onWounded, resultLa
 import { record, sampleAt, type Sample } from './interpolate.ts'
 import { fireMessage, parseServerMessage, stopMessage, type ClientMessage, type PlayerState, type RoundResult, type ShotResult } from './net.ts'
 import { normalizeNickname } from './nickname.ts'
+import { BANDANA, joinable, memberText, roomStatus, type RoomInfo } from './roomlist.ts'
 import { normalizeRoomName, randomRoomName } from './roomname.ts'
 import { parseMtl, parseObj } from './obj.ts'
 import type { Grid } from './raycast.ts'
@@ -273,7 +274,11 @@ function frame(now: number) {
 requestAnimationFrame(frame)
 
 const lobby = document.querySelector<HTMLFormElement>('#lobby')!
-const controls = lobby.querySelector('fieldset')!
+const nameStep = document.querySelector<HTMLFieldSetElement>('#name-step')!
+const roomStep = document.querySelector<HTMLFieldSetElement>('#room-step')!
+const whoName = document.querySelector<HTMLElement>('#who-name')!
+const roomList = document.querySelector<HTMLUListElement>('#room-list')!
+const nameOk = document.querySelector<HTMLButtonElement>('#name-ok')!
 const codeInput = document.querySelector<HTMLInputElement>('#code')!
 const status = document.querySelector<HTMLParagraphElement>('#status')!
 const room = document.querySelector<HTMLOutputElement>('#room')!
@@ -296,8 +301,6 @@ const REASONS = {
 const nicknameInput = document.querySelector<HTMLInputElement>('#nickname')!
 const nicknameRule = document.querySelector<HTMLParagraphElement>('#nickname-rule')!
 const privateBox = document.querySelector<HTMLInputElement>('#private')!
-// 닉네임을 정해야 누를 수 있는 버튼 (시스템 기획서 방 화면 닉네임)
-const roomButtons = ['#quick', '#create', '#join'].map((s) => document.querySelector<HTMLButtonElement>(s)!)
 // 방에 들어가기 전에는 서버 맵이 없어, 첫 화면 배경은 서버 ArenaMap과 같은 21칸 둘레 벽 결투장을 그림
 const BACKDROP: Grid = Array.from({ length: 21 }, (_, y) => Array.from({ length: 21 }, (_, x) => (x % 20 === 0 || y % 20 === 0 ? 1 : 0)))
 // 라디안/ms. 한 바퀴에 약 1분. ponytail: 임시 값
@@ -307,26 +310,89 @@ const SAVED_NICKNAME = 'nickname'
 try {
   nicknameInput.value = localStorage.getItem(SAVED_NICKNAME) ?? ''
 } catch {}
+// 정한 닉네임. 정하기 전(1단계)에는 null. 기억한 이름이 맞으면 바로 방 목록 단계로 감
+let nickname = normalizeNickname(nicknameInput.value)
+let connected = false
+// ms. 방 목록이 보이는 동안 다시 받는 간격. ponytail: 임시 값(시스템 기획서 방 화면 대기실 보기)
+const ROOMS_EVERY = 2000
+let roomsTimer = 0
 
-// 맞는 이름이면 그 이름, 틀리면 null. 틀리면 칸 아래에 규칙을 빨갛게 보이고 방 버튼을 막음
+// 맞는 이름이면 그 이름, 틀리면 null. 넣은 이름이 틀리면 규칙을 빨갛게 보이고 확인 버튼을 막음
 function checkNickname(): string | null {
   const name = normalizeNickname(nicknameInput.value)
-  nicknameRule.hidden = name !== null
-  for (const b of roomButtons) b.disabled = name === null
+  nicknameRule.classList.toggle('bad', name === null && nicknameInput.value !== '')
+  nameOk.disabled = name === null
   return name
 }
 checkNickname()
 nicknameInput.addEventListener('input', checkNickname)
 
-// 방에 들어가는 버튼마다 부름. 맞는 이름이면 기억하고 그 이름으로 메시지를 만들어 보냄
+// 첫 화면의 단계를 맞춤. 닉네임을 정했으면 방 목록 단계이고, 그 단계가 보이는 동안만 방 목록을 다시 받음
+function showStep() {
+  const naming = nickname === null
+  nameStep.hidden = !naming
+  roomStep.hidden = naming
+  nameStep.disabled = !connected || !naming
+  roomStep.disabled = !connected || naming
+  whoName.textContent = nickname ?? ''
+  clearInterval(roomsTimer)
+  if (naming || !connected || lobby.hidden) return
+  send({ type: 'listRooms' })
+  roomsTimer = setInterval(() => send({ type: 'listRooms' }), ROOMS_EVERY)
+}
+showStep()
+
+document.querySelector('#rename')!.addEventListener('click', () => {
+  nickname = null
+  showStep()
+  nicknameInput.focus()
+})
+
+// 방 목록 (시스템 기획서 방 화면 대기실 보기). 사용자가 넣은 이름이라 textContent로만 넣음
+function showRooms(rooms: readonly RoomInfo[]) {
+  const items = rooms.map((r) => {
+    const li = document.createElement('li')
+    li.classList.toggle('closed', !joinable(r))
+    const name = document.createElement('strong')
+    name.textContent = r.name
+    const who = document.createElement('span')
+    for (const p of r.players.slice(0, 3)) {
+      const dot = document.createElement('i')
+      dot.className = 'dot'
+      dot.style.background = BANDANA[p.color]
+      who.append(dot)
+    }
+    who.append(memberText(r.players))
+    const count = document.createElement('span')
+    count.textContent = `${r.players.length}/${r.max}`
+    const state = document.createElement('span')
+    state.textContent = roomStatus(r)
+    li.append(name, who, count, state)
+    if (joinable(r)) {
+      const join = document.createElement('button')
+      join.type = 'button'
+      join.className = 'plank'
+      join.textContent = '입장'
+      join.addEventListener('click', () => enterWith((nickname) => ({ type: 'joinRoom', code: r.code, nickname })))
+      li.append(join)
+    }
+    return li
+  })
+  if (items.length === 0) {
+    const empty = document.createElement('li')
+    empty.className = 'empty'
+    // ponytail: 임시 문구
+    empty.textContent = '열린 방이 없음'
+    items.push(empty)
+  }
+  roomList.replaceChildren(...items)
+}
+
+// 방에 들어가는 버튼마다 부름. 정한 닉네임으로 메시지를 만들어 보냄
 function enterWith(message: (nickname: string) => ClientMessage) {
-  const name = checkNickname()
-  if (name === null) return
-  try {
-    localStorage.setItem(SAVED_NICKNAME, name)
-  } catch {}
+  if (nickname === null) return
   status.textContent = ''
-  send(message(name))
+  send(message(nickname))
 }
 
 // 같은 출처의 /ws. 개발 중에는 vite가 로컬 서버로 넘김 (vite.config.ts)
@@ -371,16 +437,18 @@ function syncClock() {
 }
 
 ws.addEventListener('open', () => {
-  controls.disabled = false
+  connected = true
+  showStep()
   status.textContent = ''
   syncClock()
 })
 // 처음부터 못 붙어도 여기로 옴. ponytail: 재접속 없음. 재접속 이슈에서 다시 붙어 방으로 돌아가게 함
 ws.addEventListener('close', () => {
   document.exitPointerLock()
-  controls.disabled = true
+  connected = false
   createPanel.hidden = true
   lobby.hidden = false
+  showStep()
   readyBar.hidden = true
   room.value = ''
   status.textContent = '서버와 연결되지 않음. 새로고침해 다시 접속'
@@ -392,6 +460,7 @@ function receive(data: string) {
     case 'roomCreated':
     case 'joined':
       lobby.hidden = true
+      showStep()
       readyBar.hidden = false
       // ponytail: 술집 칠판이 생기기 전까지 오른쪽 위 방 코드 옆에 방 이름과 비공개를 적음 (M8 C5에서 옮김)
       room.value = `${m.name} · ${m.code}${m.private ? ' · 비공개' : ''}`
@@ -459,6 +528,9 @@ function receive(data: string) {
     case 'wounded':
       blood = onWounded(blood)
       break
+    case 'rooms':
+      if (!roomStep.hidden) showRooms(m.rooms)
+      break
   }
 }
 
@@ -484,7 +556,7 @@ function rollRoomName() {
 }
 
 document.querySelector('#create')!.addEventListener('click', () => {
-  if (checkNickname() === null) return
+  if (nickname === null) return
   rollRoomName()
   maxPlayersSelect.value = '8'
   privateBox.checked = false
@@ -511,7 +583,18 @@ readyButton.addEventListener('click', () => {
   if (!ready) syncClock()
   send({ type: 'ready', ready: !ready })
 })
+// 1단계에서는 닉네임 확인, 2단계에서는 방 코드로 입장. 숨은 단계의 칸은 꺼져 있어 검사하지 않음
 lobby.addEventListener('submit', (e) => {
   e.preventDefault()
+  if (nickname === null) {
+    const name = checkNickname()
+    if (name === null) return
+    nickname = name
+    try {
+      localStorage.setItem(SAVED_NICKNAME, name)
+    } catch {}
+    showStep()
+    return
+  }
   enterWith((nickname) => ({ type: 'joinRoom', code: codeInput.value, nickname }))
 })

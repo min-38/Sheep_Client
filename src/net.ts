@@ -1,5 +1,6 @@
 import { toServerTime } from './clock.ts'
 import type { Grid } from './raycast.ts'
+import type { RoomInfo } from './roomlist.ts'
 
 // 기술 설계서 메시지 표를 손으로 옮김. 표가 바뀌면 여기도 고침
 export type ClientMessage =
@@ -8,6 +9,8 @@ export type ClientMessage =
   | { type: 'joinRoom'; code: string; nickname: string }
   // 들어갈 수 있는 공개 방 중 사람이 가장 많은 방에 넣고, 없으면 새 공개 방을 만듦. 답은 joined 또는 roomCreated
   | { type: 'quickJoin'; nickname: string }
+  // 공개 방 목록 요청. 방에 들어가기 전에도 보냄
+  | { type: 'listRooms' }
   // angle은 라디안, 0 이상 2π 미만. 범위 밖이면 서버가 버림
   | { type: 'turn'; angle: number }
   // 값을 보냄. 두 번 보내도 결과가 같음
@@ -66,6 +69,8 @@ export type ServerMessage =
   | ({ type: 'shotResult' } & ShotResult)
   // 몸을 맞았지만 쓰러지지 않았을 때 맞은 사람에게만 옴
   | { type: 'wounded' }
+  // listRooms의 답. 서버가 들어갈 수 있는 방부터 정렬해 보냄
+  | { type: 'rooms'; rooms: RoomInfo[] }
 
 // 쏜 순간 내 시각(ms, performance.now())을 서버 시계로 바꿔 보냄. 서버는 이 시각으로 발사 간격을 재고, M5부터 쏜 순서를 가림
 export const fireMessage = (angle: number, pitch: number, shotAt: number, offset: number): ClientMessage => ({ type: 'fire', angle, pitch, at: toServerTime(shotAt, offset) })
@@ -122,10 +127,22 @@ export function parseServerMessage(text: string): ServerMessage | null {
     }
     case 'wounded':
       return { type: 'wounded' }
+    case 'rooms':
+      return Array.isArray(m.rooms) && m.rooms.every(isRoom) ? { type: 'rooms', rooms: m.rooms } : null
     default:
       return null
   }
 }
+
+const isColor = (c: unknown) => Number.isInteger(c) && (c as number) >= 0 && (c as number) < 8
+
+const isRoom = (r: any): r is RoomInfo =>
+  typeof r?.code === 'string' &&
+  typeof r.name === 'string' &&
+  Array.isArray(r.players) &&
+  r.players.every((p: any) => typeof p?.nickname === 'string' && isColor(p.color)) &&
+  Number.isInteger(r.max) &&
+  typeof r.playing === 'boolean'
 
 const isPlayer = (p: any): p is PlayerState =>
   typeof p?.id === 'string' &&
@@ -133,9 +150,7 @@ const isPlayer = (p: any): p is PlayerState =>
   (p.pose === 'stand' || p.pose === 'walk' || p.pose === 'down') &&
   typeof p.ready === 'boolean' &&
   typeof p.nickname === 'string' &&
-  Number.isInteger(p.color) &&
-  p.color >= 0 &&
-  p.color < 8
+  isColor(p.color)
 
 // 레이캐스터는 칸이 다 숫자이고 모든 줄 길이가 같다고 봄
 function isGrid(cells: unknown, width: unknown, height: unknown): cells is Grid {
