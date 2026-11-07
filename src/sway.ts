@@ -8,14 +8,35 @@ export const SWAY_PITCH = 0.015
 const wave = (t: number, amp: number, p: number, q: number) =>
   (amp / 2) * (Math.sin((2 * Math.PI * t) / p) + Math.sin((2 * Math.PI * t) / q))
 
-// t(ms)에서의 흔들림. 정해진 식이라 같은 t면 같은 값임. 카메라는 흔들지 않고 총과 조준점만 흔듦
-export function sway(t: number): { yaw: number; pitch: number } {
-  return { yaw: wave(t, SWAY_YAW, 1700, 2900), pitch: wave(t, SWAY_PITCH, 2300, 3700) }
+// 흔들림 배율. 돈 각도(라디안)마다 SCALE_RISE씩 올라 SCALE_MAX에서 멈추고, 가만히 있으면 SCALE_TAU(ms)마다
+// 최저값과의 차이가 1/e로 줄어듦 (시스템 기획서 리볼버 흔들림 배율). ponytail: 임시 값. 플레이해 보며 정함
+export const SCALE_MIN = 1
+export const SCALE_MAX = 4
+export const SCALE_RISE = 3
+export const SCALE_TAU = 600
+
+// 마지막으로 돈 순간의 배율과 그 시각(ms). 그 뒤 값은 프레임마다 깎지 않고 필요할 때 지난 시간으로 구함
+export type Unsteady = { scale: number; at: number }
+
+export const steady: Unsteady = { scale: SCALE_MIN, at: 0 }
+
+// t(ms)의 배율. 지수로 줄어 몇 번에 나눠 구해도 같은 값임
+export const scaleAt = (u: Unsteady, t: number) => SCALE_MIN + (u.scale - SCALE_MIN) * Math.exp(-Math.max(0, t - u.at) / SCALE_TAU)
+
+// t(ms)에 radians만큼 돈 뒤의 배율. px가 아니라 각도로 재 감도와 상관없음
+export const afterTurn = (u: Unsteady, radians: number, t: number): Unsteady => ({
+  scale: Math.min(SCALE_MAX, scaleAt(u, t) + SCALE_RISE * radians),
+  at: Math.max(t, u.at),
+})
+
+// t(ms)에서의 흔들림에 배율 scale을 곱함. 정해진 식이라 같은 t면 같은 값임. 카메라는 흔들지 않고 총과 조준점만 흔듦
+export function sway(t: number, scale = 1): { yaw: number; pitch: number } {
+  return { yaw: scale * wave(t, SWAY_YAW, 1700, 2900), pitch: scale * wave(t, SWAY_PITCH, 2300, 3700) }
 }
 
 // 총알이 실제로 나가는 방향. 시선에 흔들림을 더하고 angle은 turn처럼 0 이상 2π 미만으로 묶음
-export function aimAt(angle: number, pitch: number, t: number): { angle: number; pitch: number } {
-  const s = sway(t)
+export function aimAt(angle: number, pitch: number, t: number, scale = 1): { angle: number; pitch: number } {
+  const s = sway(t, scale)
   return { angle: turn(angle, s.yaw, 1), pitch: pitch + s.pitch }
 }
 
