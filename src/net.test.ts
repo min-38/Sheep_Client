@@ -111,6 +111,12 @@ describe('parseServerMessage', () => {
     expect(parseServerMessage('{"type":"state","tick":7,"players":[{"id":"p1","x":1,"y":1,"angle":0,"pose":"run","ready":false}]}')).toBeNull()
   })
 
+  test('쓰러뜨린 사람 알림은 그 사람 id와 쏜 시각을 받음 (기술 설계서 메시지 downedBy)', () => {
+    expect(parseServerMessage('{"type":"downedBy","playerId":"p2","at":1234.5}')).toEqual({ type: 'downedBy', playerId: 'p2', at: 1234.5 })
+    expect(parseServerMessage('{"type":"downedBy","at":1234.5}')).toBeNull()
+    expect(parseServerMessage('{"type":"downedBy","playerId":"p2","at":"1234.5"}')).toBeNull()
+  })
+
   test('관전 답은 대상 id와 그 사람의 반샷 수, 남은 총알을 받음 (기술 설계서 메시지 spectating)', () => {
     expect(parseServerMessage('{"type":"spectating","playerId":"p2","wounds":1,"ammo":0}')).toEqual({ type: 'spectating', playerId: 'p2', wounds: 1, ammo: 0 })
     expect(parseServerMessage('{"type":"spectating","wounds":1,"ammo":0}')).toBeNull()

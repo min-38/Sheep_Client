@@ -70,9 +70,15 @@ describe('record', () => {
 
   test('오래된 상태는 버려 끝없이 쌓이지 않음', () => {
     const history = new Map<string, Sample[]>()
-    for (let i = 0; i < 100; i++) record(history, [p('a', i)], i * 50)
+    for (let i = 0; i < 1000; i++) record(history, [p('a', i)], i * 50)
     const samples = history.get('a')!
-    expect(samples.length).toBeLessThan(100)
-    expect(samples.at(-1)?.x).toBe(99)
+    expect(samples.length).toBeLessThan(1000)
+    expect(samples.at(-1)?.x).toBe(999)
+  })
+
+  test('다시 보기에 쓰도록 6초어치(20Hz로 120개)를 남김 (시스템 기획서 HUD 다시 보기)', () => {
+    const history = new Map<string, Sample[]>()
+    for (let i = 0; i < 200; i++) record(history, [p('a', i)], i * 50)
+    expect(history.get('a')).toHaveLength(120)
   })
 })

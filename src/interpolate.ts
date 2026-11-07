@@ -1,8 +1,9 @@
 import type { PlayerState } from './net.ts'
 
 const TAU = Math.PI * 2
-// 한 사람마다 쌓아 두는 상태 수. 20Hz면 400ms어치라 100ms 전을 그리기에 넉넉함
-const KEEP = 8
+// 한 사람마다 쌓아 두는 상태 수. 20Hz면 6초어치. 그리는 데는 100ms 전이면 되지만, 다시 보기가 쏜 시각 3초 전부터
+// 내가 쓰러지고 1초 뒤까지(replay.ts)를 그 끝이 지난 뒤에 떠 가므로 그만큼 남김
+const KEEP = 120
 
 // 받은 시각(ms, performance.now())과 그때의 위치, 각도, 위아래 시선, 동작
 export type Sample = { at: number; x: number; y: number; angle: number; pitch: number; pose: PlayerState['pose'] }
