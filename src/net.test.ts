@@ -124,8 +124,12 @@ describe('parseServerMessage', () => {
 describe('fireMessage', () => {
   test('쏜 시각을 서버 시계로 바꿔 보냄', () => {
     // 서버 시계가 4000ms 앞섬. 내 1000은 서버 5000
-    expect(fireMessage(1.5, 1000, 4000)).toEqual({ type: 'fire', angle: 1.5, at: 5000 })
+    expect(fireMessage(1.5, 0, 1000, 4000)).toEqual({ type: 'fire', angle: 1.5, pitch: 0, at: 5000 })
     // 서버 시계가 500ms 뒤처짐. 내 1000은 서버 500
-    expect(fireMessage(0, 1000, -500)).toEqual({ type: 'fire', angle: 0, at: 500 })
+    expect(fireMessage(0, 0, 1000, -500)).toEqual({ type: 'fire', angle: 0, pitch: 0, at: 500 })
+  })
+
+  test('위아래 각도를 함께 보냄', () => {
+    expect(fireMessage(1, 0.2, 100, 5)).toEqual({ type: 'fire', angle: 1, pitch: 0.2, at: 105 })
   })
 })

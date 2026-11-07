@@ -9,7 +9,7 @@ import { banner, dueling, locked, resultText, type Schedule } from './round.ts'
 import { makeFallenFrames, makeScarecrowFrames } from './scarecrow.ts'
 import { heardFrom, playShot, playSignal, stampOf, toAudioTime } from './sound.ts'
 import type { Thing } from './sprite.ts'
-import { turn } from './turn.ts'
+import { tilt, turn } from './turn.ts'
 
 // 내부 해상도. 이 크기로 그리고 CSS로 확대함 (기술 설계서 렌더링)
 const W = 480
@@ -42,6 +42,8 @@ let myId: string | null = null
 // 내 위치는 서버가 정함. 처음 state를 받아 자리를 잡기 전에는 그리지 않음
 let placed = false
 let angle = 0
+// 위아래 시선(라디안, 위가 +). 내 화면에만 쓰고 발사에 실어 보냄. turn처럼 서버에 따로 보내지 않음
+let pitch = 0
 let sentAngle = 0
 let sentAt = -Infinity
 // 플레이어마다 받은 상태. 나도 넣어 서버가 나를 걷게 할 때 다른 사람과 같이 보간해 그림
@@ -109,7 +111,9 @@ function othersAt(t: number): Thing[] {
 // 포인터 잠금 중에만 돌림. 잠금 전에는 커서가 화면 밖으로 나가 이동량이 끊김
 canvas.addEventListener('click', () => canvas.requestPointerLock())
 document.addEventListener('mousemove', (e) => {
-  if (document.pointerLockElement === canvas && !inputLocked(e.timeStamp)) angle = turn(angle, e.movementX, SENSITIVITY)
+  if (document.pointerLockElement !== canvas || inputLocked(e.timeStamp)) return
+  angle = turn(angle, e.movementX, SENSITIVITY)
+  pitch = tilt(pitch, e.movementY, SENSITIVITY)
 })
 
 const ammo = document.querySelector<HTMLOutputElement>('#ammo')!
@@ -130,14 +134,14 @@ canvas.addEventListener('mousedown', (e) => {
   // 불꽃, 탄 수, 총소리는 바로 내고, 명중과 쓰러짐은 서버가 정해 알려 줌
   showAmmo()
   if (audio) playShot(audio, audio.currentTime)
-  send(fireMessage(angle, e.timeStamp, clock.offset))
+  send(fireMessage(angle, pitch, e.timeStamp, clock.offset))
 })
 
 function frame(now: number) {
   if (grid && placed) {
     // 내 자리도 다른 사람처럼 INTERP_DELAY 전을 그림. 받은 그대로 그리면 걷는 동안 20Hz로 끊겨 보임
     const view = myView(now)
-    renderFrame(pixels, W, H, grid, makeCamera(view.x, view.y, view.angle, FOV), othersAt(now - INTERP_DELAY))
+    renderFrame(pixels, W, H, grid, makeCamera(view.x, view.y, view.angle, FOV, pitch), othersAt(now - INTERP_DELAY))
     ctx.putImageData(image, 0, 0)
     // 마우스 이벤트가 아니라 여기서 보내야 마지막으로 멈춘 각도도 빠지지 않고 감
     if (angle !== sentAngle && now - sentAt >= TURN_INTERVAL && ws.readyState === WebSocket.OPEN) {
@@ -200,6 +204,7 @@ const inputLocked = (now: number) =>
 function endResult(r: RoundResult) {
   if (r.outcome === 'win') {
     schedule = {}
+    pitch = 0
     downAt.clear()
     gun = loaded(ROUNDS)
     readyBar.hidden = false
