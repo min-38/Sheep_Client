@@ -1,5 +1,6 @@
 import './style.css'
 import revolverData from './assets/revolver-rig.json'
+import { orbit } from './backdrop.ts'
 import { characterFrames, suicideStage, type Poses } from './character.ts'
 import { best, measure, toLocalTime, toServerTime, type ClockSample } from './clock.ts'
 import { makeProps, SKIES, timeOfDay } from './desert.ts'
@@ -258,8 +259,9 @@ function frame(now: number) {
       sentAt = now
     }
   } else if (!lobby.hidden) {
-    // 첫 화면 뒤로 결투장 가운데에서 석양 빛으로 천천히 돎 (시스템 기획서 방 화면 M8 첫 화면)
-    renderFrame(pixels, W, H, BACKDROP, makeCamera(BACKDROP.length / 2, BACKDROP.length / 2, now * BACKDROP_TURN, FOV), [], SKIES.sunset)
+    // 첫 화면 뒤로 석양 속에 마주 선 두 총잡이 둘레를 천천히 돎 (시스템 기획서 방 화면 M8 첫 화면)
+    const cam = orbit(BACKDROP_MID, BACKDROP_MID, BACKDROP_RADIUS, (now - BACKDROP_T0) * BACKDROP_TURN)
+    renderFrame(pixels, W, H, BACKDROP, makeCamera(cam.x, cam.y, cam.angle, FOV, BACKDROP_PITCH), BACKDROP_THINGS, SKIES.sunset)
     ctx.putImageData(image, 0, 0)
   }
   flash.hidden = now - gun.lastShot >= FLASH_SHOWN
@@ -322,6 +324,23 @@ const privateBox = document.querySelector<HTMLInputElement>('#private')!
 const BACKDROP: Grid = Array.from({ length: 21 }, (_, y) => Array.from({ length: 21 }, (_, x) => (x % 20 === 0 || y % 20 === 0 ? 1 : 0)))
 // 라디안/ms. 한 바퀴에 약 1분. ponytail: 임시 값
 const BACKDROP_TURN = 0.0001
+const BACKDROP_MID = BACKDROP.length / 2
+// 칸. 첫 화면에서 마주 선 두 총잡이 사이 거리. ponytail: 임시 값
+const DUEL_GAP = 3
+// 칸. 카메라가 두 사람 가운데를 도는 반지름. 소품(가운데에서 5칸 넘게 떨어짐)보다 안쪽이라 소품이 두 사람을 가리지 않고,
+// 옆에서 볼 때 두 사람이 화면 양쪽으로 벌어져 가운데 방 목록에 가리지 않음. ponytail: 임시 값
+const BACKDROP_RADIUS = 4
+// 라디안. 조금 올려 봐 두 사람이 제목 아래로 내려오고 석양 하늘이 넓게 보임. ponytail: 임시 값
+const BACKDROP_PITCH = 0.1
+// 첫 화면 배경에 세우는 것. 남북으로 마주 보고 총을 찬 채 선 두 사람(목수건 빨강, 하늘색)과 둘레 소품. 그림은 여기서 한 번만 만듦
+const BACKDROP_THINGS: Thing[] = [
+  { x: BACKDROP_MID, y: BACKDROP_MID - DUEL_GAP / 2, facing: Math.PI / 2, frames: characterFrames(0).stand },
+  { x: BACKDROP_MID, y: BACKDROP_MID + DUEL_GAP / 2, facing: -Math.PI / 2, frames: characterFrames(1).stand },
+  ...makeProps(BACKDROP_MID, BACKDROP_MID),
+]
+// 배경이 돌기 시작한 시각(ms). 페이지가 뜨는 데 걸린 시간만큼 돌아가 있지 않고 늘 같은 장면에서 시작함.
+// 방위 0은 동쪽에서 서쪽을 봐 두 사람이 옆모습으로 마주 서고 지는 해가 오른쪽 사람 어깨 뒤에 걸림
+const BACKDROP_T0 = performance.now()
 // 브라우저에 기억해 다음에는 다시 넣지 않음. 사생활 보호 모드처럼 저장소를 막으면 던지므로 기억 못 해도 그냥 둠
 const SAVED_NICKNAME = 'nickname'
 try {
