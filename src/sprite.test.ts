@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest'
 import { makeCamera } from './render.ts'
-import { drawSprites, frameIndex, type Sprite, type Thing } from './sprite.ts'
+import { drawSprites, frameIndex, PX_PER_CELL, type Sprite, type Thing } from './sprite.ts'
 
 const W = 400
 const H = 200
@@ -8,8 +8,10 @@ const H = 200
 const cam = makeCamera(0, 0, 0, 90)
 const RED = 0xff0000ff
 const BLUE = 0xffff0000
-// 8방향 모두 같은 그림
-const eight = (w: number, ...pixels: number[]): Sprite[] => Array(8).fill({ w, h: 1, pixels: Uint32Array.from(pixels) })
+// 8방향 모두 같은 그림. 한 픽셀을 가로세로 약 1칸으로 늘림
+const N = Math.round(PX_PER_CELL)
+const eight = (w: number, ...pixels: number[]): Sprite[] =>
+  Array(8).fill({ w: w * N, h: N, pixels: new Uint32Array(w * N * N).map((_, i) => pixels[Math.floor((i % (w * N)) / N)]) })
 const solid = (color: number) => eight(1, color)
 const at = (x: number, y: number, frames = solid(RED)): Thing => ({ x, y, facing: 0, frames })
 
@@ -90,6 +92,14 @@ describe('drawSprites', () => {
   test('발이 벽 아래 끝과 같은 높이에 닿음', () => {
     // 거리 4인 벽의 아래 끝: h/2 + proj·0.5/4, proj = W/2
     expect(bottomRow(draw([at(4, 0)]))).toBeCloseTo(H / 2 + (W / 2) * 0.5 / 4, 0)
+  })
+
+  test('그림 높이는 h / PX_PER_CELL 칸', () => {
+    const pixels = draw([at(4, 0)])
+    let rows = 0
+    for (let y = 0; y < H; y++) if (pixels[y * W + W / 2] !== 0) rows++
+    // proj = W/2, 거리 4
+    expect(rows).toBeCloseTo(((W / 2) * N) / PX_PER_CELL / 4, 0)
   })
 
   test('위를 보면 지평선을 따라 아래로 밀려 그려짐', () => {
