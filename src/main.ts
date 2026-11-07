@@ -1,7 +1,11 @@
 import './style.css'
+import mtlText from './assets/revolver.mtl?raw'
+import objText from './assets/revolver.obj?raw'
 import { best, measure, toLocalTime, toServerTime, type ClockSample } from './clock.ts'
+import { drawGun, RECOIL_MS } from './gun.ts'
 import { record, sampleAt, type Sample } from './interpolate.ts'
 import { fireMessage, parseServerMessage, type ClientMessage, type PlayerState, type RoundResult } from './net.ts'
+import { parseMtl, parseObj } from './obj.ts'
 import type { Grid } from './raycast.ts'
 import { makeCamera, renderFrame } from './render.ts'
 import { loaded, pull, ROUNDS } from './revolver.ts'
@@ -55,6 +59,8 @@ const history = new Map<string, Sample[]>()
 const scarecrow = makeScarecrowFrames()
 const firing = makeScarecrowFrames(true)
 const fallen = makeFallenFrames()
+// 1인칭 리볼버 모델 (컨셉 기획서 아트와 사운드 1인칭 총)
+const gunModel = parseObj(objText, parseMtl(mtlText))
 // 다른 사람이 마지막으로 쏜 것과 쓰러진 것을 받은 시각(ms). state처럼 INTERP_DELAY 뒤에 보여 줘 돌기, 발사, 쓰러짐의 순서를 지킴.
 // ponytail: 사람마다 마지막 발사 하나만 둠. 발사 간격(250ms)이 불꽃(100ms)보다 길어 겹치지 않음. 지연이 크게 흔들려 둘이 붙어 오면 앞 불꽃이 빠짐
 const shots = new Map<string, { at: number; angle: number }>()
@@ -144,11 +150,16 @@ canvas.addEventListener('mousedown', (e) => {
 })
 
 function frame(now: number) {
+  const s = sway(now)
   if (grid && placed) {
     // 내 자리도 다른 사람처럼 INTERP_DELAY 전을 그림. 받은 그대로 그리면 걷는 동안 20Hz로 끊겨 보임
     const view = myView(now)
     renderFrame(pixels, W, H, grid, makeCamera(view.x, view.y, view.angle, FOV, pitch), othersAt(now - INTERP_DELAY))
     ctx.putImageData(image, 0, 0)
+    // 총은 시점에 붙어 있어 위아래 시선과 상관없이 같은 자리에 있고, 조준점과 같은 흔들림으로 돎
+    const kick = Math.max(0, 1 - (now - gun.lastShot) / RECOIL_MS)
+    const muzzle = drawGun(ctx, gunModel, { ...s, kick }, W, H, PROJ)
+    flash.style.transform = `translate(${(muzzle.x * 100) / W}cqw, ${(muzzle.y * 100) / W}cqw)`
     // 마우스 이벤트가 아니라 여기서 보내야 마지막으로 멈춘 각도도 빠지지 않고 감
     if (angle !== sentAngle && now - sentAt >= TURN_INTERVAL && ws.readyState === WebSocket.OPEN) {
       send({ type: 'turn', angle })
@@ -158,7 +169,7 @@ function frame(now: number) {
   }
   flash.hidden = now - gun.lastShot >= FLASH_SHOWN
   // 내부 px를 cqw로 바꿈. 화면 폭 100cqw가 내부 폭 W px임
-  const aim = crosshairOffset(sway(now), pitch, PROJ)
+  const aim = crosshairOffset(s, pitch, PROJ)
   crosshair.style.transform = `translate(${(aim.x * 100) / W}cqw, ${(aim.y * 100) / W}cqw)`
   if (result?.end !== undefined && clock && toServerTime(now, clock.offset) >= result.end) {
     endResult(result)
