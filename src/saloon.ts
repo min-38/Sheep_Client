@@ -14,6 +14,10 @@ export const BOUNTY = 100
 
 export const bountyText = (wins: number) => (wins > 0 ? `$${wins * BOUNTY}` : '')
 
+// 판 끝 포스터 아래의 오르는 현상금. wins는 이번 승리까지 센 이긴 횟수. 첫 승리는 적힌 현상금이 없어 $0에서 오름.
+// ponytail: 임시 문구. 게임 안 문구 스타일이 정해지면 바꿈
+export const bountyRise = (wins: number) => `${bountyText(wins - 1) || '$0'} → ${bountyText(wins)}`
+
 // 목수건 색 번호가 곧 자리 번호임. 나간 사람의 색은 비워 두고 다음 사람이 받으므로(컨셉 기획서 사람 구별),
 // 누가 나가도 남은 사람의 포스터는 제자리에 있고 새로 온 사람은 빈자리에 붙음
 export function posterSlots(players: readonly PlayerState[], myId: string | null): (Poster | null)[] {

@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest'
 import type { PlayerState } from './net.ts'
-import { BAR_LEFT, BAR_RIGHT, bountyText, posterSlots, startBartender, stepBartender } from './saloon.ts'
+import { BAR_LEFT, BAR_RIGHT, bountyRise, bountyText, posterSlots, startBartender, stepBartender } from './saloon.ts'
 
 const player = (id: string, color: number, extra: Partial<PlayerState> = {}): PlayerState => ({
   id,
@@ -37,6 +37,18 @@ describe('bountyText', () => {
     expect(bountyText(0)).toBe('')
     expect(bountyText(1)).toBe('$100')
     expect(bountyText(12)).toBe('$1200')
+  })
+})
+
+describe('bountyRise', () => {
+  // 승리가 정해진 틱의 state에 이미 오른 이긴 횟수가 옴 (기술 설계서 메시지 state wins)
+  test('이긴 사람의 오르기 전과 뒤 현상금', () => {
+    expect(bountyRise(2)).toBe('$100 → $200')
+    expect(bountyRise(5)).toBe('$400 → $500')
+  })
+
+  test('첫 승리는 $0에서 오름', () => {
+    expect(bountyRise(1)).toBe('$0 → $100')
   })
 })
 
