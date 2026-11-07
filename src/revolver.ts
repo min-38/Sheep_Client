@@ -1,5 +1,5 @@
-// 컨셉 기획서 규칙: 리볼버 6발, 재장전 없음
-export const ROUNDS = 6
+// 컨셉 기획서 규칙: 라운드마다 한 발. 서버 Revolver.Capacity와 같은 값
+export const ROUNDS = 1
 
 // lastShot은 마지막으로 쏜 시각(ms)
 export type Revolver = { rounds: number; lastShot: number }
