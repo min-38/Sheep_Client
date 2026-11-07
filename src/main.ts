@@ -9,12 +9,15 @@ import { banner, dueling, locked, resultText, type Schedule } from './round.ts'
 import { makeFallenFrames, makeScarecrowFrames } from './scarecrow.ts'
 import { heardFrom, playShot, playSignal, stampOf, toAudioTime } from './sound.ts'
 import type { Thing } from './sprite.ts'
+import { aimAt, crosshairOffset, sway } from './sway.ts'
 import { tilt, turn } from './turn.ts'
 
 // 내부 해상도. 이 크기로 그리고 CSS로 확대함 (기술 설계서 렌더링)
 const W = 480
 const H = 270
 const FOV = 66
+// 투영면까지의 거리(px). renderFrame과 같은 값이라야 조준점이 총알이 갈 곳에 놓임
+const PROJ = W / (2 * Math.tan((FOV * Math.PI) / 360))
 // 라디안/px. ponytail: 임시 감도. 시스템 기획서 조작의 감도가 정해지면 그 값으로 바꿈
 const SENSITIVITY = 0.003
 // ms. 시스템 기획서 리볼버 발사 간격. 서버와 같은 값이어야 내가 센 탄 수가 서버와 어긋나지 않음
@@ -122,6 +125,7 @@ const showAmmo = () => (ammo.value = '●'.repeat(gun.rounds) + '○'.repeat(ROU
 showAmmo()
 
 const flash = document.querySelector<HTMLDivElement>('#flash')!
+const crosshair = document.querySelector<HTMLDivElement>('#crosshair')!
 
 // ponytail: 임시 쏘기 키(왼쪽 클릭). 시스템 기획서 조작의 쏘기 키가 정해지면 바꿈.
 // 잠금 전 클릭은 잠금만 걸고 쏘지 않음. "시작!" 전, 쓰러진 뒤, 판 결과가 정해진 뒤의 발사는 서버가 버리므로 탄 수도 줄이지 않음
@@ -134,7 +138,9 @@ canvas.addEventListener('mousedown', (e) => {
   // 불꽃, 탄 수, 총소리는 바로 내고, 명중과 쓰러짐은 서버가 정해 알려 줌
   showAmmo()
   if (audio) playShot(audio, audio.currentTime)
-  send(fireMessage(angle, pitch, e.timeStamp, clock.offset))
+  // 총알은 시선이 아니라 흔들린 총이 가리키는 쪽으로 감. 조준점도 같은 식으로 그려 둘이 맞음
+  const aim = aimAt(angle, pitch, e.timeStamp)
+  send(fireMessage(aim.angle, aim.pitch, e.timeStamp, clock.offset))
 })
 
 function frame(now: number) {
@@ -151,6 +157,9 @@ function frame(now: number) {
     }
   }
   flash.hidden = now - gun.lastShot >= FLASH_SHOWN
+  // 내부 px를 cqw로 바꿈. 화면 폭 100cqw가 내부 폭 W px임
+  const aim = crosshairOffset(sway(now), pitch, PROJ)
+  crosshair.style.transform = `translate(${(aim.x * 100) / W}cqw, ${(aim.y * 100) / W}cqw)`
   if (result?.end !== undefined && clock && toServerTime(now, clock.offset) >= result.end) {
     endResult(result)
     result = null

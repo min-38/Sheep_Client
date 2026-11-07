@@ -35,7 +35,7 @@ body {
   pointer-events: none;
 }
 
-/* 광선은 화면 가운데 세로줄로 나감 */
+/* 화면 가운데가 시선임. 팔 흔들림만큼 main.ts가 transform으로 옮겨 총알이 갈 곳을 보여 줌 */
 #crosshair {
   left: 50%;
   top: 50%;
