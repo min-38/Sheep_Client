@@ -26,13 +26,68 @@ body {
 }
 
 /* HUD는 클릭을 캔버스로 넘겨야 포인터 잠금과 쏘기가 됨 */
+#blood,
 #crosshair,
 #flash,
+#hit-card,
 #ammo,
 #banner,
 #room {
   position: absolute;
   pointer-events: none;
+}
+
+/* 반샷 혈흔. 가운데는 투명하고 가장자리로 갈수록 진해짐. 핏방울 그림은 없음 (시스템 기획서 HUD) */
+#blood {
+  inset: 0;
+  background: radial-gradient(ellipse closest-side, #8a000000 60%, #8a000050 88%, #8a0000b0 120%);
+}
+
+/* 내 사격 결과 카드. 총이 오른쪽 아래라 왼쪽 아래 탄 수 위에 낡은 종이로 띄움 (시스템 기획서 HUD) */
+#hit-card {
+  left: 2cqw;
+  bottom: 6cqw;
+  width: 8cqw;
+  margin: 0;
+  padding: 0.8cqw 0.8cqw 3cqw;
+  background: radial-gradient(ellipse closest-side, #f1e0b3 70%, #d4b479 130%);
+  box-shadow: 0 0 0.5cqw #0009;
+  rotate: -2deg;
+}
+
+#hit-card svg {
+  display: block;
+  width: 100%;
+}
+
+/* 포스터 초상화처럼 갈색 인쇄. 블록 사이를 종이색 선으로 나눠 블록 몸으로 보이게 함 */
+#hit-card .figure {
+  fill: #6e4b2a;
+  stroke: #f1e0b3;
+  stroke-width: 1;
+}
+
+/* 갈색 몸 위에서도 보이게 검은 구멍에 밝게 그을린 테두리 */
+#hit-hole {
+  fill: #140c06;
+  stroke: #fff1c9;
+  stroke-width: 1.2;
+}
+
+/* 빨간 도장. 구멍을 가리지 않게 다리 아래쪽에 비스듬히 찍음 */
+#hit-stamp {
+  position: absolute;
+  left: 50%;
+  bottom: 0.6cqw;
+  translate: -50% 0;
+  rotate: -8deg;
+  padding: 0.15cqw 0.5cqw;
+  border: 0.25cqw solid #c0262d;
+  border-radius: 0.3cqw;
+  color: #c0262d;
+  font: bold 1.5cqw / 1.1 sans-serif;
+  white-space: nowrap;
+  opacity: 0.9;
 }
 
 /* 흰 고리와 가운데 점 (시스템 기획서 HUD). 화면 가운데가 시선이고, 팔 흔들림만큼 main.ts가 transform으로 옮겨 총알이 갈 곳을 보여 줌 */

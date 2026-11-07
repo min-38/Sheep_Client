@@ -91,6 +91,45 @@ describe('parseServerMessage', () => {
     expect(parseServerMessage('{"type":"eliminated","playerId":2}')).toBeNull()
   })
 
+  test('사격 결과는 맞은 부위, 높이, 오른쪽 거리, 쓰러졌는지를 받음', () => {
+    expect(parseServerMessage('{"type":"shotResult","zone":"head","height":0.8,"offset":-0.05,"down":true}')).toEqual({
+      type: 'shotResult',
+      zone: 'head',
+      height: 0.8,
+      offset: -0.05,
+      down: true,
+    })
+    expect(parseServerMessage('{"type":"shotResult","zone":"body","height":0.4,"offset":0.1,"down":false}')).toEqual({
+      type: 'shotResult',
+      zone: 'body',
+      height: 0.4,
+      offset: 0.1,
+      down: false,
+    })
+  })
+
+  test('빗나간 사격 결과는 부위, 높이, 오른쪽 거리가 모두 null', () => {
+    expect(parseServerMessage('{"type":"shotResult","zone":null,"height":null,"offset":null,"down":false}')).toEqual({
+      type: 'shotResult',
+      zone: null,
+      height: null,
+      offset: null,
+      down: false,
+    })
+  })
+
+  test('모양이 틀린 사격 결과는 버림', () => {
+    expect(parseServerMessage('{"type":"shotResult","zone":"leg","height":0.4,"offset":0,"down":false}')).toBeNull()
+    expect(parseServerMessage('{"type":"shotResult","zone":"head","height":0.8,"offset":0}')).toBeNull()
+    // 맞았는데 자리가 없거나, 빗나갔는데 자리가 있음
+    expect(parseServerMessage('{"type":"shotResult","zone":"body","height":null,"offset":null,"down":false}')).toBeNull()
+    expect(parseServerMessage('{"type":"shotResult","zone":null,"height":0.4,"offset":0,"down":false}')).toBeNull()
+  })
+
+  test('반샷 알림은 type만 받음', () => {
+    expect(parseServerMessage('{"type":"wounded"}')).toEqual({ type: 'wounded' })
+  })
+
   test('판 결과는 승리나 재대결, 해당하는 사람들, 재대결 장전 수를 받음', () => {
     expect(parseServerMessage('{"type":"result","outcome":"win","playerIds":["p1"],"rounds":0}')).toEqual({ type: 'result', outcome: 'win', playerIds: ['p1'], rounds: 0 })
     expect(parseServerMessage('{"type":"result","outcome":"rematch","playerIds":["p1","p2"],"rounds":2}')).toEqual({

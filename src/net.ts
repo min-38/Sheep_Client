@@ -24,6 +24,12 @@ export type Phase = 'countdown' | 'walk' | 'duel' | 'lobby'
 // 판 결과. playerIds는 이긴 사람 1명, 또는 재대결하는 사람들. rounds는 재대결 때 새로 장전하는 총알 수이고 승리면 0
 export type RoundResult = { outcome: 'win' | 'rematch'; playerIds: string[]; rounds: number }
 
+// 내 사격 결과. height는 맞은 높이(칸, 바닥 0), offset은 맞은 사람 중심에서 내 기준 오른쪽으로 떨어진 거리(칸).
+// 빗나가면 zone, height, offset이 모두 null. down은 이 발사로 맞은 사람이 쓰러졌는지
+export type ShotResult =
+  | { zone: 'head' | 'body'; height: number; offset: number; down: boolean }
+  | { zone: null; height: null; offset: null; down: boolean }
+
 export type ServerMessage =
   | { type: 'roomCreated'; code: string; playerId: string }
   | { type: 'joined'; code: string; playerId: string }
@@ -39,6 +45,10 @@ export type ServerMessage =
   | { type: 'eliminated'; playerId: string }
   // 결과 시간이 끝나는 시각은 바로 뒤의 phase로 옴 (승리면 lobby, 재대결이면 countdown)
   | ({ type: 'result' } & RoundResult)
+  // 판정이 확정된 틱에 쏜 사람에게만 옴. 누구를 맞혔는지는 담지 않음
+  | ({ type: 'shotResult' } & ShotResult)
+  // 몸을 맞았지만 쓰러지지 않았을 때 맞은 사람에게만 옴
+  | { type: 'wounded' }
 
 // 쏜 순간 내 시각(ms, performance.now())을 서버 시계로 바꿔 보냄. 서버는 이 시각으로 발사 간격을 재고, M5부터 쏜 순서를 가림
 export const fireMessage = (angle: number, pitch: number, shotAt: number, offset: number): ClientMessage => ({ type: 'fire', angle, pitch, at: toServerTime(shotAt, offset) })
@@ -81,6 +91,13 @@ export function parseServerMessage(text: string): ServerMessage | null {
         m.rounds >= 0
         ? { type: 'result', outcome: m.outcome, playerIds: m.playerIds, rounds: m.rounds }
         : null
+    case 'shotResult': {
+      const hit = (m.zone === 'head' || m.zone === 'body') && Number.isFinite(m.height) && Number.isFinite(m.offset)
+      const miss = m.zone === null && m.height === null && m.offset === null
+      return (hit || miss) && typeof m.down === 'boolean' ? { type: 'shotResult', zone: m.zone, height: m.height, offset: m.offset, down: m.down } : null
+    }
+    case 'wounded':
+      return { type: 'wounded' }
     default:
       return null
   }

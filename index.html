@@ -9,8 +9,24 @@
   <body>
     <div id="game">
       <canvas id="screen" aria-label="게임 화면"></canvas>
+      <div id="blood" aria-hidden="true" hidden></div>
       <div id="crosshair" aria-hidden="true"></div>
       <div id="flash" aria-hidden="true" hidden></div>
+      <figure id="hit-card" aria-label="내 사격 결과" hidden>
+        <!-- 정면 블록 몸(비율 A: 머리 8, 몸통 8×12, 팔과 다리 4×12). 키 32블록이 판정 원기둥의 머리 위 높이와 같음 -->
+        <svg viewBox="0 0 100 100" aria-hidden="true">
+          <g class="figure">
+            <rect x="37.5" y="0" width="25" height="25" />
+            <rect x="37.5" y="25" width="25" height="37.5" />
+            <rect x="25" y="25" width="12.5" height="37.5" />
+            <rect x="62.5" y="25" width="12.5" height="37.5" />
+            <rect x="37.5" y="62.5" width="12.5" height="37.5" />
+            <rect x="50" y="62.5" width="12.5" height="37.5" />
+          </g>
+          <circle id="hit-hole" r="3.5" />
+        </svg>
+        <output id="hit-stamp"></output>
+      </figure>
       <output id="ammo" aria-label="남은 총알"></output>
       <output id="banner" aria-label="판 신호"></output>
       <output id="room" aria-label="방 코드"></output>
