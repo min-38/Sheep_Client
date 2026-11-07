@@ -14,7 +14,7 @@ import { banner, dueling, formatTime, locked, resultText, stepIndex, timeLeft, w
 import { makeAimingFrames, makeFallenFrames, makeScarecrowFrames, makeSuicideFrames, suicideStage } from './scarecrow.ts'
 import { heardFrom, playShot, playSignal, playStep, stampOf, toAudioTime } from './sound.ts'
 import type { Thing } from './sprite.ts'
-import { aimAt, crosshairOffset, sway } from './sway.ts'
+import { afterTurn, aimAt, crosshairOffset, scaleAt, steady, sway } from './sway.ts'
 import { tilt, turn } from './turn.ts'
 
 // 내부 해상도. 이 크기로 그리고 CSS로 확대함 (기술 설계서 렌더링)
@@ -132,10 +132,13 @@ function poseFrames(id: string, t: number, duel: boolean) {
 
 // 포인터 잠금 중에만 돌림. 잠금 전에는 커서가 화면 밖으로 나가 이동량이 끊김
 canvas.addEventListener('click', () => canvas.requestPointerLock())
+// 팔 흔들림 배율. 돈 만큼 커지고 가만히 있으면 잦아듦. 빨리 돌아 바로 쏘면 부정확함 (시스템 기획서 리볼버 흔들림 배율)
+let unsteady = steady
 document.addEventListener('mousemove', (e) => {
   if (document.pointerLockElement !== canvas || inputLocked(e.timeStamp)) return
   angle = turn(angle, e.movementX, SENSITIVITY)
   pitch = tilt(pitch, e.movementY, SENSITIVITY)
+  unsteady = afterTurn(unsteady, Math.hypot(e.movementX, e.movementY) * SENSITIVITY, e.timeStamp)
 })
 
 const ammo = document.querySelector<SVGSVGElement>('#ammo')!
@@ -212,12 +215,12 @@ canvas.addEventListener('mousedown', (e) => {
   showAmmo()
   if (audio) playShot(audio, audio.currentTime)
   // 총알은 시선이 아니라 흔들린 총이 가리키는 쪽으로 감. 조준점도 같은 식으로 그려 둘이 맞음
-  const aim = aimAt(angle, pitch, e.timeStamp)
+  const aim = aimAt(angle, pitch, e.timeStamp, scaleAt(unsteady, e.timeStamp))
   send(fireMessage(aim.angle, aim.pitch, e.timeStamp, clock.offset))
 })
 
 function frame(now: number) {
-  const s = sway(now)
+  const s = sway(now, scaleAt(unsteady, now))
   if (grid && placed) {
     // 내 자리도 다른 사람처럼 INTERP_DELAY 전을 그림. 받은 그대로 그리면 걷는 동안 20Hz로 끊겨 보임
     const view = myView(now)
