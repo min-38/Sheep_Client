@@ -2,7 +2,7 @@ import './style.css'
 import revolverData from './assets/revolver-rig.json'
 import { characterFrames, suicideStage, type Poses } from './character.ts'
 import { best, measure, toLocalTime, toServerTime, type ClockSample } from './clock.ts'
-import { drawGun, gunClips, lift, RAISE_MS, RECOIL_MS, revolverMesh } from './gun.ts'
+import { drawGun, gunClips, lift, RAISE_MS, RECOIL_MS, RELOAD_AT, RELOAD_SEATED, RELOAD_SHUT, revolverMesh } from './gun.ts'
 import { dotPosition, noBlood, onGameEnd, onRevived, onWalk, onWounded, resultLabel } from './hitcard.ts'
 import { record, sampleAt, type Sample } from './interpolate.ts'
 import { fireMessage, parseServerMessage, stopMessage, type ClientMessage, type PlayerState, type RoundResult, type ShotResult } from './net.ts'
@@ -14,7 +14,7 @@ import { makeCamera, renderFrame } from './render.ts'
 import { loaded, pull, ROUNDS } from './revolver.ts'
 import type { Rig } from './rig.ts'
 import { banner, dueling, formatTime, joins, locked, resultText, stepIndex, timeLeft, walking, type Schedule } from './round.ts'
-import { heardFrom, loadEffects, play, playReload, playSignal, playStep, stampOf, toAudioTime } from './sound.ts'
+import { heardFrom, loadEffects, play, playSignal, playStep, stampOf, toAudioTime } from './sound.ts'
 import type { Sprite, Thing } from './sprite.ts'
 import { afterTurn, aimAt, crosshairOffset, scaleAt, steady, sway } from './sway.ts'
 import { tilt, turn } from './turn.ts'
@@ -522,10 +522,14 @@ function receive(data: string) {
       // 장전과 공이치기는 내 것만 들음. 장전은 이번 라운드에 끼는 나만, 공이치기는 "시작!"에 서서 총을 드는 나만
       if (audio && clock && myId !== null) {
         const when = toAudioTime(toLocalTime(m.at, clock.offset), stampOf(audio))
-        if (m.phase === 'countdown' && reloading) playReload(audio, when)
+        // 장전 소리는 Reload 클립에서 총알이 다 들어갈 때, 실린더 닫는 소리는 실린더가 다 닫힐 때 딸깍이 들리게 함 (gun.ts gunClips)
+        if (m.phase === 'countdown' && reloading) {
+          play(audio, 'load', when + RELOAD_AT / 1000 + RELOAD_SEATED)
+          play(audio, 'closeCylinder', when + RELOAD_AT / 1000 + RELOAD_SHUT)
+        }
         if (m.phase === 'duel') {
           playSignal(audio, when)
-          // 공이치기는 총을 다 들어 화면이 튀는 순간에 맞춤 (gun.ts lift).
+          // 공이치기는 총을 다 들어 공이치기가 끝까지 젖혀지고 화면이 튀는 순간에 맞춤 (gun.ts lift, gunClips).
           // ponytail: 총을 다 드는 RAISE_MS(0.2초) 안에 쏘면 공이치기 소리와 튐이 총소리 뒤에 남. 거슬리면 쏠 때 예약한 공이치기를 멈춤(AudioBufferSourceNode.stop)
           if (!downs.has(myId)) play(audio, 'cockHammer', when + RAISE_MS / 1000)
         }

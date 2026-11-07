@@ -44,6 +44,8 @@ const files = { shot: shotUrl, load: loadUrl, closeCylinder: closeCylinderUrl, c
 type Effect = keyof typeof files
 // ponytail: 들어 보지 않고 정한 임시 크기. 플레이해 보며 소리끼리 맞춤 (시스템 기획서 사운드)
 const VOLUME: Record<Effect, number> = { shot: 0.5, load: 0.6, closeCylinder: 0.6, cockHammer: 0.6, dryFire: 0.6 }
+// 초. 파일 처음부터 가장 큰 딸깍까지. 파일을 풀어 10ms 단위로 잰 값. 이만큼 앞당겨 내보내 딸깍이 총 움직임과 같은 때 들림
+const CLICK: Record<Effect, number> = { shot: 0, load: 0.2, closeCylinder: 0.12, cockHammer: 0.1, dryFire: 0 }
 // 다 풀어 둔 소리. 아직 받거나 푸는 중인 소리는 없어서 그때 낼 소리는 건너뜀
 const buffers: Partial<Record<Effect, AudioBuffer>> = {}
 
@@ -57,22 +59,15 @@ export function loadEffects(audio: AudioContext) {
   }
 }
 
-// 효과음을 when(AudioContext 시각, 초)에 냄. from이 있으면 그 자리에서 들리고(HRTF), 없으면 내 소리라 가운데서 들림.
+// 효과음의 딸깍(CLICK)이 when(AudioContext 시각, 초)에 들리게 냄. from이 있으면 그 자리에서 들리고(HRTF), 없으면 내 소리라 가운데서 들림.
 // 듣는 사람(AudioListener)은 기본값 그대로 원점에서 -z를 보므로 오른쪽이 +x, 앞이 -z임.
-// 4칸(걷기를 마친 자리의 반지름) 안에서는 같은 크기, 더 멀면 거리에 반비례해 줄어듦.
-// 소리 길이(초)를 돌려줌. 아직 풀지 못해 건너뛰면 0
+// 4칸(걷기를 마친 자리의 반지름) 안에서는 같은 크기, 더 멀면 거리에 반비례해 줄어듦. 아직 풀지 못한 소리는 건너뜀
 export function play(audio: AudioContext, name: Effect, when: number, from?: { right: number; front: number }) {
   const buffer = buffers[name]
-  if (!buffer) return 0
+  if (!buffer) return
   const source = new AudioBufferSourceNode(audio, { buffer })
   place(audio, source.connect(new GainNode(audio, { gain: VOLUME[name] })), from)
-  source.start(when)
-  return buffer.duration
-}
-
-// 장전 소리. 총알을 넣고 이어서 실린더를 닫음
-export function playReload(audio: AudioContext, when: number) {
-  play(audio, 'closeCylinder', when + play(audio, 'load', when))
+  source.start(when - CLICK[name])
 }
 
 // 발소리 한 걸음을 when(AudioContext 시각, 초)에 냄. 방향과 거리는 총소리와 같음.
