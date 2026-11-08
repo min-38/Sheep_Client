@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest'
 import { toServerTime } from './clock.ts'
-import { banner, DUEL_LIMIT, dueling, formatTime, GO_SHOWN, joins, locked, resultText, STEP_MS, stepIndex, timeLeft, WALK_DURATION, walking, type Schedule } from './round.ts'
+import { banner, DUEL_LIMIT, dueling, formatTime, GO_SHOWN, joins, locked, resultText, standingCount, STEP_MS, stepIndex, timeLeft, WALK_DURATION, walking, type Schedule } from './round.ts'
 
 // 서버가 알리는 순서: 카운트다운 시각, 카운트다운이 시작할 때 걷기 시각, 걷기가 시작할 때 결투 시각 (기술 설계서 메시지 phase)
 const full: Schedule = { countdown: 10000, walk: 13000, duel: 16000 }
@@ -167,5 +167,24 @@ describe('joins', () => {
   // 창이 숨어 그리기가 멈추면 앞 판의 승리 결과가 끝나지 않은 채 새 판 카운트다운이 옴
   test('승리로 끝난 앞 판 뒤의 새 판은 모두 낌', () => {
     expect(joins({ outcome: 'win', playerIds: ['b'], rounds: 0 }, 'a')).toBe(true)
+  })
+})
+
+describe('standingCount', () => {
+  const ids = ['a', 'b', 'c']
+
+  test('아무도 쓰러지지 않았으면 모두', () => {
+    expect(standingCount(ids, new Map(), 5000)).toBe(3)
+  })
+
+  test('쓰러진 시각부터 빼고 그 전에는 셈', () => {
+    const downs = new Map([['b', { at: 5000 }]])
+    expect(standingCount(ids, downs, 4999)).toBe(3)
+    expect(standingCount(ids, downs, 5000)).toBe(2)
+  })
+
+  test('앞 라운드에 쓰러져 재대결에 끼지 못한 사람도 뺌', () => {
+    const downs = new Map([['a', { at: 1000 }], ['c', { at: 9000 }]])
+    expect(standingCount(ids, downs, 9500)).toBe(1)
   })
 })

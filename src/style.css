@@ -46,6 +46,7 @@ body {
 #hit-card,
 #ammo,
 #timer,
+#alive,
 #banner,
 #watching,
 #room {
@@ -185,6 +186,21 @@ body {
   font: bold 2.6cqw / 1 Georgia, serif;
   font-variant-numeric: tabular-nums;
   text-shadow: 0 0.15cqw 0 #3d2412;
+}
+
+/* 남은 인원. 남은 시간 팻말 아래에 매단 작은 팻말 (시스템 기획서 HUD 남은 인원) */
+#alive {
+  left: 50%;
+  top: 5.4cqw;
+  translate: -50% 0;
+  padding: 0.3cqw 1.2cqw;
+  border: 0.2cqw solid #3d2412;
+  border-radius: 0.3cqw;
+  background: repeating-linear-gradient(180deg, #8a5a32 0 0.7cqw, #7a4c28 0.7cqw 0.9cqw);
+  box-shadow: 0 0.2cqw 0.4cqw #0009;
+  color: #f7e6bd;
+  font: bold 1.6cqw / 1 Georgia, serif;
+  text-shadow: 0 0.1cqw 0 #3d2412;
 }
 
 /* 카운트다운과 "시작!". 조준점을 가리지 않게 위로 올림 */

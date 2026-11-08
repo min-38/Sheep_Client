@@ -15,7 +15,7 @@ import type { Grid } from './raycast.ts'
 import { makeCamera, renderFrame } from './render.ts'
 import { loaded, pull, ROUNDS } from './revolver.ts'
 import type { Rig } from './rig.ts'
-import { banner, DUEL_LIMIT, dueling, formatTime, joins, locked, resultText, stepIndex, timeLeft, walking, type Schedule } from './round.ts'
+import { banner, DUEL_LIMIT, dueling, formatTime, joins, locked, resultText, standingCount, stepIndex, timeLeft, walking, type Schedule } from './round.ts'
 import { bountyRise, drawPortrait, drawSaloon, POSTER_SLOTS, posterSlots, startBartender, stepBartender } from './saloon.ts'
 import { cut, replayWindow } from './replay.ts'
 import { readSettings, radiansPerPixel, type Hand, type Settings } from './settings.ts'
@@ -464,6 +464,11 @@ function frame(now: number) {
   timer.hidden = left === null
   const clockText = left === null ? '' : formatTime(left)
   if (timer.value !== clockText) timer.value = clockText
+  // 남은 시간과 같이 보이고 숨음. 쓰러진 그림과 같은 시각으로 세어 그림보다 먼저 줄지 않음 (시스템 기획서 HUD 남은 인원).
+  // ponytail: 임시 문구. 게임 안 문구 스타일이 정해지면 바꿈
+  alive.hidden = left === null
+  const aliveText = left === null ? '' : `${standingCount(scene.history.keys(), scene.downs, r ? t : now - INTERP_DELAY)}명 남음`
+  if (alive.value !== aliveText) alive.value = aliveText
   requestAnimationFrame(frame)
 }
 requestAnimationFrame(frame)
@@ -547,6 +552,7 @@ const readyButton = document.querySelector<HTMLButtonElement>('#ready')!
 const readyCount = document.querySelector<HTMLOutputElement>('#ready-count')!
 const bannerText = document.querySelector<HTMLOutputElement>('#banner')!
 const timer = document.querySelector<HTMLOutputElement>('#timer')!
+const alive = document.querySelector<HTMLOutputElement>('#alive')!
 const watching = document.querySelector<HTMLOutputElement>('#watching')!
 const game = document.querySelector<HTMLDivElement>('#game')!
 let ready = false
