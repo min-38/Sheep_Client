@@ -56,8 +56,30 @@ describe('characterBody', () => {
   })
 
   test('쏘면 팔이 들리고 불꽃 상자가 더해짐', () => {
-    expect(red.fire.length).toBe(red.aim.length + 1)
-    expect(red.fire.slice(0, -1)).not.toEqual(red.aim)
+    for (const pitch of [-0.5, 0, 0.5]) {
+      expect(red.fire(pitch).length).toBe(red.aim(pitch).length + 1)
+      expect(red.fire(pitch).slice(0, -1)).not.toEqual(red.aim(pitch))
+    }
+  })
+
+  test('정면을 보면 머리가 서 있을 때와 같은 자리', () => {
+    expect(holding(red.aim(0), [0, 28, 0])).toEqual(holding(stand, [0, 28, 0]))
+  })
+
+  test('위를 보면 총구가 높고, 아래를 보면 낮음 (시스템 기획서 조작 다른 사람의 위아래 시선)', () => {
+    // 가장 앞으로 나온 꼭짓점(총구)의 높이(블록)
+    const muzzle = (boxes: readonly Box[]) => corners(boxes.reduce((a, b) => (Math.max(...corners(b).map((p) => p[2])) > Math.max(...corners(a).map((p) => p[2])) ? b : a)))
+    const height = (pitch: number) => Math.max(...muzzle(red.aim(pitch)).map((p) => p[1]))
+    expect(height(0.5)).toBeGreaterThan(height(0) + 3)
+    expect(height(-0.5)).toBeLessThan(height(0) - 3)
+  })
+
+  test('위를 보면 머리가 들려 모자 꼭대기가 뒤로, 아래를 보면 앞으로 감', () => {
+    // 가장 높은 상자(모자 꼭대기)의 앞뒤 자리(블록)
+    const crown = (pitch: number) => red.aim(pitch).reduce((a, b) => (b.c[1] > a.c[1] ? b : a)).c[2]
+    expect(crown(0)).toBeCloseTo(0)
+    expect(crown(0.5)).toBeLessThan(-3)
+    expect(crown(-0.5)).toBeGreaterThan(3)
   })
 
   test('자살 모습은 머리에 총을 대고, 다음 단계에 불꽃이 더해짐', () => {
@@ -129,7 +151,7 @@ describe('drawFigure', () => {
   })
 
   test('시계 방향으로 90° 돌면 겨눈 팔이 화면 왼쪽으로 나옴', () => {
-    const pixels = draw(4, (3 * Math.PI) / 2, body.aim)
+    const pixels = draw(4, (3 * Math.PI) / 2, body.aim(0))
     const cols = columns(pixels)
     const left = cols.filter((x) => x < W / 2).length
     const right = cols.filter((x) => x >= W / 2).length

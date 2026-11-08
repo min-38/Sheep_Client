@@ -10,8 +10,16 @@ type RGB = readonly [number, number, number]
 // 상자 하나. c는 가운데, axes는 세 변의 방향(단위 벡터), half는 그 방향의 반 길이
 export type Box = { c: V; axes: readonly [V, V, V]; half: V; rgb: RGB }
 
-// 동작별 상자. walk는 흔드는 각도(walkSwing)로 그때그때 만들고, suicide는 [총을 머리에 댐, 불꽃] 두 단계
-export type Body = { stand: Box[]; walk: (swing: number) => Box[]; aim: Box[]; fire: Box[]; suicide: Box[][]; fallen: Box[] }
+// 동작별 상자. walk는 흔드는 각도(walkSwing)로, aim과 fire는 위아래 시선(라디안, 위가 +)으로 그때그때 만들고,
+// suicide는 [총을 머리에 댐, 불꽃] 두 단계
+export type Body = {
+  stand: Box[]
+  walk: (swing: number) => Box[]
+  aim: (pitch: number) => Box[]
+  fire: (pitch: number) => Box[]
+  suicide: Box[][]
+  fallen: Box[]
+}
 
 // 목수건 색. 들어온 순서(state의 color)대로 (시스템 기획서 사람 색)
 export const SCARVES = [0xd83a3a, 0x4fb3e8, 0x34a853, 0xf2cf2a, 0xf08a1c, 0xee77b8, 0xf4f4f4, 0x2a2a2a]
@@ -48,6 +56,8 @@ const NEAR = 0.05
 const HAT_TOP = 36.5
 // 오른쪽 어깨 관절. 팔은 여기를 축으로 돎
 const SHOULDER: V = [6, 22, 0]
+// 목. 위아래를 볼 때 머리가 여기를 축으로 돎
+const NECK: V = [0, 24, 0]
 // 라디안. 걸을 때 팔다리를 앞뒤로 흔드는 각도. ponytail: 임시 값. 플레이해 보며 정함
 const SWING = 0.45
 // 라디안. 쏠 때 반동으로 팔이 들리는 각도. ponytail: 임시 값. 플레이해 보며 정함
@@ -79,6 +89,14 @@ function rod(p: V, d: V, from: number, to: number, size: number, color: RGB): Bo
 
 // 어깨나 엉덩이에서 아래로 뻗은 팔다리를 앞(+)뒤로 a만큼 흔든 방향
 const down = (a: number): V => [0, -Math.cos(a), Math.sin(a)]
+// 앞을 보다 위(+)아래로 a만큼 든 방향
+const ahead = (a: number): V => [0, Math.sin(a), Math.cos(a)]
+
+// 목을 축으로 상자를 위(+)아래로 a만큼 끄덕임. 앞(z)이 위(y)로 들림
+function nod(b: Box, a: number): Box {
+  const turn = (v: V): V => [v[0], v[1] * Math.cos(a) + v[2] * Math.sin(a), v[2] * Math.cos(a) - v[1] * Math.sin(a)]
+  return { ...b, c: add(NECK, turn(add(b.c, NECK, -1))), axes: [turn(b.axes[0]), turn(b.axes[1]), turn(b.axes[2])] }
+}
 
 // 셔츠 소매 끝에 손
 const arm = (p: V, d: V) => [rod(p, d, -2, 8, 4, SHIRT), rod(p, d, 8, 10, 4, SKIN)]
@@ -104,15 +122,19 @@ function temple(flash: boolean): Box[] {
   return flash ? [...boxes, box(3, 27.5, -2.5, 8, 32.5, 2.5, FLASH)] : boxes
 }
 
-// 사람 하나. 오른팔(right)은 동작마다 달라 따로 받음. swing은 걸을 때 흔드는 각도(+면 오른다리가 앞). holstered면 권총집에 총이 꽂혀 있음
-function figure(scarf: RGB, swing: number, right: Box[], holstered: boolean): Box[] {
-  const boxes = [
-    // 머리와 눈, 모자. 모자는 판정에 넣지 않아 키 위로 나옴
+// 사람 하나. 오른팔(right)은 동작마다 달라 따로 받음. swing은 걸을 때 흔드는 각도(+면 오른다리가 앞). holstered면 권총집에 총이 꽂혀 있음.
+// look은 위아래 시선(라디안, 위가 +)이고 머리만 그만큼 듦
+function figure(scarf: RGB, swing: number, right: Box[], holstered: boolean, look = 0): Box[] {
+  // 머리와 눈, 모자. 모자는 판정에 넣지 않아 키 위로 나옴
+  const head = [
     box(-4, 24, -4, 4, 32, 4, SKIN),
     box(-2.5, 27, 4, -1.5, 29, 4.01, EYE),
     box(1.5, 27, 4, 2.5, 29, 4.01, EYE),
     box(-6, 32, -6, 6, 33, 6, HAT),
     box(-3.5, 33, -3.5, 3.5, HAT_TOP, 3.5, HAT),
+  ]
+  const boxes = [
+    ...head.map((b) => nod(b, look)),
     // 몸통은 조끼이고, 앞이 열려 셔츠가 보임. 목수건은 목에 두르고 앞으로 늘어뜨림
     box(-4, 12, -2, 4, 24, 2, VEST),
     box(-1.25, 12, 2, 1.25, 21.5, 2.01, SHIRT),
@@ -152,12 +174,13 @@ function ground(boxes: Box[]): Box[] {
 
 function build(scarf: RGB): Body {
   const stand = figure(scarf, 0, arm(SHOULDER, down(0)), true)
-  const aimed = (d: V, flash: boolean) => figure(scarf, 0, holding(d, flash), false)
+  // 위아래 시선(pitch)만큼 머리를 들고 오른팔과 총을 그쪽으로 뻗음. 쏠 때는 반동으로 팔만 더 들림
+  const aimed = (pitch: number, flash: boolean) => figure(scarf, 0, holding(ahead(flash ? pitch + RECOIL : pitch), flash), false, pitch)
   return {
     stand,
     walk: (a) => figure(scarf, a, arm(SHOULDER, down(-a)), true),
-    aim: aimed(Z, false),
-    fire: aimed([0, Math.sin(RECOIL), Math.cos(RECOIL)], true),
+    aim: (pitch) => aimed(pitch, false),
+    fire: (pitch) => aimed(pitch, true),
     suicide: [false, true].map((flash) => figure(scarf, 0, temple(flash), false)),
     fallen: ground(stand.map(lay)),
   }

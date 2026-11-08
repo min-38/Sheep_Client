@@ -13,8 +13,8 @@ export type ClientMessage =
   | { type: 'listRooms' }
   // 대기실(술집)의 나가기. 답은 left
   | { type: 'leaveRoom' }
-  // angle은 라디안, 0 이상 2π 미만. 범위 밖이면 서버가 버림
-  | { type: 'turn'; angle: number }
+  // angle은 라디안, 0 이상 2π 미만. 범위 밖이면 서버가 pitch까지 버림. pitch는 위아래 시선(라디안, 위가 +), ±MAX_PITCH 안
+  | { type: 'turn'; angle: number; pitch: number }
   // 값을 보냄. 두 번 보내도 결과가 같음
   | { type: 'ready'; ready: boolean }
   // t0은 보낸 순간의 performance.now() (ms). 방에 들어가기 전에도 보냄
@@ -26,7 +26,8 @@ export type ClientMessage =
   | { type: 'stop'; at: number }
 
 // x·y는 칸 단위(map의 [y][x]와 같은 축), angle은 turn과 같음. pose는 동작 (서 있음, 걷기, 쓰러짐).
-// nickname은 포스터에 쓰는 이름, color는 목수건 색 번호 0~7 (시스템 기획서 사람 색의 순서). wins는 이 방에서 이긴 횟수이고 × $100이 현상금
+// nickname은 포스터에 쓰는 이름, color는 목수건 색 번호 0~7 (시스템 기획서 사람 색의 순서). wins는 이 방에서 이긴 횟수이고 × $100이 현상금.
+// pitch는 위아래 시선이고 turn의 pitch와 같음
 export type PlayerState = {
   id: string
   x: number
@@ -37,6 +38,7 @@ export type PlayerState = {
   nickname: string
   color: number
   wins: number
+  pitch: number
 }
 
 // 서버가 알리는 판 단계. lobby는 판이 끝나 준비 중으로 돌아가는 시각임
@@ -153,7 +155,7 @@ const isRoom = (r: any): r is RoomInfo =>
 
 const isPlayer = (p: any): p is PlayerState =>
   typeof p?.id === 'string' &&
-  [p.x, p.y, p.angle].every(Number.isFinite) &&
+  [p.x, p.y, p.angle, p.pitch].every(Number.isFinite) &&
   (p.pose === 'stand' || p.pose === 'walk' || p.pose === 'down') &&
   typeof p.ready === 'boolean' &&
   typeof p.nickname === 'string' &&

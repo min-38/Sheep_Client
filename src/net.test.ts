@@ -33,7 +33,7 @@ describe('parseServerMessage', () => {
   })
 
   test('상태의 닉네임은 문자열, 색은 0~7 정수만 받음 (기술 설계서 메시지 state)', () => {
-    const player = (extra: string) => `{"type":"state","tick":1,"players":[{"id":"p1","x":1,"y":1,"angle":0,"pose":"stand","ready":false,"wins":0${extra}}]}`
+    const player = (extra: string) => `{"type":"state","tick":1,"players":[{"id":"p1","x":1,"y":1,"angle":0,"pose":"stand","ready":false,"wins":0,"pitch":0${extra}}]}`
     expect(parseServerMessage(player(',"nickname":"보안관","color":3'))).not.toBeNull()
     expect(parseServerMessage(player(',"color":3'))).toBeNull()
     expect(parseServerMessage(player(',"nickname":"보안관"'))).toBeNull()
@@ -43,12 +43,20 @@ describe('parseServerMessage', () => {
   })
 
   test('상태의 이긴 횟수는 0 이상 정수만 받음 (기술 설계서 메시지 state wins)', () => {
-    const player = (extra: string) => `{"type":"state","tick":1,"players":[{"id":"p1","x":1,"y":1,"angle":0,"pose":"stand","ready":false,"nickname":"보안관","color":3${extra}}]}`
+    const player = (extra: string) => `{"type":"state","tick":1,"players":[{"id":"p1","x":1,"y":1,"angle":0,"pose":"stand","ready":false,"nickname":"보안관","color":3,"pitch":0${extra}}]}`
     expect(parseServerMessage(player(',"wins":2'))).not.toBeNull()
     expect(parseServerMessage(player(''))).toBeNull()
     expect(parseServerMessage(player(',"wins":-1'))).toBeNull()
     expect(parseServerMessage(player(',"wins":1.5'))).toBeNull()
     expect(parseServerMessage(player(',"wins":"2"'))).toBeNull()
+  })
+
+  test('상태의 위아래 시선은 숫자만 받음 (기술 설계서 메시지 state pitch)', () => {
+    const player = (extra: string) => `{"type":"state","tick":1,"players":[{"id":"p1","x":1,"y":1,"angle":0,"pose":"stand","ready":false,"nickname":"보안관","color":3,"wins":0${extra}}]}`
+    expect(parseServerMessage(player(',"pitch":-0.25'))).toMatchObject({ players: [{ pitch: -0.25 }] })
+    expect(parseServerMessage(player(''))).toBeNull()
+    expect(parseServerMessage(player(',"pitch":"0.1"'))).toBeNull()
+    expect(parseServerMessage(player(',"pitch":null'))).toBeNull()
   })
 
   test('입장 거절은 정해진 사유만 받음', () => {
@@ -71,20 +79,20 @@ describe('parseServerMessage', () => {
   })
 
   test('상태는 틱 번호와 모든 플레이어의 위치, 각도, 동작, 준비 여부를 받음', () => {
-    const text = '{"type":"state","tick":7,"players":[{"id":"p1","x":10.5,"y":4,"angle":1.57,"pose":"stand","ready":true,"nickname":"보안관","color":0,"wins":1},{"id":"p2","x":10.5,"y":17,"angle":4.71,"pose":"walk","ready":false,"nickname":"떠돌이","color":1,"wins":0}]}'
+    const text = '{"type":"state","tick":7,"players":[{"id":"p1","x":10.5,"y":4,"angle":1.57,"pose":"stand","ready":true,"nickname":"보안관","color":0,"wins":1,"pitch":0.3},{"id":"p2","x":10.5,"y":17,"angle":4.71,"pose":"walk","ready":false,"nickname":"떠돌이","color":1,"wins":0,"pitch":0}]}'
     expect(parseServerMessage(text)).toEqual({
       type: 'state',
       tick: 7,
       players: [
-        { id: 'p1', x: 10.5, y: 4, angle: 1.57, pose: 'stand', ready: true, nickname: '보안관', color: 0, wins: 1 },
-        { id: 'p2', x: 10.5, y: 17, angle: 4.71, pose: 'walk', ready: false, nickname: '떠돌이', color: 1, wins: 0 },
+        { id: 'p1', x: 10.5, y: 4, angle: 1.57, pose: 'stand', ready: true, nickname: '보안관', color: 0, wins: 1, pitch: 0.3 },
+        { id: 'p2', x: 10.5, y: 17, angle: 4.71, pose: 'walk', ready: false, nickname: '떠돌이', color: 1, wins: 0, pitch: 0 },
       ],
     })
   })
 
   test('쓰러진 사람의 동작은 down', () => {
-    const text = '{"type":"state","tick":9,"players":[{"id":"p1","x":1,"y":1,"angle":0,"pose":"down","ready":false,"nickname":"보안관","color":7,"wins":0}]}'
-    expect(parseServerMessage(text)).toEqual({ type: 'state', tick: 9, players: [{ id: 'p1', x: 1, y: 1, angle: 0, pose: 'down', ready: false, nickname: '보안관', color: 7, wins: 0 }] })
+    const text = '{"type":"state","tick":9,"players":[{"id":"p1","x":1,"y":1,"angle":0,"pose":"down","ready":false,"nickname":"보안관","color":7,"wins":0,"pitch":0}]}'
+    expect(parseServerMessage(text)).toEqual({ type: 'state', tick: 9, players: [{ id: 'p1', x: 1, y: 1, angle: 0, pose: 'down', ready: false, nickname: '보안관', color: 7, wins: 0, pitch: 0 }] })
   })
 
   test('모양이 틀린 상태는 버림', () => {
