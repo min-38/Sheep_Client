@@ -1,7 +1,7 @@
 import './style.css'
 import revolverData from './assets/revolver-rig.json'
 import { orbit } from './backdrop.ts'
-import { characterFrames, suicideStage, type Poses } from './character.ts'
+import { characterBody, suicideStage, walkSwing, type Body, type Box } from './character.ts'
 import { best, measure, toLocalTime, toServerTime, type ClockSample } from './clock.ts'
 import { makeProps, SKIES, timeOfDay } from './desert.ts'
 import { drawGun, gunClips, lift, RAISE_MS, RECOIL_MS, RELOAD_AT, RELOAD_SEATED, RELOAD_SHUT, revolverMesh } from './gun.ts'
@@ -19,7 +19,7 @@ import { banner, dueling, formatTime, joins, locked, resultText, stepIndex, time
 import { bountyRise, drawPortrait, drawSaloon, POSTER_SLOTS, posterSlots, startBartender, stepBartender } from './saloon.ts'
 import { readSettings, radiansPerPixel, type Hand, type Settings } from './settings.ts'
 import { heardFrom, loadEffects, play, playSignal, playStep, setEffectsVolume, stampOf, toAudioTime } from './sound.ts'
-import type { Sprite, Thing } from './sprite.ts'
+import type { Thing } from './sprite.ts'
 import { afterTurn, aimAt, crosshairOffset, scaleAt, steady, sway } from './sway.ts'
 import { tilt, turn } from './turn.ts'
 
@@ -130,27 +130,27 @@ function showShot(id: string, shotAngle: number) {
 
 function othersAt(t: number): Thing[] {
   const duel = clock !== null && dueling(schedule, toServerTime(t, clock.offset))
-  // 걷는 사람은 발소리를 내는 걸음마다 다리를 바꿈. 걷기 시각 조금 전이면 -1이라 & 1로 묶음
-  const step = clock !== null && schedule.walk !== undefined ? stepIndex(schedule.walk, toServerTime(t, clock.offset)) & 1 : 0
+  // 걷는 사람의 팔다리 흔들림. 발소리를 내는 걸음마다 한쪽 다리가 가장 앞에 옴
+  const swing = clock !== null && schedule.walk !== undefined ? walkSwing(toServerTime(t, clock.offset) - schedule.walk) : 0
   return [...history]
     .filter(([id]) => id !== myId)
     .map(([id, samples]) => {
       const s = sampleAt(samples, t)
       const shot = shots.get(id)
       const flashing = shot !== undefined && t >= shot.at && t < shot.at + FLASH_SHOWN
-      const poses = characterFrames(colors.get(id)!)
-      // "시작!"부터 서 있는 사람은 총을 겨눈 그림
-      const upright = duel ? poses.aim : s.pose === 'walk' ? poses.walk[step] : poses.stand
+      const body = characterBody(colors.get(id)!)
+      // "시작!"부터 서 있는 사람은 총을 겨눈 모습
+      const upright = duel ? body.aim : s.pose === 'walk' ? body.walk(swing) : body.stand
       // 불꽃 동안은 쏜 각도로 그림. 돌고 바로 쏘면 돌아간 각도는 다음 state로 늦게 옴
-      return { x: s.x, y: s.y, facing: flashing ? shot.angle : s.angle, frames: flashing ? poses.fire : poseFrames(poses, id, t, upright) }
+      return { x: s.x, y: s.y, facing: flashing ? shot.angle : s.angle, boxes: flashing ? body.fire : poseBoxes(body, id, t, upright) }
     })
 }
 
-function poseFrames(poses: Poses, id: string, t: number, upright: Sprite[]) {
+function poseBoxes(body: Body, id: string, t: number, upright: Box[]) {
   const down = downs.get(id)
   if (down === undefined || t < down.at) return upright
   const stage = down.reason === 'timeout' ? suicideStage(t - down.at) : null
-  return stage === null ? poses.fallen : poses.suicide[stage]
+  return stage === null ? body.fallen : body.suicide[stage]
 }
 
 // 포인터 잠금 중에만 돌림. 잠금 전에는 커서가 화면 밖으로 나가 이동량이 끊김
@@ -427,8 +427,8 @@ const BACKDROP_RADIUS = 4
 const BACKDROP_PITCH = 0.1
 // 첫 화면 배경에 세우는 것. 남북으로 마주 보고 총을 찬 채 선 두 사람(목수건 빨강, 하늘색)과 둘레 소품. 그림은 여기서 한 번만 만듦
 const BACKDROP_THINGS: Thing[] = [
-  { x: BACKDROP_MID, y: BACKDROP_MID - DUEL_GAP / 2, facing: Math.PI / 2, frames: characterFrames(0).stand },
-  { x: BACKDROP_MID, y: BACKDROP_MID + DUEL_GAP / 2, facing: -Math.PI / 2, frames: characterFrames(1).stand },
+  { x: BACKDROP_MID, y: BACKDROP_MID - DUEL_GAP / 2, facing: Math.PI / 2, boxes: characterBody(0).stand },
+  { x: BACKDROP_MID, y: BACKDROP_MID + DUEL_GAP / 2, facing: -Math.PI / 2, boxes: characterBody(1).stand },
   ...makeProps(BACKDROP_MID, BACKDROP_MID),
 ]
 // 배경이 돌기 시작한 시각(ms). 페이지가 뜨는 데 걸린 시간만큼 돌아가 있지 않고 늘 같은 장면에서 시작함.

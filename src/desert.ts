@@ -1,5 +1,5 @@
 import { blend, pack, type RGB } from './render.ts'
-import { PX_PER_CELL, type Sprite, type Thing } from './sprite.ts'
+import { PX_PER_CELL, type Prop, type Sprite } from './sprite.ts'
 
 // 하늘 시간대 (시스템 기획서 결투장 시간대)
 export type TimeOfDay = 'noon' | 'afternoon' | 'sunset'
@@ -287,7 +287,7 @@ const PROPS = 18
 
 // 결투장 중심(cx, cy) 둘레의 선인장, 바위, 회전초. 그림만이고 서버 판정에는 없음.
 // 걷는 범위(중심에서 4칸)에 걸치면 결투장 안에 숨을 곳이 생기므로 5.5칸부터 둠. 둘레 벽 밖에도 두어 멀리까지 이어져 보이게 함
-export function makeProps(cx: number, cy: number): Thing[] {
+export function makeProps(cx: number, cy: number): Prop[] {
   const kinds = [blocks(CACTUS_RECTS), blocks(ROCK_RECTS), blocks(WEED_RECTS)]
   return Array.from({ length: PROPS }, (_, i) => {
     // 황금각(약 2.4라디안)씩 돌며 거리를 섞어 겹치지 않게 흩음. 고정된 식이라 늘 같은 자리
