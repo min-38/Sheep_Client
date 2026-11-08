@@ -1,118 +1,171 @@
 import { describe, expect, test } from 'vitest'
-import { characterFrames, SCARVES, SUICIDE_AIM, SUICIDE_FLASH, suicideStage } from './character.ts'
+import { CELL, characterBody, corners, drawFigure, SCARVES, SUICIDE_AIM, SUICIDE_FLASH, suicideStage, walkSwing, type Box } from './character.ts'
 import { BODY, HEAD } from './hitcard.ts'
-import { PX_PER_CELL, type Sprite } from './sprite.ts'
+import { makeCamera, type RGB } from './render.ts'
+import { STEP_MS } from './round.ts'
 
-const rgb = (c: number) => [c & 255, (c >> 8) & 255, (c >> 16) & 255]
-const at = (s: Sprite, x: number, y: number) => s.pixels[y * s.w + x]
-const differs = (a: Sprite, b: Sprite) => a.w !== b.w || a.h !== b.h || a.pixels.some((c, i) => c !== b.pixels[i])
-// 바닥에서 위로 cells칸 높이인 줄 번호
-const row = (s: Sprite, cells: number) => s.h - 1 - Math.floor(cells * PX_PER_CELL)
-// (x, y)와 같은 색이 위아래로 이어진 줄 [위, 아래 다음]
-function run(s: Sprite, x: number, y: number): [number, number] {
-  const c = at(s, x, y)
-  let top = y
-  let bottom = y + 1
-  while (top > 0 && at(s, x, top - 1) === c) top--
-  while (bottom < s.h && at(s, x, bottom) === c) bottom++
-  return [top, bottom]
+type V = readonly [number, number, number]
+
+// 상자들이 덮는 i축 범위(칸)
+function span(boxes: readonly Box[], i: number): [number, number] {
+  const values = boxes.flatMap((b) => corners(b).map((p) => p[i] * CELL))
+  return [Math.min(...values), Math.max(...values)]
 }
-// y줄에서 칠한 폭(px)
-const width = (s: Sprite, y: number) => s.pixels.subarray(y * s.w, (y + 1) * s.w).filter((c) => c !== 0).length
-// 바닥에서 위까지의 px 수가 칸 단위 높이와 1px 안에서 맞는지
-const near = (px: number, cells: number) => expect(Math.abs(px - cells * PX_PER_CELL)).toBeLessThanOrEqual(1)
+// p(블록)를 품은 상자들
+const holding = (boxes: readonly Box[], p: V) =>
+  boxes.filter((b) => b.axes.every((a, i) => Math.abs(a.reduce((s, ai, j) => s + ai * (p[j] - b.c[j]), 0)) <= b.half[i]))
+// 칸 단위 길이가 1px(PX 64px/키) 안에서 맞는지
+const near = (got: number, want: number) => expect(Math.abs(got - want)).toBeLessThanOrEqual(0.015)
 
-describe('characterFrames', () => {
-  const red = characterFrames(0)
-  const stand = red.stand[0]
-  const mid = stand.w / 2
+describe('characterBody', () => {
+  const red = characterBody(0)
+  const stand = red.stand
 
-  test('모든 동작이 8방향이고 빈 그림이 없음', () => {
-    const sets = [red.stand, ...red.walk, red.aim, red.fire, ...red.suicide, red.fallen]
-    expect(sets).toHaveLength(8)
-    for (const frames of sets) {
-      expect(frames).toHaveLength(8)
-      for (const f of frames) expect(f.pixels.some((c) => c !== 0)).toBe(true)
-    }
+  test('서 있으면 발이 바닥, 머리가 판정 원기둥과 같은 높이와 폭 (시스템 기획서 리볼버)', () => {
+    near(span(stand, 1)[0], 0)
+    const head = holding(stand, [0, 28, 0])
+    expect(head).toHaveLength(1)
+    const [bottom, top] = span(head, 1)
+    near(bottom, BODY.top)
+    near(top, HEAD.top)
+    near(span(head, 0)[1], HEAD.radius)
   })
 
-  test('서 있는 그림은 발이 바닥, 머리와 몸이 판정 원기둥과 같은 높이 (시스템 기획서 리볼버)', () => {
-    expect(width(stand, stand.h - 1)).toBeGreaterThan(0)
-    // 가운데 세로줄에서 얼굴색이 이어진 곳이 머리. 위는 모자 챙, 아래는 목수건이라 색이 다름
-    const [top, bottom] = run(stand, mid, row(stand, (HEAD.top + BODY.top) / 2))
-    near(stand.h - top, HEAD.top)
-    near(stand.h - bottom, BODY.top)
+  test('몸과 팔을 합친 폭이 판정 원기둥 지름과 같음', () => {
+    const [left, right] = span(stand.filter((b) => b.c[1] > 12 && b.c[1] < 24), 0)
+    near(left, -BODY.radius)
+    near(right, BODY.radius)
   })
 
-  test('몸과 팔을 합친 폭과 머리 폭이 판정 원기둥 지름과 같음', () => {
-    near(width(stand, row(stand, BODY.top / 2 + 0.1)), BODY.radius * 2)
-    near(width(stand, row(stand, (HEAD.top + BODY.top) / 2)), HEAD.radius * 2)
-  })
-
-  test('나를 보는 그림에만 눈이 있음 (frameIndex와 같은 순서)', () => {
-    const dark = (s: Sprite) => {
-      for (let y = row(s, HEAD.top) + 1; y <= row(s, BODY.top); y++)
-        for (let x = 0; x < s.w; x++) if (at(s, x, y) !== 0 && Math.max(...rgb(at(s, x, y))) < 60) return true
-      return false
-    }
-    expect(dark(red.stand[0])).toBe(true)
-    expect(dark(red.stand[4])).toBe(false)
-  })
-
-  test('두 번째 장은 화면 왼쪽, 여섯 번째 장은 오른쪽을 봄 (시계 방향으로 90°, 270° 돎)', () => {
-    // 겨눈 팔과 총이 바라보는 쪽으로 나옴
-    const left = (s: Sprite) => s.pixels.filter((c, i) => c !== 0 && i % s.w < s.w / 2).length
-    const right = (s: Sprite) => s.pixels.filter((c, i) => c !== 0 && i % s.w >= s.w / 2).length
-    expect(left(red.aim[2])).toBeGreaterThan(right(red.aim[2]) * 1.2)
-    expect(right(red.aim[6])).toBeGreaterThan(left(red.aim[6]) * 1.2)
-  })
-
-  test('목수건은 들어온 순서의 색 (시스템 기획서 사람 색)', () => {
+  test('목수건은 들어온 순서의 색이고, 색이 달라도 목수건 말고는 같은 상자 (시스템 기획서 사람 색)', () => {
     expect(SCARVES).toEqual([0xd83a3a, 0x4fb3e8, 0x34a853, 0xf2cf2a, 0xf08a1c, 0xee77b8, 0xf4f4f4, 0x2a2a2a])
-    for (const [i, hex] of SCARVES.entries()) {
-      const s = characterFrames(i).stand[0]
-      // 목에 두른 띠의 앞면. 면 밝기만 곱해지므로 세 채널 비율이 정한 색과 같음
-      const got = rgb(at(s, s.w / 2, row(s, BODY.top - 0.03)))
-      const want = [hex >> 16, (hex >> 8) & 255, hex & 255]
-      const k = Math.max(...got) / Math.max(...want)
-      for (let c = 0; c < 3; c++) expect(Math.abs(got[c] - want[c] * k)).toBeLessThanOrEqual(1.5)
-    }
-  })
-
-  test('색이 달라도 목수건 말고는 같은 그림', () => {
-    const blue = characterFrames(1).stand[0]
-    const changed = [...stand.pixels.keys()].filter((i) => stand.pixels[i] !== blue.pixels[i]).map((i) => Math.floor(i / stand.w))
+    const rgb = (hex: number) => [hex >> 16, (hex >> 8) & 255, hex & 255]
+    for (const [i, hex] of SCARVES.entries()) expect(characterBody(i).stand.some((b) => `${b.rgb}` === `${rgb(hex)}`)).toBe(true)
+    const blue = characterBody(1).stand
+    const changed = stand.filter((b, i) => `${b.rgb}` !== `${blue[i].rgb}`)
     expect(changed.length).toBeGreaterThan(0)
-    expect(Math.min(...changed)).toBeGreaterThan(row(stand, BODY.top) - 2)
-    expect(Math.max(...changed)).toBeLessThan(row(stand, BODY.top - 0.2))
+    for (const b of changed) expect(`${b.rgb}`).toBe(`${rgb(SCARVES[0])}`)
   })
 
   test('같은 색은 한 번만 만듦', () => {
-    expect(characterFrames(0)).toBe(red)
+    expect(characterBody(0)).toBe(red)
   })
 
-  test('걷기 두 장은 옆에서 볼 때 다리가 다름', () => {
-    expect(differs(red.walk[0][2], red.walk[1][2])).toBe(true)
+  test('걸을 때 흔드는 쪽에 따라 다리가 다름', () => {
+    expect(red.walk(0.4)).not.toEqual(red.walk(-0.4))
   })
 
-  test('쏘면 팔이 들리고 불꽃이 보임', () => {
-    for (const k of [0, 2, 6]) expect(differs(red.fire[k], red.aim[k])).toBe(true)
+  test('쏘면 팔이 들리고 불꽃 상자가 더해짐', () => {
+    expect(red.fire.length).toBe(red.aim.length + 1)
+    expect(red.fire.slice(0, -1)).not.toEqual(red.aim)
   })
 
-  test('자살 모습은 나를 볼 때 머리에 댄 총이 보이고, 다음 단계에 불꽃이 더해짐', () => {
+  test('자살 모습은 머리에 총을 대고, 다음 단계에 불꽃이 더해짐', () => {
     const [aim, flash] = red.suicide
-    expect(differs(aim[0], stand)).toBe(true)
-    expect(differs(flash[0], aim[0])).toBe(true)
+    expect(aim).not.toEqual(stand)
+    expect(flash.length).toBe(aim.length + 1)
   })
 
-  test('쓰러지면 옆으로 누워 몸 폭만큼만 높음', () => {
-    for (const f of red.fallen) near(f.h, BODY.radius * 2)
-    expect(red.fallen[0].w).toBeGreaterThan(red.fallen[0].h * 2)
+  test('쓰러지면 바닥에 옆으로 누워 몸 폭만큼만 높음', () => {
+    const [bottom, top] = span(red.fallen, 1)
+    near(bottom, 0)
+    near(top, BODY.radius * 2)
+    const [left, right] = span(red.fallen, 0)
+    expect(right - left).toBeGreaterThan((top - bottom) * 2)
+  })
+})
+
+describe('walkSwing', () => {
+  test('걸음마다 다리가 번갈아 가장 앞에 오고, 그 사이는 이어서 흔듦', () => {
+    expect(walkSwing(0)).toBeGreaterThan(0)
+    expect(walkSwing(STEP_MS)).toBeCloseTo(-walkSwing(0))
+    expect(walkSwing(2 * STEP_MS)).toBeCloseTo(walkSwing(0))
+    expect(walkSwing(STEP_MS / 2)).toBeCloseTo(0)
+  })
+})
+
+describe('drawFigure', () => {
+  const W = 400
+  const H = 200
+  // 시야 90°면 plane 길이가 1이라 proj가 W/2
+  const cam = makeCamera(0, 0, 0, 90)
+  const WHITE: RGB = [255, 255, 255]
+  const body = characterBody(0)
+
+  function draw(x: number, facing: number, boxes = body.stand, zbuf = new Float64Array(W).fill(Infinity), light = WHITE) {
+    const pixels = new Uint32Array(W * H)
+    drawFigure(pixels, W, H, zbuf, cam, { x, y: 0, facing, boxes }, light)
+    return pixels
+  }
+  const columns = (pixels: Uint32Array) => [...Array(W).keys()].filter((x) => [...Array(H).keys()].some((y) => pixels[y * W + x] !== 0))
+  // 거리 d에서 높이 z(칸)가 그려지는 줄. 눈높이 0.5가 지평선(H/2)
+  const rowAt = (z: number, d: number) => H / 2 + ((W / 2) * (0.5 - z)) / d
+
+  test('나를 보면 얼굴에 눈이 보이고, 등지면 안 보임', () => {
+    // 얼굴 앞면까지의 거리. 판정 원기둥 사이 얼굴 높이의 줄만 봄
+    const d = 2 - HEAD.radius
+    const dark = (pixels: Uint32Array) => {
+      for (let y = Math.ceil(rowAt(HEAD.top - 0.03, d)); y < rowAt(BODY.top + 0.03, d); y++)
+        for (let x = 0; x < W; x++) {
+          const c = pixels[y * W + x]
+          if (c !== 0 && Math.max(c & 255, (c >> 8) & 255, (c >> 16) & 255) < 60) return true
+        }
+      return false
+    }
+    expect(dark(draw(2, Math.PI))).toBe(true)
+    expect(dark(draw(2, 0))).toBe(false)
+  })
+
+  test('나를 보면 그 사람의 오른쪽 엉덩이(권총집)가 화면 왼쪽에 보임', () => {
+    const pixels = draw(2, Math.PI)
+    // 엉덩이 높이(8블록) 줄에서 칠한 양 끝
+    const y = Math.round(rowAt(8 * CELL, 2))
+    const cols = [...Array(W).keys()].filter((x) => pixels[y * W + x] !== 0)
+    expect(W / 2 - cols[0]).toBeGreaterThan(cols[cols.length - 1] + 1 - W / 2 + 2)
+  })
+
+  test('45°마다 끊기지 않고 조금만 돌아도 다르게 보임', () => {
+    expect(draw(4, Math.PI + 0.2)).not.toEqual(draw(4, Math.PI))
+  })
+
+  test('시계 방향으로 90° 돌면 겨눈 팔이 화면 왼쪽으로 나옴', () => {
+    const pixels = draw(4, (3 * Math.PI) / 2, body.aim)
+    const cols = columns(pixels)
+    const left = cols.filter((x) => x < W / 2).length
+    const right = cols.filter((x) => x >= W / 2).length
+    expect(left).toBeGreaterThan(right * 1.2)
+  })
+
+  test('정면에 서면 화면 가운데, 발은 벽 아래 끝과 같은 높이', () => {
+    const pixels = draw(4, Math.PI)
+    const cols = columns(pixels)
+    expect(Math.abs((cols[0] + cols[cols.length - 1] + 1) / 2 - W / 2)).toBeLessThanOrEqual(1)
+    let bottom = 0
+    for (let y = 0; y < H; y++) if (pixels[y * W + W / 2] !== 0) bottom = y + 1
+    expect(Math.abs(bottom - rowAt(0, 4))).toBeLessThanOrEqual(1.5)
+  })
+
+  test('벽이 더 가까운 가로줄에는 그리지 않음', () => {
+    const zbuf = new Float64Array(W).fill(Infinity).fill(2, 0, W / 2)
+    const cols = columns(draw(4, Math.PI, body.stand, zbuf))
+    expect(cols.length).toBeGreaterThan(0)
+    expect(cols[0]).toBe(W / 2)
+  })
+
+  test('카메라 뒤에 있으면 그리지 않음', () => {
+    expect(columns(draw(-4, 0))).toEqual([])
+  })
+
+  test('빛 색조를 곱해 칠함', () => {
+    const pixels = draw(4, Math.PI, body.stand, undefined, [255, 255, 0])
+    const drawn = pixels.filter((c) => c !== 0)
+    expect(drawn.length).toBeGreaterThan(0)
+    for (const c of drawn) expect((c >> 16) & 255).toBe(0)
   })
 })
 
 describe('suicideStage', () => {
-  test('총을 머리에 댄 뒤 불꽃, 그다음 쓰러진 그림', () => {
+  test('총을 머리에 댄 뒤 불꽃, 그다음 쓰러진 모습', () => {
     expect(suicideStage(0)).toBe(0)
     expect(suicideStage(SUICIDE_AIM - 1)).toBe(0)
     expect(suicideStage(SUICIDE_AIM)).toBe(1)
