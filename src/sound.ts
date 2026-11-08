@@ -3,6 +3,7 @@ import cockHammerUrl from './assets/audio/cock-hammer.mp3'
 import dryFireUrl from './assets/audio/dry-fire.mp3'
 import loadUrl from './assets/audio/load.mp3'
 import shotUrl from './assets/audio/shot.mp3'
+import { SUICIDE_AIM, SUICIDE_FLASH } from './character.ts'
 
 // AudioContext 시계(초)와 내 시계(ms, performance.now())를 잇는 한 쌍. contextTime에 나간 소리가 스피커에서 들리는 순간이 performanceTime임
 export type AudioStamp = { contextTime: number; performanceTime: number }
@@ -101,6 +102,25 @@ export function playStep(audio: AudioContext, when: number, from?: { right: numb
   const volume = new GainNode(audio)
   volume.gain.setValueAtTime(0.3, when)
   volume.gain.exponentialRampToValueAtTime(0.001, when + 0.06)
+  place(audio, source.connect(low).connect(volume), from)
+  source.start(when)
+}
+
+// 탈락을 보여 주기 시작한 때부터 쓰러진 그림이 되기까지(ms). 시간 초과는 자살 모습(총을 댐, 불꽃)이 끝난 뒤
+export const fallDelay = (reason: 'shot' | 'timeout') => (reason === 'timeout' ? SUICIDE_AIM + SUICIDE_FLASH : 0)
+
+// 쓰러지는 소리 한 번을 when(AudioContext 시각, 초)에 냄. 방향과 거리는 총소리와 같음.
+// ponytail: 낮은 잡음으로 합성한 임시음(약 0.3초). CC0 효과음을 찾으면 소리 부분만 고침 (시스템 기획서 사운드)
+export function playFall(audio: AudioContext, when: number, from?: { right: number; front: number }) {
+  const noise = new AudioBuffer({ length: Math.round(audio.sampleRate * 0.3), sampleRate: audio.sampleRate })
+  const data = noise.getChannelData(0)
+  for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1
+  const source = new AudioBufferSourceNode(audio, { buffer: noise })
+  // 발소리보다 더 낮게 걸러 몸이 모래에 부딪히는 둔한 쿵으로
+  const low = new BiquadFilterNode(audio, { type: 'lowpass', frequency: 180 })
+  const volume = new GainNode(audio)
+  volume.gain.setValueAtTime(0.8, when)
+  volume.gain.exponentialRampToValueAtTime(0.001, when + 0.3)
   place(audio, source.connect(low).connect(volume), from)
   source.start(when)
 }
