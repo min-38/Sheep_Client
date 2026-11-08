@@ -1,18 +1,18 @@
 <!doctype html>
-<html lang="ko">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>서부 총잡이</title>
+    <title data-i18n="title"></title>
   </head>
   <body>
     <div id="game">
-      <canvas id="screen" aria-label="게임 화면"></canvas>
+      <canvas id="screen" data-i18n-label="hud.screen"></canvas>
       <div id="blood" aria-hidden="true" hidden></div>
       <div id="crosshair" aria-hidden="true"></div>
       <div id="flash" aria-hidden="true" hidden></div>
-      <figure id="hit-card" aria-label="내 사격 결과" hidden>
+      <figure id="hit-card" data-i18n-label="hud.hitCard" hidden>
         <!-- 정면 블록 몸(7.5등신 틀, 시스템 기획서 캐릭터: 머리, 목, 몸통, 팔, 다리). 키 30블록이 판정 원기둥의 머리 위 높이와 같음 -->
         <svg viewBox="0 0 100 100" aria-hidden="true">
           <g class="figure">
@@ -29,7 +29,7 @@
         <output id="hit-stamp"></output>
       </figure>
       <!-- 리볼버 실린더 6칸. 장전된 칸만 금색 (시스템 기획서 HUD 탄 수). 첫 칸이 맨 위이고 시계 방향 -->
-      <svg id="ammo" viewBox="0 0 100 100" role="img" aria-label="남은 총알">
+      <svg id="ammo" viewBox="0 0 100 100" role="img">
         <circle class="cylinder" cx="50" cy="50" r="46" />
         <circle class="chamber" cx="50" cy="22" r="10" />
         <circle class="chamber" cx="74.2" cy="36" r="10" />
@@ -39,71 +39,71 @@
         <circle class="chamber" cx="25.8" cy="36" r="10" />
         <circle class="pin" cx="50" cy="50" r="6" />
       </svg>
-      <output id="timer" aria-label="남은 시간" hidden></output>
-      <output id="alive" aria-label="남은 인원" hidden></output>
-      <output id="banner" aria-label="판 신호"></output>
-      <output id="watching" aria-label="관전 중인 사람" hidden></output>
-      <button type="button" id="replay" class="plank" hidden>다시 보기</button>
-      <button type="button" id="leave-down" class="plank" hidden>나가기</button>
-      <output id="room" aria-label="방 코드"></output>
+      <output id="timer" data-i18n-label="hud.timer" hidden></output>
+      <output id="alive" data-i18n-label="hud.alive" hidden></output>
+      <output id="banner" data-i18n-label="hud.banner"></output>
+      <output id="watching" data-i18n-label="hud.watching" hidden></output>
+      <button type="button" id="replay" class="plank" data-i18n="hud.replay" hidden></button>
+      <button type="button" id="leave-down" class="plank" data-i18n="hud.leave" hidden></button>
+      <output id="room" data-i18n-label="hud.roomCode"></output>
       <!-- 술집 대기실. 방에 들어가 판이 시작되기 전과 판이 끝난 뒤에 보임. 벽, 선반, 카운터, 술집 주인은 캔버스에 그리고
            글자가 있는 것만 여기 얹음 (시스템 기획서 방 화면 M8 대기실 짜임) -->
       <div id="saloon" hidden>
         <!-- 왼쪽 벽 포스터 8자리. 목수건 색 번호가 자리 번호 -->
-        <ol id="posters" aria-label="방에 있는 사람"></ol>
-        <div id="chalkboard" aria-label="방">
+        <ol id="posters" data-i18n-label="saloon.posters"></ol>
+        <div id="chalkboard" data-i18n-label="saloon.board">
           <p id="board-name"></p>
           <p id="board-code"></p>
-          <p id="board-private" hidden>비공개</p>
+          <p id="board-private" data-i18n="saloon.private" hidden></p>
         </div>
         <!-- 카운터 앞면. 왼쪽부터 나가기, 준비, 설정 -->
         <div id="counter">
-          <button type="button" id="leave" class="plank">나가기</button>
+          <button type="button" id="leave" class="plank" data-i18n="saloon.leave"></button>
           <div id="ready-box">
-            <button type="button" id="ready" class="plank">준비</button>
+            <button type="button" id="ready" class="plank"></button>
             <output id="ready-count"></output>
           </div>
-          <button type="button" class="plank settings-open">설정</button>
+          <button type="button" class="plank settings-open" data-i18n="saloon.settings"></button>
         </div>
       </div>
       <!-- 첫 화면. 위에서부터 제목, 닉네임, 랜덤 입장, 방 만들기, 방 코드로 입장 (시스템 기획서 방 화면 M8 첫 화면) -->
       <form id="lobby">
-        <h1 id="title">서부 총잡이</h1>
+        <h1 id="title" data-i18n="title"></h1>
         <!-- 1단계: 닉네임을 정함. 브라우저에 기억한 닉네임이 있으면 건너뜀 -->
         <fieldset id="name-step" disabled>
-          <input id="nickname" aria-label="닉네임" aria-describedby="nickname-rule" placeholder="닉네임" maxlength="12" autocomplete="nickname" spellcheck="false" />
-          <p id="nickname-rule">2~8자, 한글·영문·숫자만</p>
-          <button id="name-ok" class="plank">확인</button>
+          <input id="nickname" data-i18n-label="lobby.nickname" aria-describedby="nickname-rule" data-i18n-placeholder="lobby.nickname" maxlength="12" autocomplete="nickname" spellcheck="false" />
+          <p id="nickname-rule" data-i18n="lobby.nicknameRule"></p>
+          <button id="name-ok" class="plank" data-i18n="lobby.ok"></button>
         </fieldset>
         <!-- 2단계: 방 목록, 그 아래 방 코드로 입장, 랜덤 입장, 방 만들기 (시스템 기획서 방 화면 첫 화면) -->
         <fieldset id="room-step" hidden disabled>
-          <p id="who">닉네임 <strong id="who-name"></strong> <button type="button" id="rename">바꾸기</button></p>
+          <p id="who"><span data-i18n="lobby.nickname"></span> <strong id="who-name"></strong> <button type="button" id="rename" data-i18n="lobby.rename"></button></p>
           <!-- 캐릭터 고르기. 칸은 main.ts가 캐릭터마다 초상화로 만듦 (시스템 기획서 캐릭터 고르기) -->
-          <div id="character-pick" role="radiogroup" aria-labelledby="character-label"><span id="character-label">캐릭터</span></div>
-          <ul id="room-list" aria-label="방 목록"></ul>
+          <div id="character-pick" role="radiogroup" aria-labelledby="character-label"><span id="character-label" data-i18n="lobby.character"></span></div>
+          <ul id="room-list" data-i18n-label="lobby.roomList"></ul>
           <div class="row">
-            <input id="code" aria-label="방 코드" placeholder="방 코드" maxlength="6" pattern="[A-Za-z0-9]{6}" required autocomplete="off" spellcheck="false" />
-            <button id="join" class="plank">입장</button>
+            <input id="code" data-i18n-label="lobby.code" data-i18n-placeholder="lobby.code" maxlength="6" pattern="[A-Za-z0-9]{6}" required autocomplete="off" spellcheck="false" />
+            <button id="join" class="plank" data-i18n="lobby.join"></button>
           </div>
           <div class="row">
-            <button type="button" id="quick" class="plank">랜덤 입장</button>
-            <button type="button" id="create" class="plank">방 만들기</button>
+            <button type="button" id="quick" class="plank" data-i18n="lobby.quick"></button>
+            <button type="button" id="create" class="plank" data-i18n="lobby.create"></button>
           </div>
         </fieldset>
-        <button type="button" class="plank settings-open">설정</button>
-        <p id="status" role="status">서버에 접속하는 중</p>
+        <button type="button" class="plank settings-open" data-i18n="lobby.settings"></button>
+        <p id="status" role="status"></p>
       </form>
       <!-- 방 만들기 창. 방 이름, 인원 제한, 비공개 여부를 정해 생성하거나 취소함 (시스템 기획서 방 화면 방 만들기 창) -->
       <div id="create-panel" role="dialog" aria-modal="true" aria-labelledby="create-title" hidden>
         <form id="create-form" class="sheet">
-          <h2 id="create-title">방 만들기</h2>
+          <h2 id="create-title" data-i18n="lobby.create"></h2>
           <div class="row">
-            <input id="room-name" aria-label="방 이름" aria-describedby="room-name-rule" placeholder="방 이름" maxlength="64" autocomplete="off" spellcheck="false" />
-            <button type="button" id="dice" class="plank" aria-label="무작위 이름">🎲</button>
+            <input id="room-name" data-i18n-label="create.name" aria-describedby="room-name-rule" data-i18n-placeholder="create.name" maxlength="64" autocomplete="off" spellcheck="false" />
+            <button type="button" id="dice" class="plank" data-i18n-label="create.dice.label">🎲</button>
           </div>
-          <p id="room-name-rule" hidden>2~16자</p>
+          <p id="room-name-rule" data-i18n="create.rule" hidden></p>
           <label class="row">
-            <span>인원</span>
+            <span data-i18n="create.players"></span>
             <select id="max-players">
               <option>2</option>
               <option>3</option>
@@ -114,10 +114,10 @@
               <option selected>8</option>
             </select>
           </label>
-          <label id="private-box"><input type="checkbox" id="private" /> 비공개</label>
+          <label id="private-box"><input type="checkbox" id="private" /> <span data-i18n="saloon.private"></span></label>
           <div class="row">
-            <button id="create-ok" class="plank">생성</button>
-            <button type="button" id="create-cancel" class="plank">취소</button>
+            <button id="create-ok" class="plank" data-i18n="create.ok"></button>
+            <button type="button" id="create-cancel" class="plank" data-i18n="create.cancel"></button>
           </div>
         </form>
       </div>
@@ -127,36 +127,40 @@
           <span class="wanted">WANTED</span>
           <img id="win-face" alt="" />
           <span class="nick" id="win-name"></span>
-          <!-- ponytail: 임시 문구. 게임 안 문구 스타일이 정해지면 바꿈 -->
-          <span class="stamp">승리</span>
+          <span class="stamp" data-i18n="saloon.winStamp"></span>
         </div>
         <output id="win-bounty"></output>
       </div>
       <!-- 설정 창. 첫 화면과 대기실에서 같은 판을 띄움. 바꾸면 바로 적용하고 브라우저에 기억함 (시스템 기획서 방 화면 설정) -->
       <div id="settings-panel" role="dialog" aria-modal="true" aria-labelledby="settings-title" hidden>
         <form id="settings-form" class="sheet">
-          <h2 id="settings-title">설정</h2>
+          <h2 id="settings-title" data-i18n="lobby.settings"></h2>
+          <!-- 언어 목록은 main.ts가 언어마다 그 언어로 쓴 이름으로 채움 -->
           <label class="row">
-            <span>감도</span>
+            <span data-i18n="settings.language"></span>
+            <select id="language"></select>
+          </label>
+          <label class="row">
+            <span data-i18n="settings.sensitivity"></span>
             <input type="range" id="sensitivity" min="25" max="400" step="5" />
             <output id="sensitivity-value"></output>
           </label>
           <label class="row">
-            <span>배경음악</span>
+            <span data-i18n="settings.music"></span>
             <input type="range" id="music" min="0" max="100" step="5" />
             <output id="music-value"></output>
           </label>
           <label class="row">
-            <span>효과음</span>
+            <span data-i18n="settings.effects"></span>
             <input type="range" id="effects" min="0" max="100" step="5" />
             <output id="effects-value"></output>
           </label>
-          <div class="row" role="radiogroup" aria-label="총을 든 손">
-            <span>총을 든 손</span>
-            <label><input type="radio" name="hand" value="right" /> 오른손</label>
-            <label><input type="radio" name="hand" value="left" /> 왼손</label>
+          <div class="row" role="radiogroup" data-i18n-label="settings.hand">
+            <span data-i18n="settings.hand"></span>
+            <label><input type="radio" name="hand" value="right" /> <span data-i18n="settings.right"></span></label>
+            <label><input type="radio" name="hand" value="left" /> <span data-i18n="settings.left"></span></label>
           </div>
-          <button id="settings-close" class="plank">닫기</button>
+          <button id="settings-close" class="plank" data-i18n="settings.close"></button>
         </form>
       </div>
     </div>

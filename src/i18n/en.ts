@@ -1,0 +1,112 @@
+// 게임 안 문구의 원본 (CLAUDE.md Client copy). 다른 언어 파일은 이 꼴(Copy)을 그대로 채워야 빌드가 됨.
+// 키는 화면별로 묶음. 값을 넣어야 하는 문구는 함수. ponytail: 임시 문구. 게임 안 문구 말투가 정해지면 다시 씀
+export const en = {
+  // 설정의 언어 목록에 보이는 이름. 언어마다 그 언어로 씀
+  languageName: 'English',
+  // 모든 언어에서 같은 영어 제목 (사용자 결정 2026-11-09)
+  title: 'The Quick, the Slow and the Shot!',
+  // 결투 화면
+  hud: {
+    screen: 'Game screen',
+    hitCard: 'My shot result',
+    ammo: (n: number) => `Bullets left: ${n}`,
+    timer: 'Time left',
+    alive: 'Players left',
+    aliveCount: (n: number) => `${n} left`,
+    banner: 'Round signal',
+    watching: 'Player you are watching',
+    watchingWho: (name: string) => `Watching ${name}`,
+    replayWho: (name: string) => `Replay: ${name}`,
+    replay: 'Replay',
+    leave: 'Leave',
+    roomCode: 'Room code',
+    // 내가 쓰러졌을 때 가운데에 띄움
+    down: "You're down",
+    // "시작!" 신호
+    go: 'Draw!',
+    win: 'You win!',
+    lose: 'You lose',
+    rematch: (n: number) => `Rematch: ${n} players`,
+    // 내 사격 결과 카드의 도장
+    head: 'Headshot',
+    wounded: 'Wounded',
+    hitDown: 'Down',
+    miss: 'Miss',
+  },
+  // 술집 대기실과 판 끝 포스터
+  saloon: {
+    posters: 'People in this room',
+    board: 'Room',
+    private: 'Private',
+    leave: 'Leave',
+    ready: 'Ready',
+    unready: 'Unready',
+    readyCount: (ready: number, total: number) => `Ready ${ready}/${total}`,
+    settings: 'Settings',
+    myPoster: 'My poster',
+    readyStamp: 'Ready',
+    winStamp: 'Winner',
+  },
+  // 첫 화면
+  lobby: {
+    nickname: 'Nickname',
+    nicknameRule: '2–8 characters: Hangul, letters A–Z, digits',
+    ok: 'OK',
+    rename: 'Change',
+    character: 'Character',
+    // 캐릭터 번호 순서 (시스템 기획서 캐릭터 목록)
+    characterNames: ['Charles'],
+    roomList: 'Room list',
+    code: 'Room code',
+    join: 'Join',
+    quick: 'Quick join',
+    create: 'Create room',
+    settings: 'Settings',
+    connecting: 'Connecting to the server…',
+    disconnected: 'Disconnected from the server. Refresh the page to reconnect.',
+    noRooms: 'No open rooms',
+    // 방 목록 한 줄에 3명까지 적고 나머지는 수만 (시스템 기획서 방 화면 대기실 보기)
+    members: (names: string, more: number) => `${names} and ${more} more`,
+    playing: 'In a match',
+    full: 'Full',
+    waiting: 'Waiting',
+    // 서버가 입장을 거절한 사유 (기술 설계서 메시지 error)
+    reasons: {
+      notFound: 'No room with that code',
+      full: 'That room is full',
+      playing: 'A match is already on in that room',
+      nickname: "That nickname doesn't fit the rules",
+      roomName: "That room name doesn't fit the rules",
+      maxPlayers: 'Players must be 2–8',
+      character: 'No such character',
+    },
+  },
+  // 방 만들기 창
+  create: {
+    name: 'Room name',
+    dice: {
+      label: 'Random name',
+      // 주사위 이름은 first 하나와 second 하나를 name으로 이음. 어느 조합도 16자 안 (시스템 기획서 방 만들기 창)
+      first: ['Dusty', 'Rusty', 'Red', 'Lonely', 'Old', 'Windy', 'Sundown', 'Hot', 'Quiet', 'Last', 'Black', 'Hungry'],
+      second: ['Saloon', 'Canyon', 'Depot', 'Mine', 'Ranch', 'Railroad', 'Well', 'Jail', 'Corral', 'Gallows', 'Dunes', 'Trail'],
+      name: (first: string, second: string) => `${first} ${second}`,
+    },
+    rule: '2–16 characters',
+    players: 'Players',
+    ok: 'Create',
+    cancel: 'Cancel',
+  },
+  // 설정 창
+  settings: {
+    sensitivity: 'Sensitivity',
+    music: 'Music',
+    effects: 'Sound effects',
+    hand: 'Gun hand',
+    right: 'Right',
+    left: 'Left',
+    language: 'Language',
+    close: 'Close',
+  },
+}
+
+export type Copy = typeof en

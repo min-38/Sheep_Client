@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'vitest'
 import { toServerTime } from './clock.ts'
+import { en } from './i18n/en.ts'
 import { banner, DUEL_LIMIT, dueling, formatTime, GO_SHOWN, joins, locked, resultText, standingCount, STEP_MS, stepIndex, timeLeft, WALK_DURATION, walking, type Schedule } from './round.ts'
 
 // 서버가 알리는 순서: 카운트다운 시각, 카운트다운이 시작할 때 걷기 시각, 걷기가 시작할 때 결투 시각 (기술 설계서 메시지 phase)
@@ -38,18 +39,18 @@ describe('banner', () => {
   })
 
   test('결투 시각에 "시작!"을 띄우고 GO_SHOWN 뒤 지움', () => {
-    expect(banner(full, 16000)).toBe('시작!')
-    expect(banner(full, 16000 + GO_SHOWN - 1)).toBe('시작!')
+    expect(banner(full, 16000)).toBe(en.hud.go)
+    expect(banner(full, 16000 + GO_SHOWN - 1)).toBe(en.hud.go)
     expect(banner(full, 16000 + GO_SHOWN)).toBe('')
   })
 
   test('서버가 알린 시각을 내 시계로 바꾼 그 순간에 띄움', () => {
     // 서버 시계가 4000ms 앞섬. 서버 16000은 내 12000
     expect(banner(full, toServerTime(11999, 4000))).toBe('')
-    expect(banner(full, toServerTime(12000, 4000))).toBe('시작!')
+    expect(banner(full, toServerTime(12000, 4000))).toBe(en.hud.go)
     // 서버 시계가 500ms 뒤처짐. 서버 16000은 내 16500
     expect(banner(full, toServerTime(16499, -500))).toBe('')
-    expect(banner(full, toServerTime(16500, -500))).toBe('시작!')
+    expect(banner(full, toServerTime(16500, -500))).toBe(en.hud.go)
   })
 })
 
@@ -90,14 +91,14 @@ describe('dueling', () => {
 describe('resultText', () => {
   test('이긴 사람에게는 승리, 나머지에게는 패배', () => {
     const win = { outcome: 'win' as const, playerIds: ['p1'], rounds: 0 }
-    expect(resultText(win, 'p1')).toBe('승리!')
-    expect(resultText(win, 'p2')).toBe('패배')
+    expect(resultText(win, 'p1')).toBe(en.hud.win)
+    expect(resultText(win, 'p2')).toBe(en.hud.lose)
   })
 
   test('재대결은 재대결하는 사람 수를 보여 줌', () => {
-    expect(resultText({ outcome: 'rematch', playerIds: ['p1', 'p2'], rounds: 2 }, 'p1')).toBe('재대결 2명')
+    expect(resultText({ outcome: 'rematch', playerIds: ['p1', 'p2'], rounds: 2 }, 'p1')).toBe(en.hud.rematch(2))
     // 재대결에 끼지 못한 사람도 같은 글자를 봄
-    expect(resultText({ outcome: 'rematch', playerIds: ['p1', 'p2', 'p3'], rounds: 3 }, 'p4')).toBe('재대결 3명')
+    expect(resultText({ outcome: 'rematch', playerIds: ['p1', 'p2', 'p3'], rounds: 3 }, 'p4')).toBe(en.hud.rematch(3))
   })
 })
 

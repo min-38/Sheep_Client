@@ -1,3 +1,4 @@
+import { t } from './i18n/index.ts'
 import type { ShotResult } from './net.ts'
 
 // 칸. 몸과 머리 판정 원기둥의 반지름과 윗면 높이. 서버 HitScan(BodyRadius, BodyTop, HeadRadius, HeadTop)과 같은 값이어야
@@ -6,11 +7,11 @@ import type { ShotResult } from './net.ts'
 export const BODY = { radius: 0.15, top: 0.78 }
 export const HEAD = { radius: 0.05, top: 0.9 }
 
-// 카드의 도장 문구. ponytail: 임시 문구. 게임 안 문구 스타일이 정해지면 바꿈
+// 카드의 도장 문구
 export function resultLabel(r: Pick<ShotResult, 'zone' | 'down'>): string {
-  if (r.zone === 'head') return '머리 즉사'
-  if (r.zone === 'body') return r.down ? '쓰러짐' : '반샷'
-  return '빗나감'
+  if (r.zone === 'head') return t.hud.head
+  if (r.zone === 'body') return r.down ? t.hud.hitDown : t.hud.wounded
+  return t.hud.miss
 }
 
 // 카드의 몸 그림(SVG viewBox 0..100)에서 구멍 자리. 높이 0이 아래(100), 머리 위가 위(0).
