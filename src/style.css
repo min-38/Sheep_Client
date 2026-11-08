@@ -47,6 +47,7 @@ body {
 #ammo,
 #timer,
 #banner,
+#watching,
 #room {
   position: absolute;
   pointer-events: none;
@@ -130,6 +131,7 @@ body {
 }
 
 #banner,
+#watching,
 #room {
   color: #f2dfa7;
   font: 3cqw / 1 sans-serif;
@@ -192,6 +194,14 @@ body {
   translate: -50% -50%;
   font-size: 10cqw;
   letter-spacing: 0;
+}
+
+/* 관전 중인 사람. 총과 실린더 사이 아래 가운데 (시스템 기획서 HUD 관전) */
+#watching {
+  left: 50%;
+  bottom: 2cqw;
+  translate: -50% 0;
+  font-size: 2.2cqw;
 }
 
 /* 다른 사람에게 불러 줄 수 있게 들어가 있는 동안 계속 보임 */
