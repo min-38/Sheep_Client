@@ -12,6 +12,7 @@ const player = (id: string, color: number, extra: Partial<PlayerState> = {}): Pl
   nickname: `총잡이${color}`,
   color,
   wins: 0,
+  pitch: 0,
   ...extra,
 })
 

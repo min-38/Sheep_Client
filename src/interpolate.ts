@@ -4,16 +4,16 @@ const TAU = Math.PI * 2
 // 한 사람마다 쌓아 두는 상태 수. 20Hz면 400ms어치라 100ms 전을 그리기에 넉넉함
 const KEEP = 8
 
-// 받은 시각(ms, performance.now())과 그때의 위치, 각도, 동작
-export type Sample = { at: number; x: number; y: number; angle: number; pose: PlayerState['pose'] }
+// 받은 시각(ms, performance.now())과 그때의 위치, 각도, 위아래 시선, 동작
+export type Sample = { at: number; x: number; y: number; angle: number; pitch: number; pose: PlayerState['pose'] }
 
 // state를 받을 때마다 부름. state에서 빠진 사람은 지움
 export function record(history: Map<string, Sample[]>, players: readonly PlayerState[], at: number) {
   const ids = new Set(players.map((p) => p.id))
   for (const id of history.keys()) if (!ids.has(id)) history.delete(id)
-  for (const { id, x, y, angle, pose } of players) {
+  for (const { id, x, y, angle, pitch, pose } of players) {
     const samples = history.get(id) ?? []
-    samples.push({ at, x, y, angle, pose })
+    samples.push({ at, x, y, angle, pitch, pose })
     if (samples.length > KEEP) samples.shift()
     history.set(id, samples)
   }
@@ -31,5 +31,5 @@ export function sampleAt(samples: readonly Sample[], t: number): Sample {
   let d = (b.angle - a.angle) % TAU
   if (d > Math.PI) d -= TAU
   else if (d < -Math.PI) d += TAU
-  return { at: t, x: a.x + (b.x - a.x) * f, y: a.y + (b.y - a.y) * f, angle: a.angle + d * f, pose: a.pose }
+  return { at: t, x: a.x + (b.x - a.x) * f, y: a.y + (b.y - a.y) * f, angle: a.angle + d * f, pitch: a.pitch + (b.pitch - a.pitch) * f, pose: a.pose }
 }

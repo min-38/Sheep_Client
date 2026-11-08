@@ -8,7 +8,8 @@ export function turn(angle: number, dx: number, sensitivity: number): number {
   return a < 0 ? (a + TAU) % TAU : a
 }
 
-// 위아래 시선의 한계(라디안). 위가 +. ponytail: 임시 값(시스템 기획서 조작). 플레이해 보며 정함
+// 위아래 시선의 한계(라디안). 위가 +. 서버 Room.MaxPitch와 같은 값이어야 보낸 turn의 pitch를 서버가 버리지 않음.
+// ponytail: 임시 값(시스템 기획서 조작). 플레이해 보며 정함
 export const MAX_PITCH = 0.5
 
 // 마우스 위아래 이동량(px)만큼 시선을 기울임. 마우스를 아래로(+dy) 움직이면 아래를 봄. 한계를 넘지 않게 자름

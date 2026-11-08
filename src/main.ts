@@ -66,9 +66,10 @@ let myId: string | null = null
 // 내 위치는 서버가 정함. 처음 state를 받아 자리를 잡기 전에는 그리지 않음
 let placed = false
 let angle = 0
-// 위아래 시선(라디안, 위가 +). 내 화면에만 쓰고 발사에 실어 보냄. turn처럼 서버에 따로 보내지 않음
+// 위아래 시선(라디안, 위가 +). 각도와 함께 turn으로 보내 다른 사람이 내 머리와 총 든 팔을 그 시선대로 그림
 let pitch = 0
 let sentAngle = 0
+let sentPitch = 0
 let sentAt = -Infinity
 // 플레이어마다 받은 상태. 나도 넣어 서버가 나를 걷게 할 때 다른 사람과 같이 보간해 그림
 const history = new Map<string, Sample[]>()
@@ -94,9 +95,12 @@ function applyState(players: readonly PlayerState[]) {
   const me = players.find((p) => p.id === myId)
   if (!me) return
   const now = performance.now()
-  // 내 각도는 시작 배치에서 한 번만 받음. 그 뒤로는 내 입력이 바로 반영되고 서버 값은 늦게 도는 메아리라 버림.
-  // 잠긴 동안은 서버가 나를 돌리므로 따름. 그래야 풀리는 순간 서버가 돌려 둔 쪽에서 이어 돎
-  if (!placed || inputLocked(now)) angle = sentAngle = me.angle
+  // 내 각도와 위아래 시선은 시작 배치에서 한 번만 받음. 그 뒤로는 내 입력이 바로 반영되고 서버 값은 늦게 도는 메아리라 버림.
+  // 잠긴 동안은 서버가 나를 돌리고 재대결 카운트다운에 위아래 시선을 정면으로 돌리므로 따름. 그래야 풀리는 순간 서버 값에서 이어 돎
+  if (!placed || inputLocked(now)) {
+    angle = sentAngle = me.angle
+    pitch = sentPitch = me.pitch
+  }
   placed = true
   record(history, players, now)
   colors = new Map(players.map((p) => [p.id, p.color]))
@@ -139,10 +143,10 @@ function othersAt(t: number): Thing[] {
       const shot = shots.get(id)
       const flashing = shot !== undefined && t >= shot.at && t < shot.at + FLASH_SHOWN
       const body = characterBody(colors.get(id)!)
-      // "시작!"부터 서 있는 사람은 총을 겨눈 모습
-      const upright = duel ? body.aim : s.pose === 'walk' ? body.walk(swing) : body.stand
+      // "시작!"부터 서 있는 사람은 총을 겨눈 모습. 머리와 팔은 그 사람의 위아래 시선대로
+      const upright = duel ? body.aim(s.pitch) : s.pose === 'walk' ? body.walk(swing) : body.stand
       // 불꽃 동안은 쏜 각도로 그림. 돌고 바로 쏘면 돌아간 각도는 다음 state로 늦게 옴
-      return { x: s.x, y: s.y, facing: flashing ? shot.angle : s.angle, boxes: flashing ? body.fire : poseBoxes(body, id, t, upright) }
+      return { x: s.x, y: s.y, facing: flashing ? shot.angle : s.angle, boxes: flashing ? body.fire(s.pitch) : poseBoxes(body, id, t, upright) }
     })
 }
 
@@ -276,9 +280,10 @@ function frame(now: number) {
     const muzzle = drawGun(ctx, revolverMesh(revolver, plays, gun.rounds), { ...s, kick, lower: hold.lower }, W, H, PROJ, settings.hand === 'left' ? -1 : 1)
     flash.style.transform = `translate(${(muzzle.x * 100) / W}cqw, ${(muzzle.y * 100) / W}cqw)`
     // 마우스 이벤트가 아니라 여기서 보내야 마지막으로 멈춘 각도도 빠지지 않고 감
-    if (angle !== sentAngle && now - sentAt >= TURN_INTERVAL && ws.readyState === WebSocket.OPEN) {
-      send({ type: 'turn', angle })
+    if ((angle !== sentAngle || pitch !== sentPitch) && now - sentAt >= TURN_INTERVAL && ws.readyState === WebSocket.OPEN) {
+      send({ type: 'turn', angle, pitch })
       sentAngle = angle
+      sentPitch = pitch
       sentAt = now
     }
   } else if (!lobby.hidden) {
