@@ -1,28 +1,37 @@
+import charles from './assets/characters/charles.json'
+import revolverData from './assets/revolver-rig.json'
+import { revolverMesh } from './gun.ts'
 import { HEAD } from './hitcard.ts'
 import { horizonY, pack, tint, type Camera } from './render.ts'
+import type { Rig } from './rig.ts'
 import { STEP_MS } from './round.ts'
 
-// 블록 캐릭터 (컨셉 기획서 아트). 상자를 쌓아 사람을 만들고, 매 프레임 그 자리와 각도에서 3D로 그림.
+// 블록 캐릭터 (컨셉 기획서 아트 캐릭터 그림). 캐릭터마다 상자 목록 JSON(src/assets/characters/) 하나를 읽고, 관절을 돌려 동작을 만들어
+// 매 프레임 그 자리와 각도에서 3D로 그림. 모든 캐릭터가 같은 7.5등신 틀을 씀 (시스템 기획서 캐릭터).
 // 모델 좌표는 블록 단위이고 x는 그 사람의 오른쪽, y는 위, z는 앞. 원점은 두 발 사이 바닥
 
 type V = readonly [number, number, number]
 type RGB = readonly [number, number, number]
 // 상자 하나. c는 가운데, axes는 세 변의 방향(단위 벡터), half는 그 방향의 반 길이
 export type Box = { c: V; axes: readonly [V, V, V]; half: V; rgb: RGB }
+// 동작 하나의 모습. gun은 리볼버 모델(revolver-rig.json) 꼭짓점을 모델 좌표로 옮긴 것이고, 면은 모델 그대로 (기술 설계서 렌더링 캐릭터)
+export type Pose = { boxes: Box[]; gun: readonly V[] }
 
-// 동작별 상자. walk는 흔드는 각도(walkSwing)로, aim과 fire는 위아래 시선(라디안, 위가 +)으로 그때그때 만들고,
+// 동작별 모습. walk는 흔드는 각도(walkSwing)로, aim과 fire는 위아래 시선(라디안, 위가 +)으로 그때그때 만들고,
 // suicide는 [총을 머리에 댐, 불꽃] 두 단계
 export type Body = {
-  stand: Box[]
-  walk: (swing: number) => Box[]
-  aim: (pitch: number) => Box[]
-  fire: (pitch: number) => Box[]
-  suicide: Box[][]
-  fallen: Box[]
+  stand: Pose
+  walk: (swing: number) => Pose
+  aim: (pitch: number) => Pose
+  fire: (pitch: number) => Pose
+  suicide: Pose[]
+  fallen: Pose
 }
 
-// 목수건 색. 들어온 순서(state의 color)대로 (시스템 기획서 사람 색)
-export const SCARVES = [0xd83a3a, 0x4fb3e8, 0x34a853, 0xf2cf2a, 0xf08a1c, 0xee77b8, 0xf4f4f4, 0x2a2a2a]
+// 캐릭터 JSON. part는 head, body, rightArm, leftArm, rightLeg, leftLeg 중 하나. 색은 상자마다 단색 하나이고 명암은 그릴 때 넣음
+export type CharacterData = { name: string; boxes: { part: string; from: number[]; to: number[]; color: string }[] }
+// 캐릭터 번호(메시지의 character) 순서 (시스템 기획서 캐릭터 목록)
+export const CHARACTERS: readonly CharacterData[] = [charles]
 
 // ms. 시간 초과로 쓰러진 사람이 총을 머리에 대고 있는 시간과 그 뒤 불꽃 시간. 그다음엔 쓰러진 그림.
 // ponytail: 임시 값(시스템 기획서 판 흐름 시간). 플레이해 보며 정함
@@ -32,54 +41,131 @@ export const SUICIDE_FLASH = 100
 // 시간 초과로 쓰러진 뒤 지난 시간(ms)으로 고른 자살 단계. 0은 총을 댐, 1은 불꽃, null은 다 끝나 쓰러진 그림
 export const suicideStage = (elapsed: number): 0 | 1 | null => (elapsed < SUICIDE_AIM ? 0 : elapsed < SUICIDE_AIM + SUICIDE_FLASH ? 1 : null)
 
-const rgb = (hex: number): RGB => [hex >> 16, (hex >> 8) & 255, hex & 255]
+const FLASH: RGB = [255, 232, 128]
 
-// 셔츠만 시스템 기획서 차림에서 정한 색. ponytail: 나머지는 임시 색. 플레이해 보며 정함
-const SHIRT = rgb(0x283c8c)
-const SKIN = rgb(0xe0ac7e)
-const EYE = rgb(0x1a1a1a)
-const HAT = rgb(0xa47a4c)
-const VEST = rgb(0x6e4024)
-const JEANS = rgb(0x5a78a8)
-const BOOTS = rgb(0x3a2416)
-const HOLSTER = rgb(0x4a2a14)
-const GUN = rgb(0x3a3a40)
-const FLASH = rgb(0xffe880)
-
-// 비율 A의 키(블록, 머리 위까지). 다리 12, 몸통 12, 머리 8
-const TALL = 32
-// 블록 한 칸의 길이(칸). 키가 판정 머리 위(HEAD.top)와 같음
+// 키(블록, 모자를 뺀 머리 위까지). 키가 판정 머리 위(HEAD.top)와 같아 1블록이 0.03칸 (시스템 기획서 캐릭터 틀)
+const TALL = 30
 export const CELL = HEAD.top / TALL
 // 이보다 가까운 면은 그리지 않음 (sprite.ts의 NEAR와 같음)
 const NEAR = 0.05
-// 모자 꼭대기(블록). 쓰러지면 발에서 여기까지가 누운 길이
-const HAT_TOP = 36.5
-// 오른쪽 어깨 관절. 팔은 여기를 축으로 돎
-const SHOULDER: V = [6, 22, 0]
-// 목. 위아래를 볼 때 머리가 여기를 축으로 돎
-const NECK: V = [0, 24, 0]
+// 관절 높이(블록, 시스템 기획서 캐릭터 틀). 팔은 팔꿈치, 다리는 무릎 높이에서 상자가 나뉨
+const SHOULDER = 24
+const ELBOW = 18
+const HIP = 16
+const KNEE = 8
+// 주먹 가운데 높이. 총 손잡이를 여기에 쥠
+const FIST = 12.75
+// 머리 밑. 위아래를 볼 때 머리가 여기를 축으로 돎
+const NECK: V = [0, 26, 0]
 // 라디안. 걸을 때 팔다리를 앞뒤로 흔드는 각도. ponytail: 임시 값. 플레이해 보며 정함
 const SWING = 0.45
+// 걸을 때 뒤로 간 다리의 무릎을 굽히는 배율(허벅지가 뒤로 간 각도의 배). ponytail: 임시 값. 화면을 보며 맞춤
+const KNEE_BEND = 1
 // 라디안. 쏠 때 반동으로 팔이 들리는 각도. ponytail: 임시 값. 플레이해 보며 정함
 const RECOIL = 0.5
+// 리볼버 모델 1m의 길이(블록). 키 1.8m 사람이면 약 16.7인데, 총 두께(0.05m)가 권총집(0.75블록)에 들게 조금 줄임
+const GUN_SCALE = 14
+// 모델 좌표(m)의 손잡이 가운데와 총구. 손잡이 뼈(DEF_RevolverHandle) 언저리와 총열 끝 꼭짓점의 평균
+const GRIP: V = [-0.13, -0.035, 0]
+const MUZZLE: V = [0.1723, 0.0664, 0]
+// 권총집에 꽂힌 총의 손잡이 자리. 총구가 아래, 총 위가 앞을 보고 총열이 허벅지 권총집(x 2.75~3.5, y 8.5~12) 안에 듦.
+// 손잡이는 뒤 위로 나와 내린 손 바로 뒤에 옴. ponytail: 화면을 보며 맞춘 값
+const HOLSTER_GRIP: V = [3.125, 13.1, -1.1]
+// 자살할 때 총구를 대는 오른쪽 관자놀이. 머리 오른쪽 면(x 1.5)의 눈 위 앞쪽
+const TEMPLE: V = [1.55, 28.6, 0.8]
 
 const X: V = [1, 0, 0]
 const Y: V = [0, 1, 0]
 const Z: V = [0, 0, 1]
+const DOWN: V = [0, -1, 0]
 const dot = (a: V, b: V) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2]
 const add = (a: V, b: V, k = 1): V => [a[0] + b[0] * k, a[1] + b[1] * k, a[2] + b[2] * k]
+const sub = (a: V, b: V) => add(a, b, -1)
 const unit = (a: V): V => add([0, 0, 0], a, 1 / Math.hypot(...a))
 const cross = (a: V, b: V): V => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]]
 // a에서 d에 나란한 부분을 뺀 방향
 const across = (a: V, d: V) => unit(add(a, d, -dot(a, d)))
 
-// 축에 나란한 상자. 마주 보는 두 꼭짓점으로 정함
-const box = (x0: number, y0: number, z0: number, x1: number, y1: number, z1: number, color: RGB): Box => ({
-  c: [(x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2],
-  axes: [X, Y, Z],
-  half: [(x1 - x0) / 2, (y1 - y0) / 2, (z1 - z0) / 2],
-  rgb: color,
-})
+// 어깨나 엉덩이에서 아래로 뻗은 팔다리를 앞(+)뒤로 a만큼 흔든 방향
+const down = (a: number): V => [0, -Math.cos(a), Math.sin(a)]
+// 앞을 보다 위(+)아래로 a만큼 든 방향
+const ahead = (a: number): V => [0, Math.sin(a), Math.cos(a)]
+
+type Turn = (v: V) => V
+// 아래(-y)를 d로 돌리는 가장 작은 회전. 팔다리를 그쪽으로 뻗음
+function toward(d: V): Turn {
+  const axis = cross(DOWN, d)
+  const sin = Math.hypot(...axis)
+  const cos = dot(DOWN, d)
+  if (sin < 1e-9) return cos > 0 ? (v) => v : (v) => [v[0], -v[1], -v[2]]
+  const k = add([0, 0, 0], axis, 1 / sin)
+  return (v) => add(add(add([0, 0, 0], v, cos), cross(k, v), sin), k, dot(k, v) * (1 - cos))
+}
+// x축으로 위(+)아래로 a만큼 끄덕임. 앞(z)이 위(y)로 들림
+const nod =
+  (a: number): Turn =>
+  (v) => [v[0], v[1] * Math.cos(a) + v[2] * Math.sin(a), v[2] * Math.cos(a) - v[1] * Math.sin(a)]
+
+// 몸의 한 덩어리를 옮기는 법. 쉴 때 자리 from을 축으로 turn만큼 돌려 to에 둠
+type Move = { from: V; to: V; turn: Turn }
+const still: Move = { from: [0, 0, 0], to: [0, 0, 0], turn: (v) => v }
+const moveBox = (b: Box, m: Move): Box => ({ ...b, c: add(m.to, m.turn(sub(b.c, m.from))), axes: [m.turn(b.axes[0]), m.turn(b.axes[1]), m.turn(b.axes[2])] })
+const movePoint = (p: V, m: Move): V => add(m.to, m.turn(sub(p, m.from)))
+
+// 팔이나 다리 하나. root(어깨, 엉덩이)에서 dirs[0]으로 뻗은 위쪽과, mid 높이 관절(팔꿈치, 무릎)에서 dirs[1]로 뻗은 아래쪽
+function limb(root: V, mid: number, dirs: readonly [V, V]): [Move, Move] {
+  const joint: V = [root[0], mid, root[2]]
+  return [
+    { from: root, to: root, turn: toward(dirs[0]) },
+    { from: joint, to: add(root, dirs[0], root[1] - mid), turn: toward(dirs[1]) },
+  ]
+}
+
+// 관절마다 뻗은 방향. [위팔·허벅지, 아래팔·정강이]. look은 머리를 드는 각도
+type Joints = { look: number; rightArm: readonly [V, V]; leftArm: readonly [V, V]; rightLeg: readonly [V, V]; leftLeg: readonly [V, V] }
+const hanging: readonly [V, V] = [DOWN, DOWN]
+const rest: Joints = { look: 0, rightArm: hanging, leftArm: hanging, rightLeg: hanging, leftLeg: hanging }
+
+// 덩어리 이름. 팔다리는 관절 높이 위아래로 나눔
+type Seg = 'head' | 'body' | 'rightArm0' | 'rightArm1' | 'leftArm0' | 'leftArm1' | 'rightLeg0' | 'rightLeg1' | 'leftLeg0' | 'leftLeg1'
+
+function moves(j: Joints): Record<Seg, Move> {
+  const [rightArm0, rightArm1] = limb([4, SHOULDER, 0], ELBOW, j.rightArm)
+  const [leftArm0, leftArm1] = limb([-4, SHOULDER, 0], ELBOW, j.leftArm)
+  const [rightLeg0, rightLeg1] = limb([1.5, HIP, 0], KNEE, j.rightLeg)
+  const [leftLeg0, leftLeg1] = limb([-1.5, HIP, 0], KNEE, j.leftLeg)
+  return { head: { from: NECK, to: NECK, turn: nod(j.look) }, body: still, rightArm0, rightArm1, leftArm0, leftArm1, rightLeg0, rightLeg1, leftLeg0, leftLeg1 }
+}
+
+const rgb = (hex: string): RGB => {
+  const n = parseInt(hex.slice(1), 16)
+  return [n >> 16, (n >> 8) & 255, n & 255]
+}
+
+// JSON 상자를 쉴 때의 Box와 덩어리로. 팔은 팔꿈치, 다리는 무릎 높이 아래가 아래쪽 덩어리
+function parts(data: CharacterData): { box: Box; seg: Seg }[] {
+  return data.boxes.map(({ part, from, to, color }) => {
+    const c: V = [(from[0] + to[0]) / 2, (from[1] + to[1]) / 2, (from[2] + to[2]) / 2]
+    const cut = part.endsWith('Arm') ? ELBOW : KNEE
+    const seg = (part === 'head' || part === 'body' ? part : `${part}${c[1] < cut ? 1 : 0}`) as Seg
+    return { box: { c, axes: [X, Y, Z], half: [(to[0] - from[0]) / 2, (to[1] - from[1]) / 2, (to[2] - from[2]) / 2], rgb: rgb(color) }, seg }
+  })
+}
+
+// 리볼버 모델의 쉰 자세. 총알은 닫힌 실린더 안이라 빠짐 (gun.ts revolverMesh)
+const REVOLVER = revolverMesh(revolverData as Rig, [], 0)
+// 총의 면. 꼭짓점 번호 셋과 텍스처에서 구운 색
+const GUN_FACES = REVOLVER.faces
+
+// 총 손잡이(GRIP)를 grip에 두고 총열은 barrel, 총 위는 top 쪽으로 놓은 총의 꼭짓점과 총구
+function holdGun(grip: V, barrel: V, top: V): { gun: V[]; muzzle: V } {
+  const side = cross(barrel, top)
+  const place = (m: V): V => {
+    const [x, y, z] = sub(m, GRIP)
+    return add(add(add(grip, barrel, x * GUN_SCALE), top, y * GUN_SCALE), side, z * GUN_SCALE)
+  }
+  return { gun: REVOLVER.vertices.map(place), muzzle: place(MUZZLE) }
+}
 
 // 팔다리처럼 p에서 d쪽으로 뻗은 막대의 [from, to] 구간. 단면은 size×size
 function rod(p: V, d: V, from: number, to: number, size: number, color: RGB): Box {
@@ -87,119 +173,93 @@ function rod(p: V, d: V, from: number, to: number, size: number, color: RGB): Bo
   return { c: add(p, d, (from + to) / 2), axes: [side, d, cross(d, side)], half: [size / 2, (to - from) / 2, size / 2], rgb: color }
 }
 
-// 어깨나 엉덩이에서 아래로 뻗은 팔다리를 앞(+)뒤로 a만큼 흔든 방향
-const down = (a: number): V => [0, -Math.cos(a), Math.sin(a)]
-// 앞을 보다 위(+)아래로 a만큼 든 방향
-const ahead = (a: number): V => [0, Math.sin(a), Math.cos(a)]
-
-// 목을 축으로 상자를 위(+)아래로 a만큼 끄덕임. 앞(z)이 위(y)로 들림
-function nod(b: Box, a: number): Box {
-  const turn = (v: V): V => [v[0], v[1] * Math.cos(a) + v[2] * Math.sin(a), v[2] * Math.cos(a) - v[1] * Math.sin(a)]
-  return { ...b, c: add(NECK, turn(add(b.c, NECK, -1))), axes: [turn(b.axes[0]), turn(b.axes[1]), turn(b.axes[2])] }
-}
-
-// 셔츠 소매 끝에 손
-const arm = (p: V, d: V) => [rod(p, d, -2, 8, 4, SHIRT), rod(p, d, 8, 10, 4, SKIN)]
-
-// 오른팔을 d쪽으로 뻗어 든 총. 총열은 주먹 위에 얹힘. flash면 총구 앞에 불꽃
-function holding(d: V, flash: boolean): Box[] {
-  const barrel = add(SHOULDER, across(Y, d), 1.5)
-  const boxes = [...arm(SHOULDER, d), rod(barrel, d, 8.5, 14, 1.5, GUN)]
-  return flash ? [...boxes, rod(barrel, d, 14, 19, 5, FLASH)] : boxes
-}
-
-// 오른손을 오른쪽 관자놀이로 올려 총구를 머리에 댐. 팔꿈치를 옆으로 굽힘
-function temple(flash: boolean): Box[] {
-  const elbow: V = [11, 24, 0]
-  const upper = unit(add(elbow, SHOULDER, -1))
-  const fore = unit([-1.5, 5, 0])
-  const boxes = [
-    rod(SHOULDER, upper, -2, Math.hypot(5, 2) + 2, 4, SHIRT),
-    rod(elbow, fore, -2, 5, 4, SHIRT),
-    rod(elbow, fore, 5, 7, 4, SKIN),
-    box(4, 29, -0.75, 9, 30.5, 0.75, GUN),
-  ]
-  return flash ? [...boxes, box(3, 27.5, -2.5, 8, 32.5, 2.5, FLASH)] : boxes
-}
-
-// 사람 하나. 오른팔(right)은 동작마다 달라 따로 받음. swing은 걸을 때 흔드는 각도(+면 오른다리가 앞). holstered면 권총집에 총이 꽂혀 있음.
-// look은 위아래 시선(라디안, 위가 +)이고 머리만 그만큼 듦
-function figure(scarf: RGB, swing: number, right: Box[], holstered: boolean, look = 0): Box[] {
-  // 머리와 눈, 모자. 모자는 판정에 넣지 않아 키 위로 나옴
-  const head = [
-    box(-4, 24, -4, 4, 32, 4, SKIN),
-    box(-2.5, 27, 4, -1.5, 29, 4.01, EYE),
-    box(1.5, 27, 4, 2.5, 29, 4.01, EYE),
-    box(-6, 32, -6, 6, 33, 6, HAT),
-    box(-3.5, 33, -3.5, 3.5, HAT_TOP, 3.5, HAT),
-  ]
-  const boxes = [
-    ...head.map((b) => nod(b, look)),
-    // 몸통은 조끼이고, 앞이 열려 셔츠가 보임. 목수건은 목에 두르고 앞으로 늘어뜨림
-    box(-4, 12, -2, 4, 24, 2, VEST),
-    box(-1.25, 12, 2, 1.25, 21.5, 2.01, SHIRT),
-    box(-4.01, 21.5, -2.01, 4.01, 24, 2.01, scarf),
-    box(-2.5, 20, 2, 2.5, 21.5, 2.02, scarf),
-    box(-1.25, 18.75, 2, 1.25, 20, 2.02, scarf),
-    // 오른쪽 엉덩이의 권총집
-    box(4, 5, -1.5, 5.5, 11, 1.5, HOLSTER),
-    ...arm([-6, 22, 0], down(swing)),
-    ...right,
-  ]
-  for (const [x, a] of [[2, swing], [-2, -swing]]) {
-    const d = down(a)
-    boxes.push(rod([x, 12, 0], d, 0, 9, 4, JEANS), rod([x, 12, 0], d, 9, 12, 4, BOOTS))
-  }
-  // 총 손잡이가 권총집 뒤로 나옴
-  if (holstered) boxes.push(box(4.25, 10.5, -2.75, 5.25, 12, -1, GUN))
-  return boxes
-}
-
-// 상자의 꼭짓점 8개
-export const corners = (b: Box): V[] =>
-  Array.from({ length: 8 }, (_, i) => b.axes.reduce((p, axis, j) => add(p, axis, (i >> j) & 1 ? b.half[j] : -b.half[j]), b.c))
-
-// 오른쪽으로 쓰러져 누움. 오른쪽이 바닥, 머리가 +x. 누운 몸의 가운데가 서 있던 자리
-const lay = (b: Box): Box => {
-  const turn = (v: V): V => [v[1], -v[0], v[2]]
-  const [x, y, z] = turn(b.c)
-  return { ...b, c: [x - HAT_TOP / 2, y, z], axes: [turn(b.axes[0]), turn(b.axes[1]), turn(b.axes[2])] }
+// 어깨 s에서 주먹 h에 닿게 굽힌 팔꿈치. 위팔 a, 팔꿈치에서 주먹까지 b. 팔꿈치는 out 쪽으로 나옴
+function elbowFor(s: V, h: V, a: number, b: number, out: V): V {
+  const d = Math.hypot(...sub(h, s))
+  const u = unit(sub(h, s))
+  const along = (a * a - b * b + d * d) / (2 * d)
+  return add(add(s, u, along), across(out, u), Math.sqrt(Math.max(0, a * a - along * along)))
 }
 
 // 가장 낮은 곳이 바닥에 닿게 올림
-function ground(boxes: Box[]): Box[] {
-  const bottom = Math.min(...boxes.flatMap((b) => corners(b).map((p) => p[1])))
-  return boxes.map((b) => ({ ...b, c: [b.c[0], b.c[1] - bottom, b.c[2]] }))
+function ground(p: Pose): Pose {
+  const bottom = Math.min(...p.boxes.flatMap((b) => corners(b).map((q) => q[1])), ...p.gun.map((q) => q[1]))
+  const lift: Move = { from: [0, bottom, 0], to: [0, 0, 0], turn: (v) => v }
+  return { boxes: p.boxes.map((b) => moveBox(b, lift)), gun: p.gun.map((q) => movePoint(q, lift)) }
 }
 
-function build(scarf: RGB): Body {
-  const stand = figure(scarf, 0, arm(SHOULDER, down(0)), true)
-  // 위아래 시선(pitch)만큼 머리를 들고 오른팔과 총을 그쪽으로 뻗음. 쏠 때는 반동으로 팔만 더 들림
-  const aimed = (pitch: number, flash: boolean) => figure(scarf, 0, holding(ahead(flash ? pitch + RECOIL : pitch), flash), false, pitch)
+// 오른쪽으로 쓰러져 누움. 오른쪽이 바닥, 머리가 +x. 누운 몸의 가운데가 서 있던 자리
+function lay(p: Pose): Pose {
+  const top = Math.max(...p.boxes.flatMap((b) => corners(b).map((q) => q[1])))
+  const fall: Move = { from: [0, 0, 0], to: [-top / 2, 0, 0], turn: (v) => [v[1], -v[0], v[2]] }
+  return ground({ boxes: p.boxes.map((b) => moveBox(b, fall)), gun: p.gun.map((q) => movePoint(q, fall)) })
+}
+
+function build(data: CharacterData): Body {
+  const shape = parts(data)
+  const posed = (j: Joints) => {
+    const m = moves(j)
+    return { boxes: shape.map(({ box, seg }) => moveBox(box, m[seg])), fist: movePoint([4, FIST, 0], m.rightArm1), thigh: m.rightLeg0 }
+  }
+  // 총을 권총집에 꽂은 채. 총은 오른쪽 허벅지를 따라 움직임
+  const holstered = (j: Joints): Pose => {
+    const p = posed(j)
+    return { boxes: p.boxes, gun: holdGun(HOLSTER_GRIP, DOWN, Z).gun.map((q) => movePoint(q, p.thigh)) }
+  }
+  // 위아래 시선(pitch)만큼 머리를 들고 오른팔과 총을 d쪽으로 뻗음. flash면 총구 앞에 불꽃
+  const aimed = (pitch: number, d: V, flash: boolean): Pose => {
+    const p = posed({ ...rest, look: pitch, rightArm: [d, d] })
+    const { gun, muzzle } = holdGun(p.fist, d, across(Y, d))
+    return { boxes: flash ? [...p.boxes, rod(muzzle, d, 0, 5, 4, FLASH)] : p.boxes, gun }
+  }
+  // 오른손을 들어 총구를 관자놀이에 댐. 총열은 머리 쪽(-x), 팔꿈치는 옆으로 굽힘
+  const temple = (flash: boolean): Pose => {
+    const grip = sub(TEMPLE, holdGun([0, 0, 0], [-1, 0, 0], Y).muzzle)
+    const shoulder: V = [4, SHOULDER, 0]
+    const elbow = elbowFor(shoulder, grip, SHOULDER - ELBOW, ELBOW - FIST, [1, -0.3, 0.3])
+    const p = posed({ ...rest, rightArm: [unit(sub(elbow, shoulder)), unit(sub(grip, elbow))] })
+    const { gun, muzzle } = holdGun(p.fist, [-1, 0, 0], Y)
+    return { boxes: flash ? [...p.boxes, rod(muzzle, X, -0.5, 4, 4, FLASH)] : p.boxes, gun }
+  }
+  const stand = holstered(rest)
   return {
     stand,
-    walk: (a) => figure(scarf, a, arm(SHOULDER, down(-a)), true),
-    aim: (pitch) => aimed(pitch, false),
-    fire: (pitch) => aimed(pitch, true),
-    suicide: [false, true].map((flash) => figure(scarf, 0, temple(flash), false)),
-    fallen: ground(stand.map(lay)),
+    // 오른다리가 앞이면(+) 왼팔이 앞. 뒤로 간 다리는 무릎을 굽혀 발이 끌리지 않음
+    walk: (a) => {
+      const leg = (s: number): [V, V] => [down(s), down(s - KNEE_BEND * Math.max(0, -s))]
+      return ground(holstered({ ...rest, rightLeg: leg(a), leftLeg: leg(-a), rightArm: [down(-a), down(-a)], leftArm: [down(a), down(a)] }))
+    },
+    // 쏠 때는 반동으로 팔만 더 들림
+    aim: (pitch) => aimed(pitch, ahead(pitch), false),
+    fire: (pitch) => aimed(pitch, ahead(pitch + RECOIL), true),
+    suicide: [temple(false), temple(true)],
+    fallen: lay(stand),
   }
 }
 
 const cache: Body[] = []
 
-// 목수건 색 번호(state의 color, 0~7)의 모든 동작. 색마다 처음 부를 때 한 번 만듦
-export const characterBody = (color: number): Body => (cache[color] ??= build(rgb(SCARVES[color])))
+// 캐릭터 번호(CHARACTERS 순서)의 모든 동작. 캐릭터마다 처음 부를 때 한 번 만듦
+export const characterBody = (character: number): Body => (cache[character] ??= build(CHARACTERS[character]))
+
+// 상자의 꼭짓점 8개
+export const corners = (b: Box): V[] =>
+  Array.from({ length: 8 }, (_, i) => b.axes.reduce((p, axis, j) => add(p, axis, (i >> j) & 1 ? b.half[j] : -b.half[j]), b.c))
 
 // 걷기 시각부터 지난 시간(ms)의 팔다리 흔들림 각도. 걸음(발소리, round.ts stepIndex)마다 한쪽 다리가 가장 앞에 오고 그 사이는 이어서 흔듦
 export const walkSwing = (elapsed: number) => SWING * Math.cos((Math.PI * elapsed) / STEP_MS)
 
 // 결투장에 선 사람 하나. facing은 바라보는 각도(라디안, 0 = +x)
-export type Figure = { x: number; y: number; facing: number; boxes: readonly Box[] }
+export type Figure = { x: number; y: number; facing: number } & Pose
+
+// 사람 하나를 그리는 동안 픽셀마다 가장 가까운 면까지의 깊이(칸). 상자와 총의 삼각형이 서로 가림. 화면 크기가 바뀌면 다시 만듦
+let depth = new Float64Array(0)
 
 // 사람을 그 자리와 각도에서 본 대로 그림. 픽셀마다 눈에서 쏜 광선이 처음 닿는 상자 면을 칠하고, 그 면이 벽(zbuf)보다 멀면 건너뜀.
-// 광선의 t는 카메라에서 앞으로 간 수직 거리라 벽까지의 거리(zbuf)와 바로 견줌. light는 그 시간대의 빛 색조
+// 광선의 t는 카메라에서 앞으로 간 수직 거리라 벽까지의 거리(zbuf)와 바로 견줌. 그다음 총의 삼각형을 칠하며 픽셀마다 깊이를 견줌.
+// light는 그 시간대의 빛 색조
 export function drawFigure(pixels: Uint32Array, w: number, h: number, zbuf: Float64Array, cam: Camera, fig: Figure, light: RGB) {
+  if (depth.length !== w * h) depth = new Float64Array(w * h)
   const proj = w / (2 * Math.hypot(cam.planeX, cam.planeY))
   const horizon = horizonY(h, proj, cam.pitch)
   const invDet = 1 / (cam.planeX * cam.dirY - cam.dirX * cam.planeY)
@@ -207,19 +267,20 @@ export function drawFigure(pixels: Uint32Array, w: number, h: number, zbuf: Floa
   const sin = Math.sin(fig.facing)
   // 격자 방향과 높이(칸)를 그 사람의 모델 좌표(블록)로 바꿈. 격자 y가 아래로 늘어 앞에서 시계 방향으로 90°가 오른쪽
   const toModel = (gx: number, gy: number, up: number): V => [(-sin * gx + cos * gy) / CELL, up / CELL, (cos * gx + sin * gy) / CELL]
-  // 모델 좌표의 점이 화면에 놓이는 [x, y]. 카메라 앞 NEAR보다 가까우면 null
-  const project = (p: V): [number, number] | null => {
+  // 모델 좌표의 점이 화면에 놓이는 [x, y, 깊이]. 카메라 앞 NEAR보다 가까우면 null
+  const project = (p: V): V | null => {
     const rx = fig.x + (-sin * p[0] + cos * p[2]) * CELL - cam.x
     const ry = fig.y + (cos * p[0] + sin * p[2]) * CELL - cam.y
-    const depth = invDet * (cam.planeX * ry - cam.planeY * rx)
-    if (depth < NEAR) return null
-    return [(w / 2) * (1 + (invDet * (cam.dirY * rx - cam.dirX * ry)) / depth), horizon + (proj * (0.5 - p[1] * CELL)) / depth]
+    const z = invDet * (cam.planeX * ry - cam.planeY * rx)
+    if (z < NEAR) return null
+    return [(w / 2) * (1 + (invDet * (cam.dirY * rx - cam.dirX * ry)) / z), horizon + (proj * (0.5 - p[1] * CELL)) / z, z]
   }
   // 눈은 벽 높이의 절반
   const eye = toModel(cam.x - fig.x, cam.y - fig.y, 0.5)
   // 빛은 내 쪽 왼쪽 위에서 옴. 어느 쪽에서 봐도 같은 쪽이 밝음
   const screenX = unit(toModel(cam.planeX, cam.planeY, 0))
   const lit = unit(add(add(Y, screenX, -1), unit([eye[0], 0, eye[2]]), 1.4))
+  const shaded = (color: RGB, k: number) => tint(pack(Math.round(color[0] * k), Math.round(color[1] * k), Math.round(color[2] * k)), light)
   const local = fig.boxes.map((b) => {
     // 꼭짓점을 화면에 비춘 범위만 검사함. 일부가 카메라 뒤면 화면 전체, 모두 뒤면 비움
     const seen = corners(b).map(project)
@@ -238,16 +299,17 @@ export function drawFigure(pixels: Uint32Array, w: number, h: number, zbuf: Floa
       // 이 세로줄 광선 방향의 축별 가로 몫. 세로줄마다 다시 셈
       across: new Float64Array(3),
       // 축마다 광선이 들어가는 두 면(-쪽, +쪽)의 색. 불꽃은 스스로 빛나 면 밝기를 곱하지 않음
-      face: b.axes.flatMap((a) =>
-        [-1, 1].map((side) => {
-          const k = b.rgb === FLASH ? 1 : 0.55 + 0.45 * Math.max(0, side * dot(a, lit))
-          return tint(pack(Math.round(b.rgb[0] * k), Math.round(b.rgb[1] * k), Math.round(b.rgb[2] * k)), light)
-        }),
-      ),
+      face: b.axes.flatMap((a) => [-1, 1].map((side) => shaded(b.rgb, b.rgb === FLASH ? 1 : 0.55 + 0.45 * Math.max(0, side * dot(a, lit))))),
     }
   })
-  const x0 = Math.min(...local.map((b) => b.x0))
-  const x1 = Math.max(...local.map((b) => b.x1))
+  const gun = fig.gun.map(project)
+  const gunOn = gun.filter((s) => s !== null)
+  // 상자와 총을 모두 덮는 화면 범위. 그 안의 깊이를 벽까지의 거리로 채우고 시작함
+  const x0 = Math.max(0, Math.min(...local.map((b) => b.x0), ...gunOn.map((s) => Math.floor(s[0]))))
+  const x1 = Math.min(w, Math.max(...local.map((b) => b.x1), ...gunOn.map((s) => Math.ceil(s[0]) + 1)))
+  const y0 = Math.max(0, Math.min(...local.map((b) => (b.x0 < b.x1 ? b.y0 : h)), ...gunOn.map((s) => Math.floor(s[1]))))
+  const y1 = Math.min(h, Math.max(...local.map((b) => (b.x0 < b.x1 ? b.y1 : 0)), ...gunOn.map((s) => Math.ceil(s[1]) + 1)))
+  for (let py = y0; py < y1; py++) depth.set(zbuf.subarray(x0, x1), py * w + x0)
 
   for (let px = x0; px < x1; px++) {
     const camX = (2 * (px + 0.5)) / w - 1
@@ -255,12 +317,12 @@ export function drawFigure(pixels: Uint32Array, w: number, h: number, zbuf: Floa
     const column = local.filter((b) => px >= b.x0 && px < b.x1)
     if (column.length === 0) continue
     for (const b of column) for (let i = 0; i < 3; i++) b.across[i] = dot(ray, b.axes[i])
-    const y0 = Math.min(...column.map((b) => b.y0))
-    const y1 = Math.max(...column.map((b) => b.y1))
-    for (let py = y0; py < y1; py++) {
+    const cy0 = Math.min(...column.map((b) => b.y0))
+    const cy1 = Math.max(...column.map((b) => b.y1))
+    for (let py = cy0; py < cy1; py++) {
       // 광선의 위아래 몫. 지평선보다 아래 줄이면 내려감
       const rise = -(py + 0.5 - horizon) / proj / CELL
-      let nearest = zbuf[px]
+      let nearest = depth[py * w + px]
       for (const b of column) {
         if (py < b.y0 || py >= b.y1) continue
         let enter = -Infinity
@@ -286,6 +348,42 @@ export function drawFigure(pixels: Uint32Array, w: number, h: number, zbuf: Floa
         if (enter <= exit && enter > NEAR && enter < nearest) {
           nearest = enter
           pixels[py * w + px] = b.face[face]
+        }
+      }
+      depth[py * w + px] = nearest
+    }
+  }
+
+  // 총의 삼각형. 픽셀 가운데가 든 삼각형만 칠하고, 깊이는 화면에서 1/깊이를 섞어 구함
+  for (const f of GUN_FACES) {
+    const [i0, i1, i2] = f.v
+    const a = gun[i0]
+    const b = gun[i1]
+    const c = gun[i2]
+    if (!a || !b || !c) continue
+    // 눈을 등진 면은 앞면에 가려지므로 칠하지 않음
+    const n = cross(sub(fig.gun[i1], fig.gun[i0]), sub(fig.gun[i2], fig.gun[i0]))
+    if (dot(n, sub(eye, fig.gun[i0])) <= 0) continue
+    const area = (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0])
+    if (area === 0) continue
+    const color = shaded(f.color, 0.55 + 0.45 * Math.max(0, dot(unit(n), lit)))
+    const tx0 = Math.max(0, Math.ceil(Math.min(a[0], b[0], c[0]) - 0.5))
+    const tx1 = Math.min(w - 1, Math.floor(Math.max(a[0], b[0], c[0]) - 0.5))
+    const ty0 = Math.max(0, Math.ceil(Math.min(a[1], b[1], c[1]) - 0.5))
+    const ty1 = Math.min(h - 1, Math.floor(Math.max(a[1], b[1], c[1]) - 0.5))
+    for (let py = ty0; py <= ty1; py++) {
+      const y = py + 0.5
+      for (let px = tx0; px <= tx1; px++) {
+        const x = px + 0.5
+        const wa = ((b[0] - x) * (c[1] - y) - (b[1] - y) * (c[0] - x)) / area
+        const wb = ((c[0] - x) * (a[1] - y) - (c[1] - y) * (a[0] - x)) / area
+        const wc = 1 - wa - wb
+        if (wa < 0 || wb < 0 || wc < 0) continue
+        const z = 1 / (wa / a[2] + wb / b[2] + wc / c[2])
+        const i = py * w + px
+        if (z < depth[i]) {
+          depth[i] = z
+          pixels[i] = color
         }
       }
     }
