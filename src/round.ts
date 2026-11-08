@@ -23,6 +23,11 @@ export const DUEL_LIMIT = 10000
 export const timeLeft = (s: Schedule, now: number): number | null =>
   s.duel === undefined || now < s.duel ? null : Math.max(0, s.duel + DUEL_LIMIT - now)
 
+// t(내 시계)에 서 있는 사람 수 (시스템 기획서 HUD 남은 인원). 쓰러진 그림이 보이는 시각(탈락을 받은 시각)부터 뺌.
+// 앞 라운드에 쓰러져 재대결에 끼지 못한 사람도 downs에 남아 빠짐
+export const standingCount = (ids: Iterable<string>, downs: ReadonlyMap<string, { at: number }>, t: number) =>
+  [...ids].filter((id) => !((downs.get(id)?.at ?? Infinity) <= t)).length
+
 // 남은 시간 글자 "0:07". 초를 올림해 0:00은 정말 끝났을 때만 보임
 export function formatTime(ms: number): string {
   const s = Math.ceil(ms / 1000)
