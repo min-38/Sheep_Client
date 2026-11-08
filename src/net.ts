@@ -1,14 +1,16 @@
+import { CHARACTERS } from './character.ts'
 import { toServerTime } from './clock.ts'
 import type { Grid } from './raycast.ts'
 import type { RoomInfo } from './roomlist.ts'
 
 // 기술 설계서 메시지 표를 손으로 옮김. 표가 바뀌면 여기도 고침
 export type ClientMessage =
-  // nickname은 normalizeNickname, name은 normalizeRoomName을 거친 이름. maxPlayers는 2~8. private가 true면 비공개 방 (랜덤 입장에 안 나옴)
-  | { type: 'createRoom'; nickname: string; name: string; maxPlayers: number; private: boolean }
-  | { type: 'joinRoom'; code: string; nickname: string }
+  // nickname은 normalizeNickname, name은 normalizeRoomName을 거친 이름. maxPlayers는 2~8. private가 true면 비공개 방 (랜덤 입장에 안 나옴).
+  // character는 고른 캐릭터 번호(CHARACTERS 순서)이고 방에 들어갈 때마다 보냄
+  | { type: 'createRoom'; nickname: string; name: string; maxPlayers: number; private: boolean; character: number }
+  | { type: 'joinRoom'; code: string; nickname: string; character: number }
   // 들어갈 수 있는 공개 방 중 사람이 가장 많은 방에 넣고, 없으면 새 공개 방을 만듦. 답은 joined 또는 roomCreated
-  | { type: 'quickJoin'; nickname: string }
+  | { type: 'quickJoin'; nickname: string; character: number }
   // 공개 방 목록 요청. 방에 들어가기 전에도 보냄
   | { type: 'listRooms' }
   // 대기실(술집)의 나가기. 답은 left
@@ -29,7 +31,7 @@ export type ClientMessage =
 
 // x·y는 칸 단위(map의 [y][x]와 같은 축), angle은 turn과 같음. pose는 동작 (서 있음, 걷기, 쓰러짐).
 // nickname은 포스터에 쓰는 이름, color는 목수건 색 번호 0~7 (시스템 기획서 사람 색의 순서). wins는 이 방에서 이긴 횟수이고 × $100이 현상금.
-// pitch는 위아래 시선이고 turn의 pitch와 같음
+// pitch는 위아래 시선이고 turn의 pitch와 같음. character는 들어올 때 고른 캐릭터 번호이고 그 사람의 모델과 초상화를 고름
 export type PlayerState = {
   id: string
   x: number
@@ -41,6 +43,7 @@ export type PlayerState = {
   color: number
   wins: number
   pitch: number
+  character: number
 }
 
 // 서버가 알리는 판 단계. lobby는 판이 끝나 준비 중으로 돌아가는 시각임
@@ -59,7 +62,7 @@ export type ServerMessage =
   // name은 방 이름, private는 비공개 방인지. 둘 다 술집 칠판에 적음
   | { type: 'roomCreated'; code: string; playerId: string; name: string; private: boolean }
   | { type: 'joined'; code: string; playerId: string; name: string; private: boolean }
-  | { type: 'error'; reason: 'notFound' | 'full' | 'playing' | 'nickname' | 'roomName' | 'maxPlayers' }
+  | { type: 'error'; reason: 'notFound' | 'full' | 'playing' | 'nickname' | 'roomName' | 'maxPlayers' | 'character' }
   | { type: 'map'; width: number; height: number; cells: Grid }
   | { type: 'state'; tick: number; players: PlayerState[] }
   // clockSync의 답. t0은 보낸 값 그대로, ts는 서버 시각(ms)
@@ -106,7 +109,7 @@ export function parseServerMessage(text: string): ServerMessage | null {
         ? { type: m.type, code: m.code, playerId: m.playerId, name: m.name, private: m.private }
         : null
     case 'error':
-      return ['notFound', 'full', 'playing', 'nickname', 'roomName', 'maxPlayers'].includes(m.reason) ? { type: 'error', reason: m.reason } : null
+      return ['notFound', 'full', 'playing', 'nickname', 'roomName', 'maxPlayers', 'character'].includes(m.reason) ? { type: 'error', reason: m.reason } : null
     case 'map':
       return isGrid(m.cells, m.width, m.height) ? { type: 'map', width: m.width, height: m.height, cells: m.cells } : null
     case 'state':
@@ -175,7 +178,9 @@ const isPlayer = (p: any): p is PlayerState =>
   typeof p.nickname === 'string' &&
   isColor(p.color) &&
   Number.isInteger(p.wins) &&
-  p.wins >= 0
+  p.wins >= 0 &&
+  isCount(p.character) &&
+  p.character < CHARACTERS.length
 
 // 레이캐스터는 칸이 다 숫자이고 모든 줄 길이가 같다고 봄
 function isGrid(cells: unknown, width: unknown, height: unknown): cells is Grid {

@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { CELL, CHARACTERS, characterBody, corners, drawFigure, SUICIDE_AIM, SUICIDE_FLASH, suicideStage, walkSwing, type Box, type Pose } from './character.ts'
+import { CELL, CHARACTERS, characterBody, corners, drawFigure, PORTRAITS, savedCharacter, SUICIDE_AIM, SUICIDE_FLASH, suicideStage, walkSwing, type Box, type Pose } from './character.ts'
 import { makeCamera, type RGB } from './render.ts'
 import { STEP_MS } from './round.ts'
 
@@ -87,6 +87,25 @@ describe('CHARACTERS 틀 검사 (시스템 기획서 캐릭터)', () => {
         }
     })
   }
+})
+
+describe('PORTRAITS', () => {
+  test('캐릭터마다 초상화가 하나씩 있음 (시스템 기획서 캐릭터 초상화)', () => {
+    expect(PORTRAITS).toHaveLength(CHARACTERS.length)
+    for (const url of PORTRAITS) expect(url).toMatch(/\.png/)
+  })
+})
+
+describe('savedCharacter', () => {
+  test('기억한 번호가 캐릭터 번호면 그 번호, 없거나 틀리면 처음 캐릭터 0 (시스템 기획서 캐릭터 고르기)', () => {
+    expect(savedCharacter(String(CHARACTERS.length - 1))).toBe(CHARACTERS.length - 1)
+    expect(savedCharacter(null)).toBe(0)
+    expect(savedCharacter('')).toBe(0)
+    expect(savedCharacter('-1')).toBe(0)
+    expect(savedCharacter('0.5')).toBe(0)
+    expect(savedCharacter('찰스')).toBe(0)
+    expect(savedCharacter(String(CHARACTERS.length))).toBe(0)
+  })
 })
 
 describe('characterBody', () => {

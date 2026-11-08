@@ -1,11 +1,10 @@
 import type { PlayerState } from './net.ts'
-import { BANDANA } from './roomlist.ts'
 
 // 술집 대기실 (시스템 기획서 방 화면 M8 대기실 짜임). 술집 안쪽을 정면에서 본 한 장면을 게임 캔버스(480×270)에 블록으로 그림.
 // 글자가 들어가는 포스터, 칠판 글씨, 카운터 버튼은 또렷하게 보이게 HTML로 위에 얹음. 자리는 style.css가 같은 px를 cqw로 바꿔 맞춤
 
-// 포스터 한 장. bounty는 현상금 글자이고 한 번도 이기지 않았으면 빈 글자
-export type Poster = { nickname: string; color: number; ready: boolean; mine: boolean; bounty: string }
+// 포스터 한 장. character는 초상화를 고르는 캐릭터 번호. bounty는 현상금 글자이고 한 번도 이기지 않았으면 빈 글자
+export type Poster = { nickname: string; character: number; ready: boolean; mine: boolean; bounty: string }
 
 // 포스터 자리 수(4장씩 2줄). 방 최대 인원과 같음
 export const POSTER_SLOTS = 8
@@ -22,7 +21,7 @@ export const bountyRise = (wins: number) => `${bountyText(wins - 1) || '$0'} →
 // 누가 나가도 남은 사람의 포스터는 제자리에 있고 새로 온 사람은 빈자리에 붙음
 export function posterSlots(players: readonly PlayerState[], myId: string | null): (Poster | null)[] {
   const slots: (Poster | null)[] = Array(POSTER_SLOTS).fill(null)
-  for (const p of players) slots[p.color] = { nickname: p.nickname, color: p.color, ready: p.ready, mine: p.id === myId, bounty: bountyText(p.wins) }
+  for (const p of players) slots[p.color] = { nickname: p.nickname, character: p.character, ready: p.ready, mine: p.id === myId, bounty: bountyText(p.wins) }
   return slots
 }
 
@@ -139,22 +138,4 @@ function drawBartender(ctx: CanvasRenderingContext2D, b: Bartender, now: number)
     rect(ctx, shirt, x + 9, y + 17, 5, 30)
     rect(ctx, '#b02a2a', x + 9, y + 27, 5, 3)
   }
-}
-
-// 포스터 초상화 16×16 (시스템 기획서 방 화면 포스터). 블록 얼굴과 모자를 갈색 인쇄로 그리고 목수건만 그 사람 색
-export function drawPortrait(ctx: CanvasRenderingContext2D, color: number) {
-  const ink = '#4a2e18'
-  const mid = '#7a5230'
-  const light = '#a87a4c'
-  rect(ctx, ink, 4, 1, 8, 3)
-  rect(ctx, ink, 1, 4, 14, 1)
-  rect(ctx, light, 4, 5, 8, 6)
-  rect(ctx, ink, 6, 7, 1, 1)
-  rect(ctx, ink, 9, 7, 1, 1)
-  rect(ctx, BANDANA[color], 4, 11, 8, 2)
-  rect(ctx, BANDANA[color], 7, 13, 2, 1)
-  rect(ctx, mid, 1, 13, 6, 3)
-  rect(ctx, mid, 9, 13, 6, 3)
-  rect(ctx, ink, 2, 13, 2, 3)
-  rect(ctx, ink, 12, 13, 2, 3)
 }
