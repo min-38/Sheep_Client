@@ -76,6 +76,8 @@
         <!-- 2단계: 방 목록, 그 아래 방 코드로 입장, 랜덤 입장, 방 만들기 (시스템 기획서 방 화면 첫 화면) -->
         <fieldset id="room-step" hidden disabled>
           <p id="who">닉네임 <strong id="who-name"></strong> <button type="button" id="rename">바꾸기</button></p>
+          <!-- 캐릭터 고르기. 칸은 main.ts가 캐릭터마다 초상화로 만듦 (시스템 기획서 캐릭터 고르기) -->
+          <div id="character-pick" role="radiogroup" aria-labelledby="character-label"><span id="character-label">캐릭터</span></div>
           <ul id="room-list" aria-label="방 목록"></ul>
           <div class="row">
             <input id="code" aria-label="방 코드" placeholder="방 코드" maxlength="6" pattern="[A-Za-z0-9]{6}" required autocomplete="off" spellcheck="false" />
@@ -121,7 +123,7 @@
       <div id="win" hidden>
         <div class="poster">
           <span class="wanted">WANTED</span>
-          <canvas id="win-face" width="16" height="16"></canvas>
+          <img id="win-face" alt="" />
           <span class="nick" id="win-name"></span>
           <!-- ponytail: 임시 문구. 게임 안 문구 스타일이 정해지면 바꿈 -->
           <span class="stamp">승리</span>

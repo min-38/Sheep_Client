@@ -13,6 +13,7 @@ const player = (id: string, color: number, extra: Partial<PlayerState> = {}): Pl
   color,
   wins: 0,
   pitch: 0,
+  character: 0,
   ...extra,
 })
 
@@ -26,10 +27,10 @@ describe('posterSlots', () => {
     expect(slots.slice(3).every((s) => s === null)).toBe(true)
   })
 
-  test('내 포스터, 준비, 현상금을 그 사람 것으로 적음', () => {
+  test('내 포스터, 준비, 현상금, 고른 캐릭터를 그 사람 것으로 적음', () => {
     const slots = posterSlots([player('a', 0, { ready: true, wins: 2 }), player('b', 1)], 'b')
-    expect(slots[0]).toEqual({ nickname: '총잡이0', color: 0, ready: true, mine: false, bounty: '$200' })
-    expect(slots[1]).toEqual({ nickname: '총잡이1', color: 1, ready: false, mine: true, bounty: '' })
+    expect(slots[0]).toEqual({ nickname: '총잡이0', character: 0, ready: true, mine: false, bounty: '$200' })
+    expect(slots[1]).toEqual({ nickname: '총잡이1', character: 0, ready: false, mine: true, bounty: '' })
   })
 })
 

@@ -1,7 +1,7 @@
 import './style.css'
 import revolverData from './assets/revolver-rig.json'
 import { orbit } from './backdrop.ts'
-import { characterBody, suicideStage, walkSwing, type Body, type Pose } from './character.ts'
+import { CHARACTERS, characterBody, PORTRAITS, savedCharacter, suicideStage, walkSwing, type Body, type Pose } from './character.ts'
 import { best, measure, toLocalTime, toServerTime, type ClockSample } from './clock.ts'
 import { makeProps, SKIES, timeOfDay } from './desert.ts'
 import { drawGun, gunClips, lift, RAISE_MS, RECOIL_MS, RELOAD_AT, RELOAD_SEATED, RELOAD_SHUT, revolverMesh } from './gun.ts'
@@ -17,7 +17,7 @@ import { makeCamera, renderFrame } from './render.ts'
 import { loaded, pull, ROUNDS } from './revolver.ts'
 import type { Rig } from './rig.ts'
 import { banner, DUEL_LIMIT, dueling, formatTime, joins, locked, resultText, stepIndex, timeLeft, walking, type Schedule } from './round.ts'
-import { bountyRise, drawPortrait, drawSaloon, POSTER_SLOTS, posterSlots, startBartender, stepBartender } from './saloon.ts'
+import { bountyRise, drawSaloon, POSTER_SLOTS, posterSlots, startBartender, stepBartender } from './saloon.ts'
 import { cut, replayWindow } from './replay.ts'
 import { readSettings, radiansPerPixel, type Hand, type Settings } from './settings.ts'
 import { nextTarget } from './spectate.ts'
@@ -80,6 +80,8 @@ let sentPitch = 0
 let sentAt = -Infinity
 // 플레이어마다 받은 상태. 나도 넣어 서버가 나를 걷게 할 때 다른 사람과 같이 보간해 그림
 const history = new Map<string, Sample[]>()
+// 사람마다 고른 캐릭터 번호. state마다 새로 받아 그 사람의 모델을 고름
+let characters = new Map<string, number>()
 // 마지막으로 받은 state의 사람들. 판 끝 포스터에 이긴 사람의 닉네임, 색, 이긴 횟수를 적는 데 씀
 let roster: readonly PlayerState[] = []
 // 1인칭 리볼버 모델. 부품이 뼈대로 움직임 (컨셉 기획서 아트와 사운드 1인칭 총)
@@ -106,8 +108,9 @@ type Scene = {
   shots: Map<string, { at: number; angle: number }>
   downs: Map<string, Down>
   schedule: Schedule
+  characters: Map<string, number>
 }
-const live = (): Scene => ({ history, shots, downs, schedule })
+const live = (): Scene => ({ history, shots, downs, schedule, characters })
 // 다시 보기 (컨셉 기획서 규칙 탈락한 뒤). 쓰러지면 누구의 눈으로 어느 구간(ms, 내 시계)을 볼지 정하고 그때의 판 시각을 떠 둠(replayPlan).
 // 그 구간이 다 지나면 기록을 떠 둬(replay) 버튼이 보임. replayFrom은 다시 보는 중일 때 누른 시각(ms)
 type Replay = Scene & { viewer: string; start: number; end: number }
@@ -129,6 +132,7 @@ function applyState(players: readonly PlayerState[]) {
   }
   placed = true
   record(history, players, now)
+  characters = new Map(players.map((p) => [p.id, p.character]))
   roster = players
   pickWatch(now)
   // 창이 숨어 그리기가 멈춰도 state는 오므로 여기서 떠 둠
@@ -181,7 +185,7 @@ function saveReplay() {
   const plan = replayPlan!
   replayPlan = null
   const kept = new Map([...history].map(([id, samples]) => [id, cut(samples, plan.start, plan.end)]))
-  if (kept.has(plan.viewer)) replay = { ...plan, history: kept, shots: new Map(shots), downs: new Map(downs) }
+  if (kept.has(plan.viewer)) replay = { ...plan, history: kept, shots: new Map(shots), downs: new Map(downs), characters: new Map(characters) }
 }
 
 // 다시 보는 중이면 떠 둔 기록과 그 안의 시각(ms, 내 시계). 같은 빠르기로 흐르고, 끝까지 보면 관전으로 돌아감
@@ -238,8 +242,7 @@ function othersAt(t: number, viewer: string, scene: Scene): Thing[] {
       const s = sampleAt(samples, t)
       const shot = scene.shots.get(id)
       const flashing = shot !== undefined && t >= shot.at && t < shot.at + FLASH_SHOWN
-      // TODO(SHEEP-90): state의 character로 그 사람이 고른 캐릭터를 그림. 지금은 모두 찰스
-      const body = characterBody(0)
+      const body = characterBody(scene.characters.get(id)!)
       // "시작!"부터 서 있는 사람은 총을 겨눈 모습. 머리와 팔은 그 사람의 위아래 시선대로
       const upright = duel ? body.aim(s.pitch) : s.pose === 'walk' ? body.walk(swing) : body.stand
       // 불꽃 동안은 쏜 각도로 그림. 돌고 바로 쏘면 돌아간 각도는 다음 state로 늦게 옴
@@ -485,17 +488,16 @@ const boardName = document.querySelector<HTMLParagraphElement>('#board-name')!
 const boardCode = document.querySelector<HTMLParagraphElement>('#board-code')!
 const boardPrivate = document.querySelector<HTMLParagraphElement>('#board-private')!
 
-// 포스터 8장 (시스템 기획서 방 화면 포스터). 자리 번호가 목수건 색 번호라 초상화는 처음 한 번만 그림.
+// 포스터 8장 (시스템 기획서 방 화면 포스터). 자리 번호가 목수건 색 번호이고, 초상화는 그 자리 사람이 고른 캐릭터의 그림.
 // 닉네임은 사용자가 넣은 이름이라 textContent로만 넣음
-const posterViews = Array.from({ length: POSTER_SLOTS }, (_, color) => {
+const posterViews = Array.from({ length: POSTER_SLOTS }, () => {
   const li = document.createElement('li')
   li.className = 'poster'
   const wanted = document.createElement('span')
   wanted.className = 'wanted'
   wanted.textContent = 'WANTED'
-  const face = document.createElement('canvas')
-  face.width = face.height = 16
-  drawPortrait(face.getContext('2d')!, color)
+  const face = document.createElement('img')
+  face.alt = ''
   const nick = document.createElement('span')
   nick.className = 'nick'
   const bounty = document.createElement('span')
@@ -514,15 +516,14 @@ const posterViews = Array.from({ length: POSTER_SLOTS }, (_, color) => {
 })
 // 판 끝 포스터 (시스템 기획서 방 화면 M8 판 끝). HUD의 승리·패배 글자 대신 띄우고 결과 시간이 끝나면(endResult) 닫음
 const winView = document.querySelector<HTMLDivElement>('#win')!
-const winFace = document.querySelector<HTMLCanvasElement>('#win-face')!.getContext('2d')!
+const winFace = document.querySelector<HTMLImageElement>('#win-face')!
 
 // 승리가 정해진 틱의 state에 이미 오른 이긴 횟수가 와서, 결과를 띄우는 INTERP_DELAY 뒤에는 roster에 있음.
 // 이긴 사람이 그사이 나갔으면 띄우지 않고 글자로 알림
 function showWinner(id: string) {
   const p = roster.find((q) => q.id === id)
   if (!p) return
-  winFace.clearRect(0, 0, 16, 16)
-  drawPortrait(winFace, p.color)
+  winFace.src = PORTRAITS[p.character]
   document.querySelector('#win-name')!.textContent = p.nickname
   document.querySelector<HTMLOutputElement>('#win-bounty')!.value = bountyRise(p.wins)
   winView.hidden = false
@@ -540,6 +541,7 @@ function showPosters(players: readonly PlayerState[]) {
     v.li.classList.toggle('empty', p === null)
     for (const part of [v.wanted, v.face, v.nick, v.bounty]) part.hidden = p === null
     v.nick.textContent = p?.nickname ?? ''
+    if (p) v.face.src = PORTRAITS[p.character]
     v.bounty.textContent = p?.bounty ?? ''
     v.star.hidden = !p?.mine
     v.stamp.hidden = !p?.ready
@@ -569,6 +571,8 @@ const REASONS = {
   nickname: '닉네임 규칙에 맞지 않음',
   roomName: '방 이름 규칙에 맞지 않음',
   maxPlayers: '인원은 2~8명',
+  // ponytail: 임시 문구. 게임 안 문구 스타일이 정해지면 바꿈
+  character: '없는 캐릭터',
 }
 const nicknameInput = document.querySelector<HTMLInputElement>('#nickname')!
 const nicknameRule = document.querySelector<HTMLParagraphElement>('#nickname-rule')!
@@ -602,6 +606,33 @@ try {
 } catch {}
 // 정한 닉네임. 정하기 전(1단계)에는 null. 기억한 이름이 맞으면 바로 방 목록 단계로 감
 let nickname = normalizeNickname(nicknameInput.value)
+// 고른 캐릭터 번호 (시스템 기획서 캐릭터 고르기). 첫 화면 2단계에서 고르고 브라우저에 기억해 방에 들어갈 때마다 보냄
+const SAVED_CHARACTER = 'character'
+let character = 0
+try {
+  character = savedCharacter(localStorage.getItem(SAVED_CHARACTER))
+} catch {}
+// 캐릭터마다 초상화 하나를 고르는 칸으로 둠. 고른 칸에 테두리
+const characterPick = document.querySelector<HTMLDivElement>('#character-pick')!
+for (const [i, c] of CHARACTERS.entries()) {
+  const label = document.createElement('label')
+  const radio = document.createElement('input')
+  radio.type = 'radio'
+  radio.name = 'character'
+  radio.value = String(i)
+  radio.checked = i === character
+  const face = document.createElement('img')
+  face.src = PORTRAITS[i]
+  face.alt = c.name
+  label.append(radio, face)
+  characterPick.append(label)
+}
+characterPick.addEventListener('change', (e) => {
+  character = Number((e.target as HTMLInputElement).value)
+  try {
+    localStorage.setItem(SAVED_CHARACTER, String(character))
+  } catch {}
+})
 let connected = false
 // ms. 방 목록이 보이는 동안 다시 받는 간격. ponytail: 임시 값(시스템 기획서 방 화면 대기실 보기)
 const ROOMS_EVERY = 2000
@@ -663,7 +694,7 @@ function showRooms(rooms: readonly RoomInfo[]) {
       join.type = 'button'
       join.className = 'plank'
       join.textContent = '입장'
-      join.addEventListener('click', () => enterWith((nickname) => ({ type: 'joinRoom', code: r.code, nickname })))
+      join.addEventListener('click', () => enterWith((nickname) => ({ type: 'joinRoom', code: r.code, nickname, character })))
       li.append(join)
     }
     return li
@@ -890,7 +921,7 @@ function receive(data: string) {
   }
 }
 
-document.querySelector('#quick')!.addEventListener('click', () => enterWith((nickname) => ({ type: 'quickJoin', nickname })))
+document.querySelector('#quick')!.addEventListener('click', () => enterWith((nickname) => ({ type: 'quickJoin', nickname, character })))
 // 방 만들기 창 (시스템 기획서 방 화면 방 만들기 창). 열 때마다 무작위 이름, 8명, 공개로 채움
 const createPanel = document.querySelector<HTMLDivElement>('#create-panel')!
 const roomNameInput = document.querySelector<HTMLInputElement>('#room-name')!
@@ -930,7 +961,7 @@ document.querySelector('#create-form')!.addEventListener('submit', (e) => {
   const name = checkRoomName()
   if (name === null) return
   createPanel.hidden = true
-  enterWith((nickname) => ({ type: 'createRoom', nickname, name, maxPlayers: Number(maxPlayersSelect.value), private: privateBox.checked }))
+  enterWith((nickname) => ({ type: 'createRoom', nickname, name, maxPlayers: Number(maxPlayersSelect.value), private: privateBox.checked, character }))
 })
 // 술집의 나가기. 답(left)이 오면 첫 화면으로 돌아감
 document.querySelector('#leave')!.addEventListener('click', () => send({ type: 'leaveRoom' }))
@@ -952,7 +983,7 @@ lobby.addEventListener('submit', (e) => {
     showStep()
     return
   }
-  enterWith((nickname) => ({ type: 'joinRoom', code: codeInput.value, nickname }))
+  enterWith((nickname) => ({ type: 'joinRoom', code: codeInput.value, nickname, character }))
 })
 
 // 설정 창 (시스템 기획서 방 화면 설정). 첫 화면과 대기실의 설정 버튼이 같은 창을 엶. 값을 움직이는 대로 적용하고 기억함

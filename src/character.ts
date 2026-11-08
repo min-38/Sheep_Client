@@ -1,4 +1,5 @@
 import charles from './assets/characters/charles.json'
+import charlesPortrait from './assets/portrait/charles.png'
 import revolverData from './assets/revolver-rig.json'
 import { revolverMesh } from './gun.ts'
 import { HEAD } from './hitcard.ts'
@@ -32,6 +33,14 @@ export type Body = {
 export type CharacterData = { name: string; boxes: { part: string; from: number[]; to: number[]; color: string }[] }
 // 캐릭터 번호(메시지의 character) 순서 (시스템 기획서 캐릭터 목록)
 export const CHARACTERS: readonly CharacterData[] = [charles]
+// 캐릭터 번호 순서의 WANTED 포스터 초상화(64×64 PNG 주소) (시스템 기획서 캐릭터 초상화)
+export const PORTRAITS: readonly string[] = [charlesPortrait]
+
+// 브라우저에 기억한 캐릭터 번호. 없거나 지금 캐릭터 번호가 아니면 처음 캐릭터 0 (시스템 기획서 캐릭터 고르기)
+export function savedCharacter(raw: string | null): number {
+  const n = Number(raw)
+  return raw !== null && Number.isInteger(n) && n >= 0 && n < CHARACTERS.length ? n : 0
+}
 
 // ms. 시간 초과로 쓰러진 사람이 총을 머리에 대고 있는 시간과 그 뒤 불꽃 시간. 그다음엔 쓰러진 그림.
 // ponytail: 임시 값(시스템 기획서 판 흐름 시간). 플레이해 보며 정함
