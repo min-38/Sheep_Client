@@ -384,6 +384,11 @@ replayButton.addEventListener('click', () => {
   mimic = null
 })
 
+// 쓰러진 뒤 판 도중에 나가기 (컨셉 기획서 규칙 탈락한 뒤). 술집의 나가기와 같이 답(left)이 오면 첫 화면으로 돌아감.
+// 판 도중이라 서버는 탈락으로 보고, 이 방의 현상금은 사라짐
+const leaveDown = document.querySelector<HTMLButtonElement>('#leave-down')!
+leaveDown.addEventListener('click', () => send({ type: 'leaveRoom' }))
+
 // 술집 주인. 프레임마다 지난 시간만큼 움직임
 let bartender = startBartender(performance.now())
 let lastFrame = performance.now()
@@ -444,6 +449,8 @@ function frame(now: number) {
   game.classList.toggle('replaying', r !== null)
   bloodView.hidden = r !== null || !(watch ? watch.wounded : blood.shown)
   replayButton.hidden = replay === null
+  // "쓰러짐"이 뜰 때부터 판 도중에만 보임. 재대결로 다시 서거나 판이 끝나 술집으로 돌아가면 숨음
+  leaveDown.hidden = !(myId !== null && saloon.hidden && lobby.hidden && isDown(myId, now - INTERP_DELAY))
   // 내부 px를 cqw로 바꿈. 화면 폭 100cqw가 내부 폭 W px임
   const aim = crosshairOffset(s, view?.pitch ?? pitch, PROJ)
   crosshair.style.transform = `translate(${(aim.x * 100) / W}cqw, ${(aim.y * 100) / W}cqw)`
@@ -751,14 +758,7 @@ function endResult(r: RoundResult) {
   hitCard.hidden = true
   winView.hidden = true
   if (r.outcome === 'win') {
-    schedule = {}
-    standing = null
-    pitch = 0
-    downs.clear()
-    gun = loaded(ROUNDS)
-    blood = onGameEnd()
-    watch = null
-    replay = replayPlan = replayFrom = null
+    clearMatch()
     // 판이 끝나 술집으로 돌아감. 버튼을 누를 수 있게 포인터 잠금을 풂
     saloon.hidden = false
     document.exitPointerLock()
@@ -771,6 +771,20 @@ function endResult(r: RoundResult) {
     if (watch && r.playerIds.includes(watch.id)) watch = { ...watch, rounds: r.rounds, lastShot: -Infinity }
     if (myId !== null && r.playerIds.includes(myId)) watch = replay = replayPlan = replayFrom = null
   }
+}
+// 판 하나의 상태를 처음으로 돌림. 판이 끝나 술집으로 돌아갈 때와, 쓰러진 뒤 판 도중에 방을 나갈 때 부름.
+// 그래야 다음 방의 새 판이 총알 1발, 혈흔 없음으로 시작함
+function clearMatch() {
+  schedule = {}
+  standing = null
+  pitch = 0
+  downs.clear()
+  gun = loaded(ROUNDS)
+  blood = onGameEnd()
+  watch = null
+  replay = replayPlan = replayFrom = null
+  hitCard.hidden = true
+  winView.hidden = true
 }
 // 접속할 때와 판 사이에 부름. 한 번에 하나씩 보내 앞의 답이 뒤의 왕복을 늘리지 않게 하고, 답이 오면 다음 것을 보냄
 function syncClock() {
@@ -929,7 +943,9 @@ function receive(data: string) {
       myId = null
       grid = null
       placed = false
-      watch = replay = replayPlan = replayFrom = null
+      // 판 도중에 나갔으면 그 판의 결과, 탄 수, 혈흔, 카드가 남아 있어 비움
+      result = null
+      clearMatch()
       showStep()
       break
   }
