@@ -24,6 +24,8 @@ export type ClientMessage =
   | { type: 'fire'; angle: number; pitch: number; at: number }
   // 걷다 멈추기. at은 누른 시각(ms, 서버 시계). 걷는 동안 한 번만 보냄
   | { type: 'stop'; at: number }
+  // 관전 대상 고르기. 쓰러진 뒤에 서 있는 사람의 id를 보냄. 답은 spectating
+  | { type: 'spectate'; playerId: string }
 
 // x·y는 칸 단위(map의 [y][x]와 같은 축), angle은 turn과 같음. pose는 동작 (서 있음, 걷기, 쓰러짐).
 // nickname은 포스터에 쓰는 이름, color는 목수건 색 번호 0~7 (시스템 기획서 사람 색의 순서). wins는 이 방에서 이긴 횟수이고 × $100이 현상금.
@@ -78,6 +80,8 @@ export type ServerMessage =
   | { type: 'rooms'; rooms: RoomInfo[] }
   // leaveRoom의 답. 첫 화면으로 돌아감
   | { type: 'left' }
+  // 받아들인 spectate의 답. wounds는 그 사람의 지금 반샷 수, ammo는 남은 총알. 그 뒤로 그 사람의 shotResult와 wounded가 복사돼 옴
+  | { type: 'spectating'; playerId: string; wounds: number; ammo: number }
 
 // 쏜 순간 내 시각(ms, performance.now())을 서버 시계로 바꿔 보냄. 서버는 이 시각으로 발사 간격을 재고, M5부터 쏜 순서를 가림
 export const fireMessage = (angle: number, pitch: number, shotAt: number, offset: number): ClientMessage => ({ type: 'fire', angle, pitch, at: toServerTime(shotAt, offset) })
@@ -138,10 +142,16 @@ export function parseServerMessage(text: string): ServerMessage | null {
       return Array.isArray(m.rooms) && m.rooms.every(isRoom) ? { type: 'rooms', rooms: m.rooms } : null
     case 'left':
       return { type: 'left' }
+    case 'spectating':
+      return typeof m.playerId === 'string' && isCount(m.wounds) && isCount(m.ammo)
+        ? { type: 'spectating', playerId: m.playerId, wounds: m.wounds, ammo: m.ammo }
+        : null
     default:
       return null
   }
 }
+
+const isCount = (n: unknown) => Number.isInteger(n) && (n as number) >= 0
 
 const isColor = (c: unknown) => Number.isInteger(c) && (c as number) >= 0 && (c as number) < 8
 

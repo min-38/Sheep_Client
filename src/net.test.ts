@@ -111,6 +111,14 @@ describe('parseServerMessage', () => {
     expect(parseServerMessage('{"type":"state","tick":7,"players":[{"id":"p1","x":1,"y":1,"angle":0,"pose":"run","ready":false}]}')).toBeNull()
   })
 
+  test('관전 답은 대상 id와 그 사람의 반샷 수, 남은 총알을 받음 (기술 설계서 메시지 spectating)', () => {
+    expect(parseServerMessage('{"type":"spectating","playerId":"p2","wounds":1,"ammo":0}')).toEqual({ type: 'spectating', playerId: 'p2', wounds: 1, ammo: 0 })
+    expect(parseServerMessage('{"type":"spectating","wounds":1,"ammo":0}')).toBeNull()
+    expect(parseServerMessage('{"type":"spectating","playerId":"p2","wounds":-1,"ammo":0}')).toBeNull()
+    expect(parseServerMessage('{"type":"spectating","playerId":"p2","wounds":1,"ammo":0.5}')).toBeNull()
+    expect(parseServerMessage('{"type":"spectating","playerId":"p2","wounds":1}')).toBeNull()
+  })
+
   test('시계 맞추기 답은 보낸 t0과 서버 시각 ts를 받음', () => {
     expect(parseServerMessage('{"type":"serverTime","t0":1234.5,"ts":98765.25}')).toEqual({ type: 'serverTime', t0: 1234.5, ts: 98765.25 })
     expect(parseServerMessage('{"type":"serverTime","t0":1234.5}')).toBeNull()
