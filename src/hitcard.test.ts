@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'vitest'
+import { CELL } from './character.ts'
 import { BODY, dotPosition, HEAD, noBlood, onGameEnd, onRevived, onWalk, onWounded, resultLabel } from './hitcard.ts'
 
 describe('resultLabel', () => {
@@ -7,6 +8,19 @@ describe('resultLabel', () => {
     expect(resultLabel({ zone: 'body', down: false })).toBe('반샷')
     expect(resultLabel({ zone: 'body', down: true })).toBe('쓰러짐')
     expect(resultLabel({ zone: null, down: false })).toBe('빗나감')
+  })
+})
+
+describe('판정 원기둥', () => {
+  test('서버 HitScan과 같은 값 (시스템 기획서 리볼버 머리·몸 판정 크기)', () => {
+    expect(HEAD).toEqual({ radius: 0.05, top: 0.9 })
+    expect(BODY).toEqual({ radius: 0.15, top: 0.78 })
+  })
+
+  test('7.5등신 틀에 맞음: 몸 위는 머리 밑(26블록), 몸 반지름은 팔 바깥(5블록), 머리 반지름은 머리 폭(1.5블록)과 1px 안', () => {
+    expect(BODY.top).toBeCloseTo(26 * CELL)
+    expect(BODY.radius).toBeCloseTo(5 * CELL)
+    expect(Math.abs(HEAD.radius - 1.5 * CELL)).toBeLessThanOrEqual(0.015)
   })
 })
 

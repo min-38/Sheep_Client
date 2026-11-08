@@ -12,6 +12,7 @@ import { normalizeNickname } from './nickname.ts'
 import { BANDANA, joinable, memberText, roomStatus, type RoomInfo } from './roomlist.ts'
 import { normalizeRoomName, randomRoomName } from './roomname.ts'
 import type { Grid } from './raycast.ts'
+import { MUSIC_FADE, playMusic, setMusicVolume, trackAt } from './music.ts'
 import { makeCamera, renderFrame } from './render.ts'
 import { loaded, pull, ROUNDS } from './revolver.ts'
 import type { Rig } from './rig.ts'
@@ -59,6 +60,7 @@ try {
   settings = readSettings(localStorage.getItem(SAVED_SETTINGS))
 } catch {}
 setEffectsVolume(settings.effects)
+setMusicVolume(settings.music)
 
 // 서버가 보낸 결투장. 받기 전에는 그리지도 쏘지도 않음
 let grid: Grid | null = null
@@ -464,6 +466,9 @@ function frame(now: number) {
   timer.hidden = left === null
   const clockText = left === null ? '' : formatTime(left)
   if (timer.value !== clockText) timer.value = clockText
+  // 화면과 판 시각으로 배경음악을 고름. "시작!"에 다 줄어들게 MUSIC_FADE만큼 앞당겨 봄 (시스템 기획서 사운드 배경음악)
+  const screen = !lobby.hidden ? 'title' : !saloon.hidden ? 'saloon' : 'arena'
+  if (audio) playMusic(audio, trackAt(screen, schedule, clock ? toServerTime(now + MUSIC_FADE, clock.offset) : -Infinity))
   requestAnimationFrame(frame)
 }
 requestAnimationFrame(frame)
@@ -549,8 +554,16 @@ const timer = document.querySelector<HTMLOutputElement>('#timer')!
 const watching = document.querySelector<HTMLOutputElement>('#watching')!
 const game = document.querySelector<HTMLDivElement>('#game')!
 let ready = false
-// 준비 버튼을 처음 누를 때 만들고 효과음도 이때 받기 시작함. 브라우저는 사용자 입력 전에 만든 AudioContext의 소리를 막음 (기술 설계서 사운드 구현)
+// 화면이나 키를 처음 누를 때 만들고 효과음도 이때 받기 시작함. 브라우저는 사용자 입력 전에 만든 AudioContext의 소리를 막음.
+// 준비 버튼까지 기다리면 첫 화면 음악이 들리지 않아 첫 입력에 만듦 (기술 설계서 사운드 구현)
 let audio: AudioContext | null = null
+function startAudio() {
+  if (audio) return
+  audio = new AudioContext()
+  loadEffects(audio)
+}
+document.addEventListener('pointerdown', startAudio, { capture: true })
+document.addEventListener('keydown', startAudio, { capture: true })
 const REASONS = {
   notFound: '없는 방 코드',
   full: '꽉 찬 방',
@@ -953,10 +966,6 @@ document.querySelector('#create-form')!.addEventListener('submit', (e) => {
 // 술집의 나가기. 답(left)이 오면 첫 화면으로 돌아감
 document.querySelector('#leave')!.addEventListener('click', () => send({ type: 'leaveRoom' }))
 readyButton.addEventListener('click', () => {
-  if (!audio) {
-    audio = new AudioContext()
-    loadEffects(audio)
-  }
   // 판 사이에 시계를 다시 잼. 판이 시작되기 직전이라 이번 판 시각을 바꾸는 데 가장 새 값이 됨
   if (!ready) syncClock()
   send({ type: 'ready', ready: !ready })
@@ -977,8 +986,7 @@ lobby.addEventListener('submit', (e) => {
   enterWith((nickname) => ({ type: 'joinRoom', code: codeInput.value, nickname, character }))
 })
 
-// 설정 창 (시스템 기획서 방 화면 설정). 첫 화면과 대기실의 설정 버튼이 같은 창을 엶. 값을 움직이는 대로 적용하고 기억함.
-// ponytail: 배경음악이 아직 없어 그 크기는 기억만 함. 배경음악을 넣을 때 이 값으로 음악 GainNode를 맞춤
+// 설정 창 (시스템 기획서 방 화면 설정). 첫 화면과 대기실의 설정 버튼이 같은 창을 엶. 값을 움직이는 대로 적용하고 기억함
 const settingsPanel = document.querySelector<HTMLDivElement>('#settings-panel')!
 const settingsForm = document.querySelector<HTMLFormElement>('#settings-form')!
 const sliders = {
@@ -1002,6 +1010,7 @@ settingsForm.addEventListener('input', () => {
   const percent = (key: keyof typeof sliders) => Number(sliders[key].value) / 100
   settings = { sensitivity: percent('sensitivity'), music: percent('music'), effects: percent('effects'), hand }
   setEffectsVolume(settings.effects)
+  setMusicVolume(settings.music)
   try {
     localStorage.setItem(SAVED_SETTINGS, JSON.stringify(settings))
   } catch {}

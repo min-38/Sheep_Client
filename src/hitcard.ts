@@ -2,8 +2,9 @@ import type { ShotResult } from './net.ts'
 
 // 칸. 몸과 머리 판정 원기둥의 반지름과 윗면 높이. 서버 HitScan(BodyRadius, BodyTop, HeadRadius, HeadTop)과 같은 값이어야
 // 총알 구멍이 맞은 자리에 찍힘. ponytail: 임시 값(시스템 기획서 리볼버). 플레이해 보며 정함
-export const BODY = { radius: 0.23, top: 0.68 }
-export const HEAD = { radius: 0.11, top: 0.9 }
+// 7.5등신 틀(시스템 기획서 캐릭터)에서 잼: 몸 위는 머리 밑, 몸 반지름은 팔 바깥, 머리 반지름은 머리 폭
+export const BODY = { radius: 0.15, top: 0.78 }
+export const HEAD = { radius: 0.05, top: 0.9 }
 
 // 카드의 도장 문구. ponytail: 임시 문구. 게임 안 문구 스타일이 정해지면 바꿈
 export function resultLabel(r: Pick<ShotResult, 'zone' | 'down'>): string {
