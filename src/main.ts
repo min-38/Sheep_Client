@@ -19,6 +19,8 @@ import type { Rig } from './rig.ts'
 import { banner, DUEL_LIMIT, dueling, formatTime, joins, locked, resultText, standingCount, stepIndex, timeLeft, walking, type Schedule } from './round.ts'
 import { bountyRise, drawSaloon, POSTER_SLOTS, posterSlots, startBartender, stepBartender } from './saloon.ts'
 import { cut, replayWindow } from './replay.ts'
+// 지금 언어의 문구. 이 파일은 t를 시각 변수로 많이 써 문구는 copy로 부름
+import { copyOf, HTML_LANG, LANGUAGES, setLanguage, t as copy, textAt, type Language } from './i18n/index.ts'
 import { readSettings, radiansPerPixel, type Hand, type Settings } from './settings.ts'
 import { nextTarget } from './spectate.ts'
 import { fallDelay, heardFrom, loadEffects, play, playFall, playSignal, playStep, setEffectsVolume, stampOf, toAudioTime } from './sound.ts'
@@ -61,6 +63,7 @@ try {
 } catch {}
 setEffectsVolume(settings.effects)
 setMusicVolume(settings.music)
+setLanguage(settings.language)
 
 // 서버가 보낸 결투장. 받기 전에는 그리지도 쏘지도 않음
 let grid: Grid | null = null
@@ -140,8 +143,13 @@ function applyState(players: readonly PlayerState[]) {
   showPosters(players)
   // 내 준비 여부도 서버가 정함. 누르면 이 값을 뒤집어 보냄
   ready = me.ready
-  readyButton.textContent = ready ? '준비 풀기' : '준비'
-  const count = `준비 ${players.filter((p) => p.ready).length}/${players.length}`
+  showReady()
+}
+
+// 준비 버튼 글자와 준비한 사람 수. state를 받을 때와 언어를 바꿀 때 넣음
+function showReady() {
+  readyButton.textContent = ready ? copy.saloon.unready : copy.saloon.ready
+  const count = copy.saloon.readyCount(roster.filter((p) => p.ready).length, roster.length)
   // 같은 글자를 틱마다 다시 넣으면 화면 낭독기가 되풀이해 읽음
   if (readyCount.value !== count) readyCount.value = count
 }
@@ -295,7 +303,7 @@ function showAmmo(rounds: number | null) {
   shownRounds = rounds
   ammo.style.visibility = rounds === null ? 'hidden' : ''
   chambers.forEach((c, i) => c.classList.toggle('loaded', i < (rounds ?? 0)))
-  ammo.setAttribute('aria-label', `남은 총알 ${rounds ?? 0}발`)
+  ammo.setAttribute('aria-label', copy.hud.ammo(rounds ?? 0))
 }
 
 const flash = document.querySelector<HTMLDivElement>('#flash')!
@@ -471,14 +479,14 @@ function frame(now: number) {
         ? resultText(shown, myId)
         : ''
       : myId !== null && isDown(myId, now - INTERP_DELAY) && !watch
-        ? '쓰러짐'
+        ? copy.hud.down
         : clock
           ? banner(schedule, toServerTime(now, clock.offset))
           : ''
   if (bannerText.value !== text) bannerText.value = text
-  // 관전과 다시 보기에서는 그 사람 화면 그대로라 누구의 눈인지 적어 둠. ponytail: 임시 문구
+  // 관전과 다시 보기에서는 그 사람 화면 그대로라 누구의 눈인지 적어 둠
   const who = (id: string) => roster.find((p) => p.id === id)?.nickname ?? ''
-  const watchText = r ? `다시 보기 ${who(r.replay.viewer)}` : watch ? `관전 ${who(watch.id)}` : ''
+  const watchText = r ? copy.hud.replayWho(who(r.replay.viewer)) : watch ? copy.hud.watchingWho(who(watch.id)) : ''
   watching.hidden = watchText === ''
   if (watching.value !== watchText) watching.value = watchText
   // 결투 중에만 보임. 결과를 받으면 숨김 (시스템 기획서 HUD 남은 시간)
@@ -486,10 +494,9 @@ function frame(now: number) {
   timer.hidden = left === null
   const clockText = left === null ? '' : formatTime(left)
   if (timer.value !== clockText) timer.value = clockText
-  // 남은 시간과 같이 보이고 숨음. 쓰러진 그림과 같은 시각으로 세어 그림보다 먼저 줄지 않음 (시스템 기획서 HUD 남은 인원).
-  // ponytail: 임시 문구. 게임 안 문구 스타일이 정해지면 바꿈
+  // 남은 시간과 같이 보이고 숨음. 쓰러진 그림과 같은 시각으로 세어 그림보다 먼저 줄지 않음 (시스템 기획서 HUD 남은 인원)
   alive.hidden = left === null
-  const aliveText = left === null ? '' : `${standingCount(scene.history.keys(), scene.downs, r ? t : now - INTERP_DELAY)}명 남음`
+  const aliveText = left === null ? '' : copy.hud.aliveCount(standingCount(scene.history.keys(), scene.downs, r ? t : now - INTERP_DELAY))
   if (alive.value !== aliveText) alive.value = aliveText
   // 화면과 판 시각으로 배경음악을 고름. "시작!"에 다 줄어들게 MUSIC_FADE만큼 앞당겨 봄 (시스템 기획서 사운드 배경음악)
   const screen = !lobby.hidden ? 'title' : !saloon.hidden ? 'saloon' : 'arena'
@@ -506,6 +513,12 @@ const roomList = document.querySelector<HTMLUListElement>('#room-list')!
 const nameOk = document.querySelector<HTMLButtonElement>('#name-ok')!
 const codeInput = document.querySelector<HTMLInputElement>('#code')!
 const status = document.querySelector<HTMLParagraphElement>('#status')!
+// 첫 화면 아래 알림. 언어를 바꾸면 다시 넣으려고 글자 대신 글자를 만드는 함수를 기억함
+let statusText = () => copy.lobby.connecting
+function showStatus(text: () => string) {
+  statusText = text
+  status.textContent = text()
+}
 const room = document.querySelector<HTMLOutputElement>('#room')!
 // 술집 대기실. 방에 들어가 판이 시작되기 전과 판이 끝난 뒤에 보임
 const saloon = document.querySelector<HTMLDivElement>('#saloon')!
@@ -530,11 +543,10 @@ const posterViews = Array.from({ length: POSTER_SLOTS }, () => {
   const star = document.createElement('i')
   star.className = 'star'
   star.setAttribute('role', 'img')
-  star.setAttribute('aria-label', '내 포스터')
+  star.setAttribute('aria-label', copy.saloon.myPoster)
   const stamp = document.createElement('span')
   stamp.className = 'stamp'
-  // ponytail: 임시 문구. 게임 안 문구 스타일이 정해지면 바꿈
-  stamp.textContent = '준비'
+  stamp.textContent = copy.saloon.readyStamp
   li.append(wanted, face, nick, bounty, star, stamp)
   document.querySelector('#posters')!.append(li)
   return { li, wanted, face, nick, bounty, star, stamp }
@@ -590,16 +602,6 @@ function startAudio() {
 }
 document.addEventListener('pointerdown', startAudio, { capture: true })
 document.addEventListener('keydown', startAudio, { capture: true })
-const REASONS = {
-  notFound: '없는 방 코드',
-  full: '꽉 찬 방',
-  playing: '판이 진행 중인 방',
-  nickname: '닉네임 규칙에 맞지 않음',
-  roomName: '방 이름 규칙에 맞지 않음',
-  maxPlayers: '인원은 2~8명',
-  // ponytail: 임시 문구. 게임 안 문구 스타일이 정해지면 바꿈
-  character: '없는 캐릭터',
-}
 const nicknameInput = document.querySelector<HTMLInputElement>('#nickname')!
 const nicknameRule = document.querySelector<HTMLParagraphElement>('#nickname-rule')!
 const privateBox = document.querySelector<HTMLInputElement>('#private')!
@@ -638,9 +640,9 @@ let character = 0
 try {
   character = savedCharacter(localStorage.getItem(SAVED_CHARACTER))
 } catch {}
-// 캐릭터마다 초상화 하나를 고르는 칸으로 둠. 고른 칸에 테두리
+// 캐릭터마다 초상화 하나를 고르는 칸으로 둠. 고른 칸에 테두리. 초상화 이름(alt)은 언어를 바꿀 때 넣음
 const characterPick = document.querySelector<HTMLDivElement>('#character-pick')!
-for (const [i, c] of CHARACTERS.entries()) {
+const characterFaces = CHARACTERS.map((_, i) => {
   const label = document.createElement('label')
   const radio = document.createElement('input')
   radio.type = 'radio'
@@ -649,10 +651,10 @@ for (const [i, c] of CHARACTERS.entries()) {
   radio.checked = i === character
   const face = document.createElement('img')
   face.src = PORTRAITS[i]
-  face.alt = c.name
   label.append(radio, face)
   characterPick.append(label)
-}
+  return face
+})
 characterPick.addEventListener('change', (e) => {
   character = Number((e.target as HTMLInputElement).value)
   try {
@@ -695,8 +697,11 @@ document.querySelector('#rename')!.addEventListener('click', () => {
   nicknameInput.focus()
 })
 
+// 마지막으로 받은 방 목록. 언어를 바꾸면 다음 목록을 기다리지 않고 다시 그림
+let shownRooms: readonly RoomInfo[] = []
 // 방 목록 (시스템 기획서 방 화면 대기실 보기). 사용자가 넣은 이름이라 textContent로만 넣음
 function showRooms(rooms: readonly RoomInfo[]) {
+  shownRooms = rooms
   const items = rooms.map((r) => {
     const li = document.createElement('li')
     li.classList.toggle('closed', !joinable(r))
@@ -719,7 +724,7 @@ function showRooms(rooms: readonly RoomInfo[]) {
       const join = document.createElement('button')
       join.type = 'button'
       join.className = 'plank'
-      join.textContent = '입장'
+      join.textContent = copy.lobby.join
       join.addEventListener('click', () => enterWith((nickname) => ({ type: 'joinRoom', code: r.code, nickname, character })))
       li.append(join)
     }
@@ -728,8 +733,7 @@ function showRooms(rooms: readonly RoomInfo[]) {
   if (items.length === 0) {
     const empty = document.createElement('li')
     empty.className = 'empty'
-    // ponytail: 임시 문구
-    empty.textContent = '열린 방이 없음'
+    empty.textContent = copy.lobby.noRooms
     items.push(empty)
   }
   roomList.replaceChildren(...items)
@@ -738,7 +742,7 @@ function showRooms(rooms: readonly RoomInfo[]) {
 // 방에 들어가는 버튼마다 부름. 정한 닉네임으로 메시지를 만들어 보냄
 function enterWith(message: (nickname: string) => ClientMessage) {
   if (nickname === null) return
-  status.textContent = ''
+  showStatus(() => '')
   send(message(nickname))
 }
 
@@ -801,7 +805,7 @@ function syncClock() {
 ws.addEventListener('open', () => {
   connected = true
   showStep()
-  status.textContent = ''
+  showStatus(() => '')
   syncClock()
 })
 // 처음부터 못 붙어도 여기로 옴. ponytail: 재접속 없음. 재접속 이슈에서 다시 붙어 방으로 돌아가게 함
@@ -814,7 +818,7 @@ ws.addEventListener('close', () => {
   saloon.hidden = true
   winView.hidden = true
   room.value = ''
-  status.textContent = '서버와 연결되지 않음. 새로고침해 다시 접속'
+  showStatus(() => copy.lobby.disconnected)
 })
 ws.addEventListener('message', (e) => later(() => receive(e.data)))
 function receive(data: string) {
@@ -842,7 +846,7 @@ function receive(data: string) {
       standing = null
       break
     case 'error':
-      status.textContent = REASONS[m.reason]
+      showStatus(() => copy.lobby.reasons[m.reason])
       break
     // 방에 다시 들어와도 맵이 다시 옴 (기술 설계서 메시지)
     case 'map':
@@ -1030,6 +1034,15 @@ const sliders = {
   music: document.querySelector<HTMLInputElement>('#music')!,
   effects: document.querySelector<HTMLInputElement>('#effects')!,
 }
+// 언어 목록. 언어마다 그 언어로 쓴 이름이라 바꾸지 않고, 읽는 기계가 그 언어로 읽게 lang을 붙임
+const languageSelect = document.querySelector<HTMLSelectElement>('#language')!
+languageSelect.append(
+  ...LANGUAGES.map((l) => {
+    const option = new Option(copyOf(l).languageName, l)
+    option.lang = HTML_LANG[l]
+    return option
+  }),
+)
 
 // 막대는 % 정수, 설정은 배율이라 100으로 나눔. 값 글자는 막대 옆에 %로
 function showSettings() {
@@ -1038,15 +1051,19 @@ function showSettings() {
     document.querySelector<HTMLOutputElement>(`#${key}-value`)!.value = `${sliders[key].value}%`
   }
   settingsForm.querySelector<HTMLInputElement>(`input[name="hand"][value="${settings.hand}"]`)!.checked = true
+  languageSelect.value = settings.language
 }
 
 settingsForm.addEventListener('input', () => {
-  // 막대의 min·max가 설정 범위와 같아 읽은 값은 늘 범위 안임
+  // 막대의 min·max가 설정 범위와 같고 언어 목록은 LANGUAGES로만 채워, 읽은 값은 늘 범위 안임
   const hand = settingsForm.querySelector<HTMLInputElement>('input[name="hand"]:checked')!.value as Hand
   const percent = (key: keyof typeof sliders) => Number(sliders[key].value) / 100
-  settings = { sensitivity: percent('sensitivity'), music: percent('music'), effects: percent('effects'), hand }
+  const language = languageSelect.value as Language
+  const relabel = language !== settings.language
+  settings = { sensitivity: percent('sensitivity'), music: percent('music'), effects: percent('effects'), hand, language }
   setEffectsVolume(settings.effects)
   setMusicVolume(settings.music)
+  if (relabel) applyCopy()
   try {
     localStorage.setItem(SAVED_SETTINGS, JSON.stringify(settings))
   } catch {}
@@ -1067,3 +1084,23 @@ settingsForm.addEventListener('submit', (e) => {
 settingsPanel.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') settingsPanel.hidden = true
 })
+
+// 설정의 언어로 글자를 모두 넣음 (시스템 기획서 방 화면 설정). index.html의 data-i18n 글자와 한 번만 넣는 글자를 여기서 넣고,
+// 프레임이나 state마다 넣는 글자는 다음에 넣을 때 바뀜. 처음 한 번은 모든 요소를 만든 뒤인 여기서 부름
+function applyCopy() {
+  setLanguage(settings.language)
+  document.documentElement.lang = HTML_LANG[settings.language]
+  for (const el of document.querySelectorAll<HTMLElement>('[data-i18n]')) el.textContent = textAt(copy, el.dataset.i18n!) ?? ''
+  for (const el of document.querySelectorAll<HTMLElement>('[data-i18n-label]')) el.setAttribute('aria-label', textAt(copy, el.dataset.i18nLabel!) ?? '')
+  for (const el of document.querySelectorAll<HTMLInputElement>('[data-i18n-placeholder]')) el.placeholder = textAt(copy, el.dataset.i18nPlaceholder!) ?? ''
+  for (const v of posterViews) {
+    v.star.setAttribute('aria-label', copy.saloon.myPoster)
+    v.stamp.textContent = copy.saloon.readyStamp
+  }
+  characterFaces.forEach((face, i) => (face.alt = copy.lobby.characterNames[i]))
+  status.textContent = statusText()
+  showReady()
+  shownRounds = undefined
+  if (!roomStep.hidden) showRooms(shownRooms)
+}
+applyCopy()

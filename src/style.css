@@ -516,6 +516,7 @@ body {
 #create-panel input,
 #create-panel select,
 #settings-panel button,
+#settings-panel select,
 .settings-open {
   font: inherit;
   padding: 0.6cqw 1.2cqw;
@@ -526,7 +527,8 @@ body {
   flex: 0 0 9cqw;
 }
 
-#settings-panel input[type='range'] {
+#settings-panel input[type='range'],
+#language {
   flex: 1;
   accent-color: #8a5a32;
 }

@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'vitest'
+import { en } from './i18n/en.ts'
 import { joinable, memberText, roomStatus, type RoomInfo } from './roomlist.ts'
 
 const member = (nickname: string, color = 0) => ({ nickname, color })
@@ -17,15 +18,15 @@ describe('memberText', () => {
   })
 
   test('4명부터는 3명 뒤에 "외 N명" (시스템 기획서 방 화면 대기실 보기)', () => {
-    expect(memberText(room(5).players)).toBe('사람1, 사람2, 사람3 외 2명')
+    expect(memberText(room(5).players)).toBe(en.lobby.members('사람1, 사람2, 사람3', 2))
   })
 })
 
 describe('roomStatus', () => {
   test('판 진행 중이 꽉 참보다 먼저', () => {
-    expect(roomStatus(room(2, 2, true))).toBe('판 진행 중')
-    expect(roomStatus(room(2, 2))).toBe('꽉 참')
-    expect(roomStatus(room(1, 2))).toBe('준비 중')
+    expect(roomStatus(room(2, 2, true))).toBe(en.lobby.playing)
+    expect(roomStatus(room(2, 2))).toBe(en.lobby.full)
+    expect(roomStatus(room(1, 2))).toBe(en.lobby.waiting)
   })
 })
 

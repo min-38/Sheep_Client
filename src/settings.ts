@@ -1,10 +1,12 @@
+import { isLanguage, type Language } from './i18n/index.ts'
+
 // 플레이어 설정 (시스템 기획서 방 화면 설정). 브라우저에 기억하고 바꾸면 바로 적용함.
-// sensitivity는 감도 배율(1이 100%), music·effects는 소리 크기(0~1)
+// sensitivity는 감도 배율(1이 100%), music·effects는 소리 크기(0~1), language는 화면 언어
 export type Hand = 'right' | 'left'
-export type Settings = { sensitivity: number; music: number; effects: number; hand: Hand }
+export type Settings = { sensitivity: number; music: number; effects: number; hand: Hand; language: Language }
 
 // ponytail: 임시 값(시스템 기획서 방 화면 설정). 플레이해 보며 정함
-export const DEFAULT_SETTINGS: Settings = { sensitivity: 1, music: 0.6, effects: 1, hand: 'right' }
+export const DEFAULT_SETTINGS: Settings = { sensitivity: 1, music: 0.6, effects: 1, hand: 'right', language: 'en' }
 export const MIN_SENSITIVITY = 0.25
 export const MAX_SENSITIVITY = 4
 // 라디안/px. 감도 100%일 때 마우스 1px에 도는 각도
@@ -27,5 +29,6 @@ export function readSettings(raw: string | null): Settings {
     music: within(saved.music, 0, 1) ? saved.music : DEFAULT_SETTINGS.music,
     effects: within(saved.effects, 0, 1) ? saved.effects : DEFAULT_SETTINGS.effects,
     hand: saved.hand === 'left' || saved.hand === 'right' ? saved.hand : DEFAULT_SETTINGS.hand,
+    language: isLanguage(saved.language) ? saved.language : DEFAULT_SETTINGS.language,
   }
 }

@@ -1,13 +1,14 @@
 import { describe, expect, test } from 'vitest'
 import { CELL } from './character.ts'
+import { en } from './i18n/en.ts'
 import { BODY, dotPosition, HEAD, noBlood, onGameEnd, onRevived, onWalk, onWounded, resultLabel } from './hitcard.ts'
 
 describe('resultLabel', () => {
   test('머리는 즉사, 몸은 반샷이거나 쓰러짐, 못 맞히면 빗나감', () => {
-    expect(resultLabel({ zone: 'head', down: true })).toBe('머리 즉사')
-    expect(resultLabel({ zone: 'body', down: false })).toBe('반샷')
-    expect(resultLabel({ zone: 'body', down: true })).toBe('쓰러짐')
-    expect(resultLabel({ zone: null, down: false })).toBe('빗나감')
+    expect(resultLabel({ zone: 'head', down: true })).toBe(en.hud.head)
+    expect(resultLabel({ zone: 'body', down: false })).toBe(en.hud.wounded)
+    expect(resultLabel({ zone: 'body', down: true })).toBe(en.hud.hitDown)
+    expect(resultLabel({ zone: null, down: false })).toBe(en.hud.miss)
   })
 })
 
