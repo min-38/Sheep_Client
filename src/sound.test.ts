@@ -1,7 +1,8 @@
 import { describe, expect, test } from 'vitest'
 import { toLocalTime } from './clock.ts'
 import { makeCamera } from './render.ts'
-import { heardFrom, stampOf, toAudioTime } from './sound.ts'
+import { suicideStage } from './character.ts'
+import { fallDelay, heardFrom, stampOf, toAudioTime } from './sound.ts'
 
 describe('toAudioTime', () => {
   test('스탬프와 같은 순간이면 contextTime', () => {
@@ -62,5 +63,16 @@ describe('heardFrom', () => {
   test('거리는 그대로임', () => {
     const p = heardFrom(1, 2, 2.3, 4, 6)
     expect(Math.hypot(p.right, p.front)).toBeCloseTo(5)
+  })
+})
+
+describe('fallDelay', () => {
+  test('맞아 쓰러지면 쓰러진 그림이 바로 보여 기다리지 않음', () => {
+    expect(fallDelay('shot')).toBe(0)
+  })
+
+  test('시간 초과는 자살 모습이 끝나 쓰러진 그림이 되는 때', () => {
+    expect(suicideStage(fallDelay('timeout') - 1)).not.toBeNull()
+    expect(suicideStage(fallDelay('timeout'))).toBeNull()
   })
 })

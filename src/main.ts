@@ -21,7 +21,7 @@ import { bountyRise, drawSaloon, POSTER_SLOTS, posterSlots, startBartender, step
 import { cut, replayWindow } from './replay.ts'
 import { readSettings, radiansPerPixel, type Hand, type Settings } from './settings.ts'
 import { nextTarget } from './spectate.ts'
-import { heardFrom, loadEffects, play, playSignal, playStep, setEffectsVolume, stampOf, toAudioTime } from './sound.ts'
+import { fallDelay, heardFrom, loadEffects, play, playFall, playSignal, playStep, setEffectsVolume, stampOf, toAudioTime } from './sound.ts'
 import type { Thing } from './sprite.ts'
 import { afterTurn, aimAt, crosshairOffset, scaleAt, steady, sway, type Unsteady } from './sway.ts'
 import { tilt, turn } from './turn.ts'
@@ -229,6 +229,19 @@ function showShot(id: string, shotAngle: number) {
   const view = eyes(now)
   const shooter = sampleAt(samples, now - INTERP_DELAY)
   play(audio, 'shot', toAudioTime(now + INTERP_DELAY, stampOf(audio)), heardFrom(view.x, view.y, view.angle, shooter.x, shooter.y))
+}
+
+// 쓰러지는 소리. 쓰러진 그림이 되는 때(INTERP_DELAY 뒤, 시간 초과는 자살 모습 뒤)에 그 사람 쪽에서 냄.
+// 나는 자살 모습 없이 "쓰러짐"만 띄우므로 그때 가운데서 냄 (시스템 기획서 사운드 쓰러지는 소리)
+function playFallOf(id: string, reason: 'shot' | 'timeout') {
+  const samples = history.get(id)
+  if (!audio || !placed || !samples) return
+  const now = performance.now()
+  const when = toAudioTime(now + INTERP_DELAY + (id === myId ? 0 : fallDelay(reason)), stampOf(audio))
+  if (id === myId) return playFall(audio, when)
+  const view = eyes(now)
+  const body = sampleAt(samples, now - INTERP_DELAY)
+  playFall(audio, when, heardFrom(view.x, view.y, view.angle, body.x, body.y))
 }
 
 // viewer는 눈이 되는 사람이라 그리지 않음. 관전이나 다시 보기면 쓰러진 나도 보임
@@ -880,6 +893,7 @@ function receive(data: string) {
       break
     case 'eliminated':
       downs.set(m.playerId, { at: performance.now(), reason: m.reason })
+      playFallOf(m.playerId, m.reason)
       if (m.playerId !== myId) break
       // 쓰러지면 돌지도 쏘지도 않아 포인터 잠금을 풂. 관전은 화면을 눌러 바꾸고, 다시 보기는 버튼을 누름
       document.exitPointerLock()
