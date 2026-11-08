@@ -214,6 +214,15 @@ body {
   font-size: 1.8cqw;
 }
 
+/* 쓰러진 뒤 나가기 버튼. 다시 보기 버튼(아래 가운데)과 떨어진 왼쪽 위에 둬 잘못 누르지 않게 함 (시스템 기획서 HUD 쓰러진 뒤 나가기) */
+#leave-down {
+  position: absolute;
+  left: 2cqw;
+  top: 1.5cqw;
+  padding: 0.6cqw 1.6cqw;
+  font-size: 1.8cqw;
+}
+
 /* 다시 보기에서는 그 사람의 사격 결과를 몰라 숨김 */
 #game.replaying #hit-card {
   visibility: hidden;
