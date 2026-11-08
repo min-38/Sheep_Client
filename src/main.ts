@@ -1,7 +1,7 @@
 import './style.css'
 import revolverData from './assets/revolver-rig.json'
 import { orbit } from './backdrop.ts'
-import { characterBody, suicideStage, walkSwing, type Body, type Box } from './character.ts'
+import { characterBody, suicideStage, walkSwing, type Body, type Pose } from './character.ts'
 import { best, measure, toLocalTime, toServerTime, type ClockSample } from './clock.ts'
 import { makeProps, SKIES, timeOfDay } from './desert.ts'
 import { drawGun, gunClips, lift, RAISE_MS, RECOIL_MS, RELOAD_AT, RELOAD_SEATED, RELOAD_SHUT, revolverMesh } from './gun.ts'
@@ -78,8 +78,6 @@ let sentPitch = 0
 let sentAt = -Infinity
 // 플레이어마다 받은 상태. 나도 넣어 서버가 나를 걷게 할 때 다른 사람과 같이 보간해 그림
 const history = new Map<string, Sample[]>()
-// 사람마다 목수건 색 번호. state마다 새로 받음
-let colors = new Map<string, number>()
 // 마지막으로 받은 state의 사람들. 판 끝 포스터에 이긴 사람의 닉네임, 색, 이긴 횟수를 적는 데 씀
 let roster: readonly PlayerState[] = []
 // 1인칭 리볼버 모델. 부품이 뼈대로 움직임 (컨셉 기획서 아트와 사운드 1인칭 총)
@@ -106,9 +104,8 @@ type Scene = {
   shots: Map<string, { at: number; angle: number }>
   downs: Map<string, Down>
   schedule: Schedule
-  colors: Map<string, number>
 }
-const live = (): Scene => ({ history, shots, downs, schedule, colors })
+const live = (): Scene => ({ history, shots, downs, schedule })
 // 다시 보기 (컨셉 기획서 규칙 탈락한 뒤). 쓰러지면 누구의 눈으로 어느 구간(ms, 내 시계)을 볼지 정하고 그때의 판 시각을 떠 둠(replayPlan).
 // 그 구간이 다 지나면 기록을 떠 둬(replay) 버튼이 보임. replayFrom은 다시 보는 중일 때 누른 시각(ms)
 type Replay = Scene & { viewer: string; start: number; end: number }
@@ -130,7 +127,6 @@ function applyState(players: readonly PlayerState[]) {
   }
   placed = true
   record(history, players, now)
-  colors = new Map(players.map((p) => [p.id, p.color]))
   roster = players
   pickWatch(now)
   // 창이 숨어 그리기가 멈춰도 state는 오므로 여기서 떠 둠
@@ -183,7 +179,7 @@ function saveReplay() {
   const plan = replayPlan!
   replayPlan = null
   const kept = new Map([...history].map(([id, samples]) => [id, cut(samples, plan.start, plan.end)]))
-  if (kept.has(plan.viewer)) replay = { ...plan, history: kept, shots: new Map(shots), downs: new Map(downs), colors: new Map(colors) }
+  if (kept.has(plan.viewer)) replay = { ...plan, history: kept, shots: new Map(shots), downs: new Map(downs) }
 }
 
 // 다시 보는 중이면 떠 둔 기록과 그 안의 시각(ms, 내 시계). 같은 빠르기로 흐르고, 끝까지 보면 관전으로 돌아감
@@ -240,15 +236,16 @@ function othersAt(t: number, viewer: string, scene: Scene): Thing[] {
       const s = sampleAt(samples, t)
       const shot = scene.shots.get(id)
       const flashing = shot !== undefined && t >= shot.at && t < shot.at + FLASH_SHOWN
-      const body = characterBody(scene.colors.get(id)!)
+      // TODO(SHEEP-90): state의 character로 그 사람이 고른 캐릭터를 그림. 지금은 모두 찰스
+      const body = characterBody(0)
       // "시작!"부터 서 있는 사람은 총을 겨눈 모습. 머리와 팔은 그 사람의 위아래 시선대로
       const upright = duel ? body.aim(s.pitch) : s.pose === 'walk' ? body.walk(swing) : body.stand
       // 불꽃 동안은 쏜 각도로 그림. 돌고 바로 쏘면 돌아간 각도는 다음 state로 늦게 옴
-      return { x: s.x, y: s.y, facing: flashing ? shot.angle : s.angle, boxes: flashing ? body.fire(s.pitch) : poseBoxes(body, scene.downs.get(id), t, upright) }
+      return { x: s.x, y: s.y, facing: flashing ? shot.angle : s.angle, ...(flashing ? body.fire(s.pitch) : poseAt(body, scene.downs.get(id), t, upright)) }
     })
 }
 
-function poseBoxes(body: Body, down: Down | undefined, t: number, upright: Box[]) {
+function poseAt(body: Body, down: Down | undefined, t: number, upright: Pose) {
   if (down === undefined || t < down.at) return upright
   const stage = down.reason === 'timeout' ? suicideStage(t - down.at) : null
   return stage === null ? body.fallen : body.suicide[stage]
@@ -575,10 +572,11 @@ const DUEL_GAP = 3
 const BACKDROP_RADIUS = 4
 // 라디안. 조금 올려 봐 두 사람이 제목 아래로 내려오고 석양 하늘이 넓게 보임. ponytail: 임시 값
 const BACKDROP_PITCH = 0.1
-// 첫 화면 배경에 세우는 것. 남북으로 마주 보고 총을 찬 채 선 두 사람(목수건 빨강, 하늘색)과 둘레 소품. 그림은 여기서 한 번만 만듦
+// 첫 화면 배경에 세우는 것. 남북으로 마주 보고 총을 찬 채 선 두 사람과 둘레 소품. 그림은 여기서 한 번만 만듦.
+// 캐릭터가 찰스 하나뿐이라 둘 다 찰스임. 캐릭터가 늘면 서로 다른 캐릭터로 세움
 const BACKDROP_THINGS: Thing[] = [
-  { x: BACKDROP_MID, y: BACKDROP_MID - DUEL_GAP / 2, facing: Math.PI / 2, boxes: characterBody(0).stand },
-  { x: BACKDROP_MID, y: BACKDROP_MID + DUEL_GAP / 2, facing: -Math.PI / 2, boxes: characterBody(1).stand },
+  { x: BACKDROP_MID, y: BACKDROP_MID - DUEL_GAP / 2, facing: Math.PI / 2, ...characterBody(0).stand },
+  { x: BACKDROP_MID, y: BACKDROP_MID + DUEL_GAP / 2, facing: -Math.PI / 2, ...characterBody(0).stand },
   ...makeProps(BACKDROP_MID, BACKDROP_MID),
 ]
 // 배경이 돌기 시작한 시각(ms). 페이지가 뜨는 데 걸린 시간만큼 돌아가 있지 않고 늘 같은 장면에서 시작함.
