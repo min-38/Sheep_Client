@@ -43,6 +43,39 @@
     radial-gradient(circle, #d8c8a8 0 0.16cqw, #2a1a0e 0.2cqw 0.34cqw, #0000 0.38cqw) calc(100% - 0.35cqw) 50% / 0.8cqw 0.8cqw no-repeat;
   /* 놋쇠 머리. 막대 손잡이, 라디오, 체크 칸이 같이 씀 */
   --brass: radial-gradient(circle at 35% 30%, #fff3c0, #e2b23c 45%, #a07818 100%);
+  /* 누렇게 바랜 종이 바탕. 결과 카드, 포스터, 창이 같이 씀. 결·얼룩·탄 가장자리는 paper.ts가 --paper-* 변수로 넣음 */
+  --paper: radial-gradient(ellipse closest-side, #ecd5a0 55%, #c2964f 120%);
+}
+
+/* 바랜 종이 (시스템 기획서 HUD 사격 결과 카드, 방 화면 포스터). 종이는 ::after 한 겹에만 그리고 깎는 마스크도
+   그 겹에만 씌워 글자·도장·별은 잘리지 않음. 그림자는 깎인 모양을 따라 지게 box-shadow 대신 drop-shadow */
+#hit-card,
+.poster {
+  isolation: isolate;
+}
+
+#hit-card::after,
+.poster::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background:
+    var(--paper-rim) 0 0 / 100% 100%,
+    /* 가로로 한 번 접은 자국과 아래 칸의 그늘 */
+    linear-gradient(180deg, #0000 calc(46% - 1.4cqw), #5a38180c calc(46% - 0.3cqw), #5a381830 46%, #fff6dc66 calc(46% + 0.12cqw), #fff6dc14 calc(46% + 0.7cqw), #0000 calc(46% + 1.6cqw)),
+    linear-gradient(180deg, #0000 46%, #3a200a0c 46%),
+    var(--paper-stains) 0 0 / 100% 100%,
+    var(--paper-grain) 0 0 / 15cqw,
+    var(--paper);
+  mask: var(--paper-mask) 0 0 / 100% 100% no-repeat;
+}
+
+/* 도장 잉크가 종이에 스며 군데군데 빠짐 */
+#hit-stamp,
+.poster .stamp {
+  mix-blend-mode: multiply;
+  mask: var(--paper-ink) 0 0 / 3cqw;
 }
 
 html,
@@ -100,8 +133,7 @@ body {
   width: 8cqw;
   margin: 0;
   padding: 0.8cqw 0.8cqw 3cqw;
-  background: radial-gradient(ellipse closest-side, #f1e0b3 70%, #d4b479 130%);
-  box-shadow: 0 0 0.5cqw #0009;
+  filter: drop-shadow(0 0 0.5cqw #0009);
   rotate: -2deg;
 }
 
@@ -113,7 +145,7 @@ body {
 /* 포스터 초상화처럼 갈색 인쇄. 블록 사이를 종이색 선으로 나눠 블록 몸으로 보이게 함 */
 #hit-card .figure {
   fill: #6e4b2a;
-  stroke: #f1e0b3;
+  stroke: #ecd5a0;
   stroke-width: 1;
 }
 
@@ -578,7 +610,10 @@ body {
     radial-gradient(circle, #2a1a0e 0.25cqw, #0000 0.32cqw) calc(100% - 0.6cqw) 0.6cqw / 0.7cqw 0.7cqw no-repeat,
     radial-gradient(circle, #2a1a0e 0.25cqw, #0000 0.32cqw) 0.6cqw calc(100% - 0.6cqw) / 0.7cqw 0.7cqw no-repeat,
     radial-gradient(circle, #2a1a0e 0.25cqw, #0000 0.32cqw) calc(100% - 0.6cqw) calc(100% - 0.6cqw) / 0.7cqw 0.7cqw no-repeat,
-    radial-gradient(ellipse closest-side, #f1e0b3 70%, #d4b479 140%);
+    /* 결과 카드·포스터와 같은 종이결과 얼룩. 나무 테두리와 못이 있어 가장자리는 깎거나 태우지 않음 */
+    var(--paper-stains) 0 0 / 100% 100%,
+    var(--paper-grain) 0 0 / 15cqw,
+    var(--paper);
   box-shadow: 0 1cqw 2cqw #000c;
   color: #3d2412;
 }
@@ -654,7 +689,7 @@ body {
   overflow-y: auto;
   border: 0.25cqw solid #3d2412;
   border-radius: 0.4cqw;
-  background: radial-gradient(ellipse closest-side, #f8ecc8 70%, #d4b479 150%);
+  background: var(--paper-grain) 0 0 / 15cqw, radial-gradient(ellipse closest-side, #f8ecc8 70%, #d4b479 150%);
   box-shadow: 0 0.6cqw 1.2cqw #000a;
   list-style: none;
 }
@@ -875,8 +910,7 @@ body {
   align-content: start;
   gap: 0.3cqw;
   padding: 1.1cqw 0.5cqw 0;
-  background: radial-gradient(ellipse closest-side, #f1e0b3 70%, #d4b479 140%);
-  box-shadow: 0 0.3cqw 0.6cqw #0008;
+  filter: drop-shadow(0 0.3cqw 0.6cqw #0008);
   color: #4a2e18;
   rotate: var(--tilt, 0deg);
 }
@@ -904,10 +938,13 @@ body {
 
 /* 빈자리는 점선 테두리와 못만 */
 .poster.empty {
-  background: none;
-  box-shadow: none;
+  filter: none;
   outline: 0.2cqw dashed #f1e0b366;
   outline-offset: -0.2cqw;
+}
+
+.poster.empty::after {
+  content: none;
 }
 
 .poster .wanted {

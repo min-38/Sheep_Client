@@ -10,6 +10,7 @@ import { dotPosition, noBlood, onGameEnd, onRevived, onWalk, onWounded, resultLa
 import { record, sampleAt, type Sample } from './interpolate.ts'
 import { fireMessage, parseServerMessage, stopMessage, type ClientMessage, type PlayerState, type RoundResult, type ShotResult } from './net.ts'
 import { normalizeNickname } from './nickname.ts'
+import { dressPaper, PAPER_GRAIN, PAPER_INK } from './paper.ts'
 import { BANDANA, joinable, memberText, roomStatus, type RoomInfo } from './roomlist.ts'
 import { normalizeRoomName, randomRoomName } from './roomname.ts'
 import type { Grid } from './raycast.ts'
@@ -558,6 +559,12 @@ const posterViews = Array.from({ length: POSTER_SLOTS }, () => {
 // 판 끝 포스터 (시스템 기획서 방 화면 M8 판 끝). HUD의 승리·패배 글자 대신 띄우고 결과 시간이 끝나면(endResult) 닫음
 const winView = document.querySelector<HTMLDivElement>('#win')!
 const winFace = document.querySelector<HTMLImageElement>('#win-face')!
+
+// 바랜 종이 질감 (paper.ts). 결과 카드와 포스터는 가장자리까지, 창은 얼룩만. 종이마다 seed가 달라 얼룩과 귀퉁이가 다름
+document.documentElement.style.setProperty('--paper-grain', PAPER_GRAIN)
+document.documentElement.style.setProperty('--paper-ink', PAPER_INK)
+document.querySelectorAll<HTMLElement>('#hit-card, .poster').forEach((el, i) => dressPaper(el, i + 1))
+document.querySelectorAll<HTMLElement>('.sheet').forEach((el, i) => dressPaper(el, i + 20, false))
 
 // 승리가 정해진 틱의 state에 이미 오른 이긴 횟수가 와서, 결과를 띄우는 INTERP_DELAY 뒤에는 roster에 있음.
 // 이긴 사람이 그사이 나갔으면 띄우지 않고 글자로 알림
