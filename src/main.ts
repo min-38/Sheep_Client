@@ -527,6 +527,9 @@ const nameStep = document.querySelector<HTMLFieldSetElement>('#name-step')!
 const roomStep = document.querySelector<HTMLFieldSetElement>('#room-step')!
 const whoName = document.querySelector<HTMLElement>('#who-name')!
 const roomList = document.querySelector<HTMLUListElement>('#room-list')!
+const roomHint = document.querySelector<HTMLParagraphElement>('#room-hint')!
+const menu = document.querySelector<HTMLDivElement>('#menu')!
+const enterButton = document.querySelector<HTMLButtonElement>('#enter')!
 const nameOk = document.querySelector<HTMLButtonElement>('#name-ok')!
 const codeInput = document.querySelector<HTMLInputElement>('#code')!
 const status = document.querySelector<HTMLParagraphElement>('#status')!
@@ -699,16 +702,23 @@ function checkNickname(): string | null {
 checkNickname()
 nicknameInput.addEventListener('input', checkNickname)
 
-// 첫 화면의 단계를 맞춤. 닉네임을 정했으면 방 목록 단계이고, 그 단계가 보이는 동안만 방 목록을 다시 받음
+// 닉네임을 정한 뒤 보이는 화면. 메뉴에서 입장을 누르면 입장 게시판, 뒤로나 Esc로 메뉴 (시스템 기획서 방 화면 첫 화면 흐름)
+let view: 'menu' | 'rooms' = 'menu'
+
+// 첫 화면의 단계를 맞춤. 닉네임이 없으면 닉네임 단계이고, 입장 게시판이 보이는 동안만 방 목록을 다시 받음.
+// 어느 단계인지는 data-view로 알려 style.css가 제목 자리를 바꿈
 function showStep() {
   const naming = nickname === null
+  lobby.dataset.view = naming ? 'name' : view
   nameStep.hidden = !naming
-  roomStep.hidden = naming
+  menu.hidden = naming || view !== 'menu'
+  roomStep.hidden = naming || view !== 'rooms'
   nameStep.disabled = !connected || !naming
-  roomStep.disabled = !connected || naming
+  roomStep.disabled = !connected || roomStep.hidden
+  enterButton.disabled = !connected
   whoName.textContent = nickname ?? ''
   clearInterval(roomsTimer)
-  if (naming || !connected || lobby.hidden) return
+  if (roomStep.hidden || !connected || lobby.hidden) return
   send({ type: 'listRooms' })
   roomsTimer = setInterval(() => send({ type: 'listRooms' }), ROOMS_EVERY)
 }
@@ -720,14 +730,75 @@ document.querySelector('#rename')!.addEventListener('click', () => {
   nicknameInput.focus()
 })
 
-// 마지막으로 받은 방 목록. 언어를 바꾸면 다음 목록을 기다리지 않고 다시 그림
+enterButton.addEventListener('click', () => {
+  view = 'rooms'
+  showStep()
+  codeInput.focus()
+})
+function backToMenu() {
+  view = 'menu'
+  showStep()
+  enterButton.focus()
+}
+document.querySelector('#back')!.addEventListener('click', backToMenu)
+roomStep.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') backToMenu()
+})
+
+// 방 코드 칸에 적힌 방의 줄에 금색 테두리. 고른 방은 칸이 기억해 목록을 새로 받아도 그대로임
+function markPick() {
+  const code = codeInput.value.toUpperCase()
+  for (const li of roomList.querySelectorAll<HTMLElement>('li')) li.classList.toggle('pick', li.dataset.code === code)
+}
+codeInput.addEventListener('input', markPick)
+// 한 폼에 닉네임 단계가 먼저 있어 Enter의 기본 버튼이 꺼진 닉네임 확인 버튼이 되고, 그러면 브라우저가 보내지 않음.
+// 방 코드 칸의 Enter는 입장 버튼으로 보냄
+codeInput.addEventListener('keydown', (e) => {
+  if (e.key !== 'Enter') return
+  e.preventDefault()
+  lobby.requestSubmit(document.querySelector<HTMLButtonElement>('#join'))
+})
+
+// 들어갈 수 있는 줄은 초점을 받으면(누르거나 Tab) 고르고, 두 번 누르거나 Enter로 들어감
+const rowCode = (e: Event) => (e.target as HTMLElement).closest<HTMLElement>('li[data-code]')?.dataset.code
+const joinCode = (code: string) => enterWith((nickname) => ({ type: 'joinRoom', code, nickname, character }))
+roomList.addEventListener('focusin', (e) => {
+  const code = rowCode(e)
+  if (code === undefined) return
+  codeInput.value = code
+  markPick()
+})
+roomList.addEventListener('dblclick', (e) => {
+  const code = rowCode(e)
+  if (code !== undefined) joinCode(code)
+})
+roomList.addEventListener('keydown', (e) => {
+  const code = rowCode(e)
+  if (e.key !== 'Enter' || code === undefined) return
+  e.preventDefault()
+  joinCode(code)
+})
+
+// 마지막으로 그린 방 목록. 언어를 바꾸면 다음 목록을 기다리지 않고 다시 그림.
+// 2초마다 받아도 목록이 그대로면 다시 그리지 않아, 줄의 초점과 두 번 누르기가 끊기지 않음
 let shownRooms: readonly RoomInfo[] = []
+let shownRoomsKey = ''
 // 방 목록 (시스템 기획서 방 화면 대기실 보기). 사용자가 넣은 이름이라 textContent로만 넣음
-function showRooms(rooms: readonly RoomInfo[]) {
+function showRooms(rooms: readonly RoomInfo[], force = false) {
+  const key = JSON.stringify(rooms)
+  if (!force && key === shownRoomsKey) return
   shownRooms = rooms
+  shownRoomsKey = key
+  // 다시 그리면 줄이 새로 생겨 초점이 빠지므로 같은 방의 새 줄로 옮김
+  const focused = roomList.contains(document.activeElement) ? (document.activeElement as HTMLElement).dataset.code : undefined
   const items = rooms.map((r) => {
     const li = document.createElement('li')
-    li.classList.toggle('closed', !joinable(r))
+    if (joinable(r)) {
+      li.dataset.code = r.code
+      li.tabIndex = 0
+    } else {
+      li.className = 'closed'
+    }
     const name = document.createElement('strong')
     name.textContent = r.name
     const who = document.createElement('span')
@@ -743,14 +814,6 @@ function showRooms(rooms: readonly RoomInfo[]) {
     const state = document.createElement('span')
     state.textContent = roomStatus(r)
     li.append(name, who, count, state)
-    if (joinable(r)) {
-      const join = document.createElement('button')
-      join.type = 'button'
-      join.className = 'plank'
-      join.textContent = copy.lobby.join
-      join.addEventListener('click', () => enterWith((nickname) => ({ type: 'joinRoom', code: r.code, nickname, character })))
-      li.append(join)
-    }
     return li
   })
   if (items.length === 0) {
@@ -760,6 +823,9 @@ function showRooms(rooms: readonly RoomInfo[]) {
     items.push(empty)
   }
   roomList.replaceChildren(...items)
+  roomHint.hidden = !rooms.some(joinable)
+  markPick()
+  items.find((li) => focused !== undefined && li.dataset.code === focused)?.focus()
 }
 
 // 방에 들어가는 버튼마다 부름. 정한 닉네임으로 메시지를 만들어 보냄
@@ -839,6 +905,7 @@ function connect() {
     connected = false
     createPanel.hidden = true
     lobby.hidden = false
+    view = 'menu'
     showStep()
     saloon.hidden = true
     winView.hidden = true
@@ -990,7 +1057,6 @@ function receive(data: string) {
   }
 }
 
-document.querySelector('#quick')!.addEventListener('click', () => enterWith((nickname) => ({ type: 'quickJoin', nickname, character })))
 // 방 만들기 창 (시스템 기획서 방 화면 방 만들기 창). 열 때마다 무작위 이름, 8명, 공개로 채움
 const createPanel = document.querySelector<HTMLDivElement>('#create-panel')!
 const roomNameInput = document.querySelector<HTMLInputElement>('#room-name')!
@@ -1137,6 +1203,6 @@ function applyCopy() {
   status.textContent = statusText()
   showReady()
   shownRounds = undefined
-  if (!roomStep.hidden) showRooms(shownRooms)
+  if (!roomStep.hidden) showRooms(shownRooms, true)
 }
 applyCopy()

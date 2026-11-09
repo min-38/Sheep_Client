@@ -10,7 +10,6 @@ export type ClientMessage =
   | { type: 'createRoom'; nickname: string; name: string; maxPlayers: number; private: boolean; character: number }
   | { type: 'joinRoom'; code: string; nickname: string; character: number }
   // 들어갈 수 있는 공개 방 중 사람이 가장 많은 방에 넣고, 없으면 새 공개 방을 만듦. 답은 joined 또는 roomCreated
-  | { type: 'quickJoin'; nickname: string; character: number }
   // 공개 방 목록 요청. 방에 들어가기 전에도 보냄
   | { type: 'listRooms' }
   // 대기실(술집)의 나가기. 답은 left

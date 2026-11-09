@@ -57,7 +57,8 @@
           <button type="button" class="plank settings-open" data-i18n="saloon.settings"></button>
         </div>
       </div>
-      <!-- 첫 화면. 위에서부터 제목, 닉네임, 랜덤 입장, 방 만들기, 방 코드로 입장 (시스템 기획서 방 화면 M8 첫 화면) -->
+      <!-- 첫 화면. 닉네임 단계, 메뉴, 입장 게시판 중 하나를 보임. 어느 것인지는 main.ts가 data-view로 알림
+           (시스템 기획서 방 화면 M8 첫 화면, 첫 화면 흐름) -->
       <form id="lobby">
         <h1 id="title"><span data-i18n="titleLines.0"></span> <span data-i18n="titleLines.1"></span> <span data-i18n="titleLines.2"></span></h1>
         <!-- 1단계: 닉네임을 정함. 브라우저에 기억한 닉네임이 있으면 건너뜀 -->
@@ -66,22 +67,30 @@
           <p id="nickname-rule" data-i18n="lobby.nicknameRule"></p>
           <button id="name-ok" class="plank" data-i18n="lobby.ok"></button>
         </fieldset>
-        <!-- 2단계: 방 목록, 그 아래 방 코드로 입장, 랜덤 입장, 방 만들기 (시스템 기획서 방 화면 첫 화면) -->
-        <fieldset id="room-step" hidden disabled>
+        <!-- 메뉴: 나무 기둥에 박은 이정표 판. 연습은 아직 없어 막아 둠. 브라우저는 연 탭을 닫지 못해 종료는 없음 -->
+        <div id="menu" hidden>
+          <button type="button" id="enter" class="plank sign" data-i18n="lobby.play"></button>
+          <button type="button" id="practice" class="plank sign left" data-i18n="lobby.practice" disabled></button>
+          <button type="button" class="plank sign settings-open" data-i18n="lobby.settings"></button>
+        </div>
+        <!-- 입장 게시판: 못 박은 종이. 머리에 방 만들기, 그 아래 캐릭터 고르기, 방 목록, 맨 아래 뒤로·방 코드·입장 -->
+        <fieldset id="room-step" class="sheet" hidden disabled>
+          <div id="board-head">
+            <h2 data-i18n="lobby.rooms"></h2>
+            <button type="button" id="create" class="plank" data-i18n="lobby.create"></button>
+          </div>
           <p id="who"><span data-i18n="lobby.nickname"></span> <strong id="who-name"></strong> <button type="button" id="rename" data-i18n="lobby.rename"></button></p>
           <!-- 캐릭터 고르기. 칸은 main.ts가 캐릭터마다 초상화로 만듦 (시스템 기획서 캐릭터 고르기) -->
           <div id="character-pick" role="radiogroup" aria-labelledby="character-label"><span id="character-label" data-i18n="lobby.character"></span></div>
+          <!-- 줄은 main.ts가 만듦. 들어갈 수 있는 줄은 눌러 고르고(방 코드 칸에 코드가 들어감) 두 번 눌러 들어감 -->
           <ul id="room-list" data-i18n-label="lobby.roomList"></ul>
+          <p id="room-hint" data-i18n="lobby.doubleClick"></p>
           <div class="row">
+            <button type="button" id="back" class="plank" data-i18n="lobby.back"></button>
             <input id="code" data-i18n-label="lobby.code" data-i18n-placeholder="lobby.code" maxlength="6" pattern="[A-Za-z0-9]{6}" required autocomplete="off" spellcheck="false" />
             <button id="join" class="plank" data-i18n="lobby.join"></button>
           </div>
-          <div class="row">
-            <button type="button" id="quick" class="plank" data-i18n="lobby.quick"></button>
-            <button type="button" id="create" class="plank" data-i18n="lobby.create"></button>
-          </div>
         </fieldset>
-        <button type="button" class="plank settings-open" data-i18n="lobby.settings"></button>
         <p id="status" role="status"></p>
       </form>
       <!-- 방 만들기 창. 방 이름, 인원 제한, 비공개 여부를 정해 생성하거나 취소함 (시스템 기획서 방 화면 방 만들기 창) -->
