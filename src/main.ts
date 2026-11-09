@@ -20,7 +20,7 @@ import { makeCamera, renderFrame } from './render.ts'
 import { loaded, pull, ROUNDS } from './revolver.ts'
 import type { Rig } from './rig.ts'
 import { banner, DUEL_LIMIT, dueling, formatTime, joins, locked, resultText, standingCount, stepIndex, timeLeft, walking, type Schedule } from './round.ts'
-import { bountyRise, COPIED_MS, copyKeys, drawSaloon, SALOON_CAMERA, seatSlots, seatSpot, seatTag, startBartender, stepBartender, STOOL, tally } from './saloon.ts'
+import { bountyRise, bubbleX, COPIED_MS, copyKeys, drawSaloon, SALOON_CAMERA, seatSlots, seatSpot, seatTag, startBartender, startChatter, stepBartender, stepChatter, STOOL, tally } from './saloon.ts'
 import { cut, replayWindow } from './replay.ts'
 // 지금 언어의 문구. 이 파일은 t를 시각 변수로 많이 써 문구는 copy로 부름
 import { copyOf, HTML_LANG, LANGUAGES, setLanguage, t as copy, textAt, type Language } from './i18n/index.ts'
@@ -413,6 +413,9 @@ leaveDown.addEventListener('click', () => send({ type: 'leaveRoom' }))
 
 // 술집 주인. 프레임마다 지난 시간만큼 움직임
 let bartender = startBartender(performance.now())
+// 술집 주인 말풍선. 방에 들어올 때 다시 시작해 첫 말은 들어오고 조금 뒤에 함 (SHEEP-116)
+let chatter = startChatter(performance.now())
+const bartenderLine = document.querySelector<HTMLParagraphElement>('#bartender-line')!
 let lastFrame = performance.now()
 
 function frame(now: number) {
@@ -437,6 +440,14 @@ function frame(now: number) {
     bartender = stepBartender(bartender, now, dt, Math.random)
     drawSaloon(ctx, bartender, now)
     ctx.drawImage(guests, 0, 0)
+    const { tips, jokes } = copy.saloon.bartender
+    chatter = stepChatter(chatter, now, { tips: tips.length, jokes: jokes.length }, Math.random)
+    bartenderLine.hidden = chatter.line === null
+    if (chatter.line) {
+      const text = copy.saloon.bartender[chatter.line.kind][chatter.line.index] ?? ''
+      if (bartenderLine.textContent !== text) bartenderLine.textContent = text
+      bartenderLine.style.left = `${(bubbleX(bartender.x) * 100) / W}%`
+    }
   } else if (grid && view) {
     // 내 자리도 다른 사람처럼 INTERP_DELAY 전을 그림. 받은 그대로 그리면 걷는 동안 20Hz로 끊겨 보임
     const things = [...othersAt(r ? t : now - INTERP_DELAY, view.id, scene), ...props]
@@ -980,6 +991,7 @@ function receive(data: string) {
       roomPrivate = m.private
       showCopied(null)
       makeSeats(m.maxPlayers)
+      chatter = startChatter(performance.now())
       room.value = m.code
       myId = m.playerId
       placed = false

@@ -91,6 +91,30 @@ export const COPIED_MS = 1500
 // 클립보드가 막혀 직접 복사할 때 누를 키. 애플 기기는 Command
 export const copyKeys = (userAgent: string) => (/Mac|iPhone|iPad/.test(userAgent) ? '⌘C' : 'Ctrl+C')
 
+// 술집 주인 말풍선 (시스템 기획서 방 화면 술집 주인 말풍선, SHEEP-116). 사람마다 화면에서 따로 무작위이고 서버는 모름.
+// ms. 방에 들어와 첫 말까지, 말 사이 간격(25~45초), 띄워 두는 시간. ponytail: 임시 값. 플레이해 보며 정함
+export const CHATTER_FIRST = 8000
+export const CHATTER_GAP = [25000, 45000] as const
+export const CHATTER_SHOW = 6000
+
+// 대사 종류. 팁과 농담 반반
+export type Line = { kind: 'tips' | 'jokes'; index: number }
+// line은 지금 띄운 대사이고 없으면 null. until은 지우는 시각, next는 다음 말을 꺼내는 시각, last는 바로 앞 대사
+export type Chatter = { line: Line | null; until: number; next: number; last: Line | null }
+
+export const startChatter = (now: number): Chatter => ({ line: null, until: 0, next: now + CHATTER_FIRST, last: null })
+
+// counts는 언어 파일의 팁과 농담 수. 바로 앞 대사는 다시 고르지 않음
+export function stepChatter(c: Chatter, now: number, counts: Record<Line['kind'], number>, rand: () => number): Chatter {
+  if (c.line) return now < c.until ? c : { ...c, line: null, next: now + CHATTER_GAP[0] + rand() * (CHATTER_GAP[1] - CHATTER_GAP[0]) }
+  if (now < c.next) return c
+  const kind = rand() < 0.5 ? 'tips' : 'jokes'
+  let index = Math.floor(rand() * counts[kind])
+  if (c.last?.kind === kind && c.last.index === index) index = (index + 1) % counts[kind]
+  const line = { kind, index } as const
+  return { line, until: now + CHATTER_SHOW, next: 0, last: line }
+}
+
 // 술집 주인. 장식이라 사람마다 화면에서 따로 움직이고 서버는 모름. x는 몸 가운데(px)
 export type Bartender = { x: number; action: 'walk' | 'stand' | 'wipe'; target: number; until: number }
 
@@ -133,6 +157,11 @@ const PLANK = 20
 const BOARD = { x: 352, y: 16, w: 110, h: 62 }
 const SHELF = { x: Math.round(columnAt(-30, 118)), w: Math.round(columnAt(30, 118) - columnAt(-30, 118)), top: Math.round(rowAt(46, 118)), rows: [38, 30, 22].map((y) => Math.round(rowAt(y, 118))) }
 const BOTTLE_COLORS = ['#2f6b3a', '#a8641c', '#b8d0c8', '#7a1e1e', '#3a4a7a', '#c8a040']
+
+// px. 말풍선 폭의 절반(style.css #bartender-line 폭과 같음)
+const BUBBLE_HALF = 75
+// 말풍선 가운데(px). 술집 주인 머리 위를 따르되 오른쪽 칠판과 왼쪽 화면 끝에 걸리지 않게 안쪽으로 당김
+export const bubbleX = (x: number) => Math.min(Math.max(x, BUBBLE_HALF + 4), BOARD.x - 4 - BUBBLE_HALF)
 
 // 선반마다 늘어선 술병 [x, 너비, 높이, 색]. 늘 같은 모습이 되게 고정한 의사 난수로 한 번만 만듦
 const BOTTLES = (() => {

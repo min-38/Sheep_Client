@@ -45,6 +45,26 @@ export const es: Copy = {
     copyFailed: (keys) => `Pulsa ${keys}, compañero`,
     readyStamp: 'Listo',
     winStamp: 'Ganador',
+    bartender: {
+      tips: [
+        'Quieto con el hierro un rato antes de disparar. Mano temblona no acierta, compadre.',
+        'Gira deprisa y la puntería te baila como loca. Deja que se asiente.',
+        'Una bala por ronda. Más te vale no desperdiciarla.',
+        'Un tiro en la cabeza y se acabó. Uno en la panza y sigue en pie. Dos, y ya no.',
+        'Diez segundos tras el «¡Desenfunda!», compadre. Si tardas más, le harás el trabajo al enterrador tú solito.',
+        'Haz clic mientras caminas y te paras en seco. Solo una vez, ojo.',
+        '¿Caen dos a la vez? Pues se levantan y vuelta a empezar.',
+        'Si te tumban, aún puedes mirar por los ojos de los que siguen en pie. Clic para cambiar.',
+      ],
+      jokes: [
+        'Uno pagó la cuenta con una bala. Diría que le salió de lado a lado.',
+        'Diez pasos. Una bala. Sin devoluciones.',
+        'Al pianista no le pagan por agacharse.',
+        'El último que desenfundó antes de tiempo aún me debe el whisky.',
+        'El enterrador bebe gratis aquí. Bueno para su negocio y para el mío.',
+        'Una vez uno me pidió leche. No lo he vuelto a ver.',
+      ],
+    },
   },
   lobby: {
     nickname: 'Apodo',
