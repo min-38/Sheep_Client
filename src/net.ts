@@ -58,9 +58,9 @@ export type ShotResult =
   | { zone: null; height: null; offset: null; down: boolean }
 
 export type ServerMessage =
-  // name은 방 이름, private는 비공개 방인지. 둘 다 술집 칠판에 적음
-  | { type: 'roomCreated'; code: string; playerId: string; name: string; private: boolean }
-  | { type: 'joined'; code: string; playerId: string; name: string; private: boolean }
+  // name은 방 이름, private는 비공개 방인지. 둘 다 술집 칠판에 적음. maxPlayers는 인원 제한(2~8)이고 술집 바 좌석 수 (SHEEP-115)
+  | { type: 'roomCreated'; code: string; playerId: string; name: string; private: boolean; maxPlayers: number }
+  | { type: 'joined'; code: string; playerId: string; name: string; private: boolean; maxPlayers: number }
   | { type: 'error'; reason: 'notFound' | 'full' | 'playing' | 'nickname' | 'roomName' | 'maxPlayers' | 'character' }
   | { type: 'map'; width: number; height: number; cells: Grid }
   | { type: 'state'; tick: number; players: PlayerState[] }
@@ -104,8 +104,14 @@ export function parseServerMessage(text: string): ServerMessage | null {
   switch (m?.type) {
     case 'roomCreated':
     case 'joined':
-      return typeof m.code === 'string' && typeof m.playerId === 'string' && typeof m.name === 'string' && typeof m.private === 'boolean'
-        ? { type: m.type, code: m.code, playerId: m.playerId, name: m.name, private: m.private }
+      return typeof m.code === 'string' &&
+        typeof m.playerId === 'string' &&
+        typeof m.name === 'string' &&
+        typeof m.private === 'boolean' &&
+        Number.isInteger(m.maxPlayers) &&
+        m.maxPlayers >= 2 &&
+        m.maxPlayers <= 8
+        ? { type: m.type, code: m.code, playerId: m.playerId, name: m.name, private: m.private, maxPlayers: m.maxPlayers }
         : null
     case 'error':
       return ['notFound', 'full', 'playing', 'nickname', 'roomName', 'maxPlayers', 'character'].includes(m.reason) ? { type: 'error', reason: m.reason } : null

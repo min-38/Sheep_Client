@@ -140,6 +140,22 @@ describe('characterBody', () => {
     near(right, 5 * CELL)
   })
 
+  test('앉으면 엉덩이 높이 그대로 허벅지가 앞으로 눕고, 정강이는 무릎에서 내려와 발이 엉덩이 높이 아래 8블록 (SHEEP-115)', () => {
+    const sit = body.sit
+    const thighs = pick(sit, 'rightLeg', 16).filter((b) => b.half[1] === 4)
+    expect(thighs).toHaveLength(1)
+    // 허벅지 아래는 바 의자 방석 높이(14.75블록), 앞으로 무릎까지 8블록
+    near(span(thighs, 1)[0], 14.75 * CELL)
+    near(span(thighs, 2)[1], 8 * CELL)
+    near(span(pick(sit, 'leftLeg', 16), 1)[0], 8 * CELL)
+    // 몸통과 머리는 서 있을 때와 같은 자리
+    expect(holding(sit.boxes, [0, 28, 0])).toHaveLength(1)
+    // 아래팔은 앞으로 뻗어 카운터 높이(19블록) 언저리
+    const hands = pick(sit, 'rightArm', 13.5)
+    near(span(hands, 1)[1], 19 * CELL)
+    expect(front(hands)).toBeGreaterThan(8)
+  })
+
   test('같은 캐릭터는 한 번만 만듦', () => {
     expect(characterBody(0)).toBe(body)
   })

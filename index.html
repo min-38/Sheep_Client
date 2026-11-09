@@ -37,11 +37,11 @@
       <button type="button" id="replay" class="plank" data-i18n="hud.replay" hidden></button>
       <button type="button" id="leave-down" class="plank" data-i18n="hud.leave" hidden></button>
       <output id="room" data-i18n-label="hud.roomCode"></output>
-      <!-- 술집 대기실. 방에 들어가 판이 시작되기 전과 판이 끝난 뒤에 보임. 벽, 선반, 카운터, 술집 주인은 캔버스에 그리고
+      <!-- 술집 대기실. 방에 들어가 판이 시작되기 전과 판이 끝난 뒤에 보임. 벽, 선반, 카운터, 술집 주인, 바 의자와 앉은 사람은 캔버스에 그리고
            글자가 있는 것만 여기 얹음 (시스템 기획서 방 화면 M8 대기실 짜임) -->
       <div id="saloon" hidden>
-        <!-- 왼쪽 벽 포스터 8자리. 목수건 색 번호가 자리 번호 -->
-        <ol id="posters" data-i18n-label="saloon.posters"></ol>
+        <!-- 바 좌석 꼬리표. 좌석 수는 방 인원 제한이고 목수건 색 번호가 좌석 번호. 칸은 main.ts가 방에 들어갈 때 만듦 -->
+        <ol id="seats" data-i18n-label="saloon.seats"></ol>
         <div id="chalkboard" data-i18n-label="saloon.board">
           <p id="board-name"></p>
           <!-- 방 코드. 누르면 클립보드에 복사함. 옆의 종이 두 장 아이콘이 복사할 수 있다는 표시 (SHEEP-114) -->
@@ -49,7 +49,7 @@
           <p id="board-copied" role="status" hidden></p>
           <p id="board-private" data-i18n="saloon.private" hidden></p>
         </div>
-        <!-- 카운터 앞면. 왼쪽부터 나가기, 준비, 설정 -->
+        <!-- 바닥 쪽 한 줄. 왼쪽부터 나가기, 준비, 설정 -->
         <div id="counter">
           <button type="button" id="leave" class="plank" data-i18n="saloon.leave"></button>
           <div id="ready-box">

@@ -30,7 +30,7 @@ export const ru: Copy = {
     miss: 'Мимо',
   },
   saloon: {
-    posters: 'Игроки в комнате',
+    seats: 'Люди у стойки',
     board: 'Комната',
     private: 'Закрытая',
     leave: 'Выйти',
@@ -38,7 +38,8 @@ export const ru: Copy = {
     unready: 'Не готов',
     readyCount: (ready, total) => `Готовы ${ready}/${total}`,
     settings: 'Настройки',
-    myPoster: 'Мой плакат',
+    mySeat: 'Моё место',
+    wins: (n) => `Побед: ${n}`,
     copyCode: 'Скопировать код комнаты',
     copied: 'Скопировал, приятель',
     copyFailed: (keys) => `Жми ${keys}, приятель`,

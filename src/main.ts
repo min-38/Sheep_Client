@@ -1,7 +1,7 @@
 import './style.css'
 import revolverData from './assets/revolver-rig.json'
 import { orbit } from './backdrop.ts'
-import { CHARACTERS, characterBody, PORTRAITS, savedCharacter, SUICIDE_AIM, SUICIDE_FLASH, suicideStage, type Body, type Pose } from './character.ts'
+import { CHARACTERS, characterBody, drawFigure, PORTRAITS, savedCharacter, SUICIDE_AIM, SUICIDE_FLASH, suicideStage, type Body, type Pose } from './character.ts'
 import { best, measure, toLocalTime, toServerTime, type ClockSample } from './clock.ts'
 import { CYLINDER_TURN, cylinderSvg } from './cylinder.ts'
 import { makeProps, SKIES, timeOfDay } from './desert.ts'
@@ -20,7 +20,7 @@ import { makeCamera, renderFrame } from './render.ts'
 import { loaded, pull, ROUNDS } from './revolver.ts'
 import type { Rig } from './rig.ts'
 import { banner, DUEL_LIMIT, dueling, formatTime, joins, locked, resultText, standingCount, stepIndex, timeLeft, walking, type Schedule } from './round.ts'
-import { bountyRise, COPIED_MS, copyKeys, drawSaloon, POSTER_SLOTS, posterSlots, startBartender, stepBartender } from './saloon.ts'
+import { bountyRise, COPIED_MS, copyKeys, drawSaloon, SALOON_CAMERA, seatSlots, seatSpot, seatTag, startBartender, stepBartender, STOOL, tally } from './saloon.ts'
 import { cut, replayWindow } from './replay.ts'
 // 지금 언어의 문구. 이 파일은 t를 시각 변수로 많이 써 문구는 copy로 부름
 import { copyOf, HTML_LANG, LANGUAGES, setLanguage, t as copy, textAt, type Language } from './i18n/index.ts'
@@ -144,7 +144,7 @@ function applyState(players: readonly PlayerState[]) {
   pickWatch(now)
   // 창이 숨어 그리기가 멈춰도 state는 오므로 여기서 떠 둠
   if (replayPlan && now > replayPlan.end) saveReplay()
-  showPosters(players)
+  showSeats(players)
   // 내 준비 여부도 서버가 정함. 누르면 이 값을 뒤집어 보냄
   ready = me.ready
   showReady()
@@ -436,6 +436,7 @@ function frame(now: number) {
     // 판 사이에는 결투장 대신 술집 한 장면을 그림 (시스템 기획서 방 화면 M8 대기실 짜임)
     bartender = stepBartender(bartender, now, dt, Math.random)
     drawSaloon(ctx, bartender, now)
+    ctx.drawImage(guests, 0, 0)
   } else if (grid && view) {
     // 내 자리도 다른 사람처럼 INTERP_DELAY 전을 그림. 받은 그대로 그리면 걷는 동안 20Hz로 끊겨 보임
     const things = [...othersAt(r ? t : now - INTERP_DELAY, view.id, scene), ...props]
@@ -569,31 +570,47 @@ boardCode.addEventListener('click', async () => {
   }
 })
 
-// 포스터 8장 (시스템 기획서 방 화면 포스터). 자리 번호가 목수건 색 번호이고, 초상화는 그 자리 사람이 고른 캐릭터의 그림.
-// 닉네임은 사용자가 넣은 이름이라 textContent로만 넣음
-const posterViews = Array.from({ length: POSTER_SLOTS }, () => {
-  const li = document.createElement('li')
-  li.className = 'poster'
-  const wanted = document.createElement('span')
-  wanted.className = 'wanted'
-  wanted.textContent = 'WANTED'
-  const face = document.createElement('img')
-  face.alt = ''
-  const nick = document.createElement('span')
-  nick.className = 'nick'
-  const bounty = document.createElement('span')
-  bounty.className = 'bounty'
-  const star = document.createElement('i')
-  star.className = 'star'
-  star.setAttribute('role', 'img')
-  star.setAttribute('aria-label', copy.saloon.myPoster)
-  const stamp = document.createElement('span')
-  stamp.className = 'stamp'
-  stamp.textContent = copy.saloon.readyStamp
-  li.append(wanted, face, nick, bounty, star, stamp)
-  document.querySelector('#posters')!.append(li)
-  return { li, wanted, face, nick, bounty, star, stamp }
-})
+// 바 좌석 (시스템 기획서 방 화면 M8 대기실 짜임). 좌석 수는 방 인원 제한이라 방에 들어갈 때 다시 만듦. 좌석 번호가 목수건 색 번호.
+// 꼬리표는 앉은 사람 머리 위의 종이이고, 닉네임은 사용자가 넣은 이름이라 textContent로만 넣음
+const seatList = document.querySelector<HTMLOListElement>('#seats')!
+type SeatView = { li: HTMLLIElement; nick: HTMLSpanElement; wins: HTMLSpanElement; star: HTMLElement; stamp: HTMLSpanElement }
+let seatViews: SeatView[] = []
+let seatCount = 8
+function makeSeats(seats: number) {
+  seatCount = seats
+  seatViews = Array.from({ length: seats }, (_, i) => {
+    const li = document.createElement('li')
+    li.className = 'seat'
+    const at = seatTag(i, seats)
+    li.style.left = `${(at.x * 100) / W}%`
+    li.style.top = `${(at.y * 100) / H}%`
+    const nick = document.createElement('span')
+    nick.className = 'nick'
+    const wins = document.createElement('span')
+    wins.className = 'wins'
+    const star = document.createElement('i')
+    star.className = 'star'
+    star.setAttribute('role', 'img')
+    star.setAttribute('aria-label', copy.saloon.mySeat)
+    const stamp = document.createElement('span')
+    stamp.className = 'stamp'
+    stamp.textContent = copy.saloon.readyStamp
+    li.append(star, nick, wins, stamp)
+    dressPaper(li, i + 40, false)
+    return { li, nick, wins, star, stamp }
+  })
+  seatList.replaceChildren(...seatViews.map((v) => v.li))
+  shownSeats = ''
+}
+// 의자와 앉은 손님의 3D 그림. 좌석이 바뀔 때만 다시 그려 두고, 프레임마다 술집 그림 위에 얹음. 벽이 없어 가릴 것도 없음
+const guests = document.createElement('canvas')
+guests.width = W
+guests.height = H
+const guestsCtx = guests.getContext('2d')!
+const guestImage = guestsCtx.createImageData(W, H)
+const guestPixels = new Uint32Array(guestImage.data.buffer)
+const NO_WALLS = new Float64Array(W).fill(Infinity)
+const SALOON_LIGHT = [255, 255, 255] as const
 // 판 끝 포스터 (시스템 기획서 방 화면 M8 판 끝). HUD의 승리·패배 글자 대신 띄우고 결과 시간이 끝나면(endResult) 닫음
 const winView = document.querySelector<HTMLDivElement>('#win')!
 const winFace = document.querySelector<HTMLImageElement>('#win-face')!
@@ -615,23 +632,32 @@ function showWinner(id: string) {
   winView.hidden = false
 }
 
-// 마지막으로 그린 포스터. state는 20Hz로 오지만 바뀔 때만 다시 넣어 화면 낭독기가 되풀이해 읽지 않게 함
-let shownPosters = ''
-function showPosters(players: readonly PlayerState[]) {
-  const slots = posterSlots(players, myId)
+// 마지막으로 그린 좌석. state는 20Hz로 오지만 바뀔 때만 다시 넣어 화면 낭독기가 되풀이해 읽지 않게 함
+let shownSeats = ''
+function showSeats(players: readonly PlayerState[]) {
+  const slots = seatSlots(players, myId, seatCount)
   const key = JSON.stringify(slots)
-  if (key === shownPosters) return
-  shownPosters = key
-  slots.forEach((p, i) => {
-    const v = posterViews[i]
-    v.li.classList.toggle('empty', p === null)
-    for (const part of [v.wanted, v.face, v.nick, v.bounty]) part.hidden = p === null
-    v.nick.textContent = p?.nickname ?? ''
-    if (p) v.face.src = PORTRAITS[p.character]
-    v.bounty.textContent = p?.bounty ?? ''
-    v.star.hidden = !p?.mine
-    v.stamp.hidden = !p?.ready
+  if (key === shownSeats) return
+  shownSeats = key
+  slots.forEach((s, i) => {
+    const v = seatViews[i]
+    v.li.hidden = s === null
+    v.nick.textContent = s?.nickname ?? ''
+    v.wins.textContent = tally(s?.wins ?? 0)
+    v.wins.setAttribute('aria-label', copy.saloon.wins(s?.wins ?? 0))
+    v.wins.hidden = !s?.wins
+    v.star.hidden = !s?.mine
+    v.stamp.hidden = !s?.ready
   })
+  guestPixels.fill(0)
+  // 바깥 좌석부터 그려 카메라에 가까운 가운데 쪽이 덮음
+  const middle = (seatCount - 1) / 2
+  const order = slots.map((_, i) => i).sort((a, b) => Math.abs(b - middle) - Math.abs(a - middle))
+  for (const i of order) {
+    const pose = slots[i] && characterBody(slots[i].character).sit
+    drawFigure(guestPixels, W, H, NO_WALLS, SALOON_CAMERA, { ...seatSpot(i, seatCount), boxes: pose ? [...STOOL, ...pose.boxes] : [...STOOL], gun: pose ? pose.gun : [] }, SALOON_LIGHT)
+  }
+  guestsCtx.putImageData(guestImage, 0, 0)
 }
 const readyButton = document.querySelector<HTMLButtonElement>('#ready')!
 const readyCount = document.querySelector<HTMLOutputElement>('#ready-count')!
@@ -953,6 +979,7 @@ function receive(data: string) {
       boardCodeText.textContent = m.code
       roomPrivate = m.private
       showCopied(null)
+      makeSeats(m.maxPlayers)
       room.value = m.code
       myId = m.playerId
       placed = false
@@ -961,7 +988,6 @@ function receive(data: string) {
       shots.clear()
       downs.clear()
       watch = replay = replayPlan = replayFrom = null
-      shownPosters = ''
       schedule = {}
       standing = null
       break
@@ -1230,10 +1256,11 @@ function applyCopy() {
   for (const el of document.querySelectorAll<HTMLElement>('[data-i18n]')) el.textContent = textAt(copy, el.dataset.i18n!) ?? ''
   for (const el of document.querySelectorAll<HTMLElement>('[data-i18n-label]')) el.setAttribute('aria-label', textAt(copy, el.dataset.i18nLabel!) ?? '')
   for (const el of document.querySelectorAll<HTMLInputElement>('[data-i18n-placeholder]')) el.placeholder = textAt(copy, el.dataset.i18nPlaceholder!) ?? ''
-  for (const v of posterViews) {
-    v.star.setAttribute('aria-label', copy.saloon.myPoster)
+  for (const v of seatViews) {
+    v.star.setAttribute('aria-label', copy.saloon.mySeat)
     v.stamp.textContent = copy.saloon.readyStamp
   }
+  shownSeats = ''
   characterFaces.forEach((face, i) => (face.alt = copy.lobby.characterNames[i]))
   status.textContent = statusText()
   showReady()

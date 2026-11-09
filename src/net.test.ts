@@ -4,21 +4,28 @@ import { fireMessage, parseServerMessage, stopMessage } from './net.ts'
 
 describe('parseServerMessage', () => {
   test('방 만들기와 입장 응답은 내 플레이어 id를 받음', () => {
-    expect(parseServerMessage('{"type":"roomCreated","code":"AB12CD","playerId":"p1","name":"먼지 낀 술집","private":false}')).toEqual({
+    expect(parseServerMessage('{"type":"roomCreated","code":"AB12CD","playerId":"p1","name":"먼지 낀 술집","private":false,"maxPlayers":4}')).toEqual({
       type: 'roomCreated',
       code: 'AB12CD',
       playerId: 'p1',
       name: '먼지 낀 술집',
       private: false,
+      maxPlayers: 4,
     })
-    expect(parseServerMessage('{"type":"joined","code":"AB12CD","playerId":"p1","name":"비밀 금광","private":true}')).toEqual({
+    expect(parseServerMessage('{"type":"joined","code":"AB12CD","playerId":"p1","name":"비밀 금광","private":true,"maxPlayers":8}')).toEqual({
       type: 'joined',
       code: 'AB12CD',
       playerId: 'p1',
       name: '비밀 금광',
       private: true,
+      maxPlayers: 8,
     })
     expect(parseServerMessage('{"type":"joined","code":"AB12CD","name":"비밀 금광","private":true}')).toBeNull()
+  })
+
+  test('입장 응답의 인원 제한이 2~8 정수가 아니면 버림 (SHEEP-115)', () => {
+    for (const max of ['', ',"maxPlayers":1', ',"maxPlayers":9', ',"maxPlayers":4.5', ',"maxPlayers":"4"'])
+      expect(parseServerMessage(`{"type":"joined","code":"AB12CD","playerId":"p1","name":"비밀 금광","private":true${max}}`)).toBeNull()
   })
 
   test('입장 응답에 방 이름과 비공개 여부가 없으면 버림 (기술 설계서 메시지 roomCreated)', () => {

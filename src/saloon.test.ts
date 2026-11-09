@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest'
 import type { PlayerState } from './net.ts'
-import { BAR_LEFT, BAR_RIGHT, bountyRise, bountyText, copyKeys, posterSlots, startBartender, stepBartender } from './saloon.ts'
+import { BAR_LEFT, BAR_RIGHT, bountyRise, bountyText, copyKeys, seatSlots, seatSpot, seatTag, startBartender, stepBartender, tally } from './saloon.ts'
 
 const player = (id: string, color: number, extra: Partial<PlayerState> = {}): PlayerState => ({
   id,
@@ -17,20 +17,58 @@ const player = (id: string, color: number, extra: Partial<PlayerState> = {}): Pl
   ...extra,
 })
 
-describe('posterSlots', () => {
-  test('목수건 색 번호가 자리 번호라 나간 사람의 자리는 비고 남은 사람은 그대로', () => {
-    const slots = posterSlots([player('a', 0), player('c', 2)], 'c')
-    expect(slots).toHaveLength(8)
+describe('seatSlots', () => {
+  test('좌석 수는 방 인원 제한이고 목수건 색 번호가 좌석 번호라, 나간 사람의 좌석은 비고 남은 사람은 그대로', () => {
+    const slots = seatSlots([player('a', 0), player('c', 2)], 'c', 4)
+    expect(slots).toHaveLength(4)
     expect(slots[0]?.nickname).toBe('총잡이0')
     expect(slots[1]).toBeNull()
     expect(slots[2]?.nickname).toBe('총잡이2')
-    expect(slots.slice(3).every((s) => s === null)).toBe(true)
+    expect(slots[3]).toBeNull()
   })
 
-  test('내 포스터, 준비, 현상금, 고른 캐릭터를 그 사람 것으로 적음', () => {
-    const slots = posterSlots([player('a', 0, { ready: true, wins: 2 }), player('b', 1)], 'b')
-    expect(slots[0]).toEqual({ nickname: '총잡이0', character: 0, ready: true, mine: false, bounty: '$200' })
-    expect(slots[1]).toEqual({ nickname: '총잡이1', character: 0, ready: false, mine: true, bounty: '' })
+  test('새로 온 사람은 서버가 준 빈 색 번호의 좌석에 앉음', () => {
+    const before = seatSlots([player('a', 0), player('c', 2)], null, 3)
+    const after = seatSlots([player('a', 0), player('c', 2), player('d', 1)], null, 3)
+    expect(before[1]).toBeNull()
+    expect(after[1]?.nickname).toBe('총잡이1')
+    expect(after[0]).toEqual(before[0])
+    expect(after[2]).toEqual(before[2])
+  })
+
+  test('내 좌석, 준비, 이긴 횟수, 고른 캐릭터를 그 사람 것으로 적음', () => {
+    const slots = seatSlots([player('a', 0, { ready: true, wins: 2 }), player('b', 1, { character: 0 })], 'b', 2)
+    expect(slots[0]).toEqual({ nickname: '총잡이0', character: 0, ready: true, mine: false, wins: 2 })
+    expect(slots[1]).toEqual({ nickname: '총잡이1', character: 0, ready: false, mine: true, wins: 0 })
+  })
+})
+
+describe('tally', () => {
+  test('이긴 횟수만큼 칼자국, 9번이 넘으면 숫자', () => {
+    expect(tally(0)).toBe('')
+    expect(tally(3)).toBe('|||')
+    expect(tally(9)).toBe('|||||||||')
+    expect(tally(10)).toBe('10')
+  })
+})
+
+describe('seatSpot, seatTag', () => {
+  test('좌석은 가운데를 두고 좌우로 고르게 놓이고, 0번이 화면 왼쪽', () => {
+    for (const n of [2, 5, 8]) {
+      const xs = Array.from({ length: n }, (_, i) => seatTag(i, n).x)
+      expect(xs[0] + xs[n - 1]).toBeCloseTo(480, 6)
+      for (let i = 1; i < n; i++) expect(xs[i]).toBeGreaterThan(xs[i - 1])
+      expect(seatSpot(0, n).y).toBeLessThan(0)
+    }
+  })
+
+  test('8명 방도 꼬리표가 모두 화면 안', () => {
+    for (let i = 0; i < 8; i++) {
+      const at = seatTag(i, 8)
+      expect(at.x).toBeGreaterThan(26)
+      expect(at.x).toBeLessThan(454)
+      expect(at.y).toBeGreaterThan(20)
+    }
   })
 })
 

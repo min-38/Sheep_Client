@@ -30,7 +30,7 @@ export const ja: Copy = {
     miss: 'ミス',
   },
   saloon: {
-    posters: 'この部屋の人',
+    seats: 'カウンターの客',
     board: 'ルーム',
     private: '非公開',
     leave: '退出',
@@ -38,7 +38,8 @@ export const ja: Copy = {
     unready: '準備解除',
     readyCount: (ready, total) => `準備 ${ready}/${total}`,
     settings: '設定',
-    myPoster: '自分の手配書',
+    mySeat: '自分の席',
+    wins: (n) => `${n}勝`,
     copyCode: 'ルームコードをコピー',
     copied: 'コピーしといたぜ、相棒',
     copyFailed: (keys) => `${keys}を押しな、相棒`,

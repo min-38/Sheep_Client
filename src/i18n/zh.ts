@@ -30,7 +30,7 @@ export const zh: Copy = {
     miss: '未命中',
   },
   saloon: {
-    posters: '房间里的人',
+    seats: '吧台边的人',
     board: '房间',
     private: '私密',
     leave: '离开',
@@ -38,7 +38,8 @@ export const zh: Copy = {
     unready: '取消准备',
     readyCount: (ready, total) => `已准备 ${ready}/${total}`,
     settings: '设置',
-    myPoster: '我的通缉令',
+    mySeat: '我的座位',
+    wins: (n) => `${n} 胜`,
     copyCode: '复制房间代码',
     copied: '抄下来了，伙计',
     copyFailed: (keys) => `按 ${keys} 吧，伙计`,
