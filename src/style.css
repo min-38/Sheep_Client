@@ -364,12 +364,12 @@ body {
 
 /* 키보드 초점. 어두운 나무와 화면 위에서는 금색, 밝은 종이 창 안에서는 짙은 갈색으로 보이게 함 */
 .plank:focus-visible,
-.sheet :is(input, select):focus-visible {
+.sheet :is(input, .dropdown-button):focus-visible {
   outline: 0.3cqw solid #f7d27a;
   outline-offset: 0.3cqw;
 }
 
-.sheet :is(.plank, input, select):focus-visible {
+.sheet :is(.plank, input, .dropdown-button):focus-visible {
   outline-color: #8a2b0e;
 }
 
@@ -598,31 +598,89 @@ body {
   padding: 0.6cqw 1.2cqw;
 }
 
-/* 막대·선택 칸·라디오·체크 칸은 브라우저 모양을 지우고 나무와 놋쇠로 그림 */
-.sheet :is(select, input[type='range'], input[type='radio'], input[type='checkbox']) {
+/* 막대·라디오·체크 칸은 브라우저 모양을 지우고 나무와 놋쇠로 그림 */
+.sheet :is(input[type='range'], input[type='radio'], input[type='checkbox']) {
   appearance: none;
   margin: 0;
   cursor: pointer;
 }
 
-/* 선택 칸: 나무 판에 놋쇠 화살표. 펼친 목록은 브라우저가 그려 종이색 글자만 맞춤 */
-.sheet select {
-  padding: 0.6cqw 3cqw 0.6cqw 1.2cqw;
+/* 선택 칸 (dropdown.ts): 나무 판에 놋쇠 화살표. 펼치면 화살표가 위를 봄 */
+.dropdown {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+}
+
+.dropdown-button {
+  width: 100%;
   border: 0.25cqw solid #3d2412;
   border-radius: 0.4cqw;
   background:
     url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 12'%3E%3Cpath d='M2 2 L8 9 L14 2' fill='none' stroke='%23e2b23c' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") calc(100% - 0.9cqw) 50% / 1.3cqw auto no-repeat,
     var(--planks);
   color: #f7e6bd;
-  font: inherit;
   font-weight: bold;
+  text-align: left;
+  text-shadow: 0 0.15cqw 0 #3d2412;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+
+.dropdown-button[aria-expanded='true'] {
+  background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 12'%3E%3Cpath d='M2 10 L8 3 L14 10' fill='none' stroke='%23e2b23c' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"),
+    var(--planks);
+}
+
+/* 오른쪽 화살표 자리. 창 버튼마다 준 padding보다 앞서게 #game을 붙임 */
+#game .dropdown-button {
+  padding-right: 3cqw;
+}
+
+/* 펼친 목록: 종이 쪽지. 가리킨 줄은 나무 판 띠, 지금 고른 줄 앞에는 놋쇠 못 */
+.dropdown-list {
+  --stud: radial-gradient(circle, #f7d27a 0 0.1cqw, #e2b23c 0.3cqw, #8a6416 0.45cqw, #0000 0.5cqw) 0.9cqw 50% / 1cqw 1cqw no-repeat;
+  position: absolute;
+  z-index: 1;
+  top: calc(100% + 0.4cqw);
+  left: 0;
+  right: 0;
+  max-height: 24cqw;
+  margin: 0;
+  padding: 0.5cqw;
+  overflow-y: auto;
+  border: 0.25cqw solid #3d2412;
+  border-radius: 0.4cqw;
+  background: radial-gradient(ellipse closest-side, #f8ecc8 70%, #d4b479 150%);
+  box-shadow: 0 0.6cqw 1.2cqw #000a;
+  list-style: none;
+}
+
+.dropdown-list li {
+  padding: 0.5cqw 1cqw 0.5cqw 2.4cqw;
+  border-radius: 0.3cqw;
+  color: #3d2412;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+
+.dropdown-list li[aria-selected='true'] {
+  background: var(--stud);
+}
+
+.dropdown-list li.active {
+  background: var(--planks);
+  color: #f7e6bd;
   text-shadow: 0 0.15cqw 0 #3d2412;
 }
 
-.sheet option {
-  background: #f1e0b3;
-  color: #3d2412;
-  text-shadow: none;
+.dropdown-list li.active[aria-selected='true'] {
+  background: var(--stud), var(--planks);
 }
 
 /* 막대: 나무 홈에 놋쇠 손잡이 */
@@ -704,8 +762,7 @@ body {
   flex: 0 0 9cqw;
 }
 
-#settings-panel input[type='range'],
-#language {
+#settings-panel input[type='range'] {
   flex: 1;
   min-width: 0;
 }
@@ -735,8 +792,7 @@ body {
   padding: 0.4cqw 1cqw;
 }
 
-#create-panel .row > .plank:not(#dice),
-#create-panel label.row > select {
+#create-panel .row > .plank:not(#dice) {
   flex: 1;
 }
 
