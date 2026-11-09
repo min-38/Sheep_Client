@@ -1,10 +1,11 @@
 import charles from './assets/characters/charles.json'
+import motionData from './assets/motions.json'
 import charlesPortrait from './assets/portrait/charles.png'
 import revolverData from './assets/revolver-rig.json'
 import { revolverMesh } from './gun.ts'
 import { HEAD } from './hitcard.ts'
 import { horizonY, pack, tint, type Camera } from './render.ts'
-import type { Rig } from './rig.ts'
+import { slerp, type Rig } from './rig.ts'
 import { STEP_MS } from './round.ts'
 
 // 블록 캐릭터 (컨셉 기획서 아트 캐릭터 그림). 캐릭터마다 상자 목록 JSON(src/assets/characters/) 하나를 읽고, 관절을 돌려 동작을 만들어
@@ -18,15 +19,16 @@ export type Box = { c: V; axes: readonly [V, V, V]; half: V; rgb: RGB }
 // 동작 하나의 모습. gun은 리볼버 모델(revolver-rig.json) 꼭짓점을 모델 좌표로 옮긴 것이고, 면은 모델 그대로 (기술 설계서 렌더링 캐릭터)
 export type Pose = { boxes: Box[]; gun: readonly V[] }
 
-// 동작별 모습. walk는 흔드는 각도(walkSwing)로, aim과 fire는 위아래 시선(라디안, 위가 +)으로 그때그때 만들고,
-// suicide는 [총을 머리에 댐, 불꽃] 두 단계
+// 동작별 모습. rest는 틀 그대로 선 모습. stand, walk, fall은 사람 동작 데이터(motions.json)로 그 동작을 시작하고 지난 시간(ms)의 모습을
+// 그때그때 만듦(stand는 되풀이라 아무 시각이나 됨). aim과 fire는 위아래 시선(라디안, 위가 +)으로 만들고, suicide는 [총을 머리에 댐, 불꽃] 두 단계
 export type Body = {
-  stand: Pose
-  walk: (swing: number) => Pose
+  rest: Pose
+  stand: (ms: number) => Pose
+  walk: (ms: number) => Pose
   aim: (pitch: number) => Pose
   fire: (pitch: number) => Pose
   suicide: Pose[]
-  fallen: Pose
+  fall: (ms: number) => Pose
 }
 
 // 캐릭터 JSON. part는 head, body, rightArm, leftArm, rightLeg, leftLeg 중 하나. 색은 상자마다 단색 하나이고 명암은 그릴 때 넣음
@@ -66,10 +68,6 @@ const KNEE = 8
 const FIST = 12.75
 // 머리 밑. 위아래를 볼 때 머리가 여기를 축으로 돎
 const NECK: V = [0, 26, 0]
-// 라디안. 걸을 때 팔다리를 앞뒤로 흔드는 각도. ponytail: 임시 값. 플레이해 보며 정함
-const SWING = 0.45
-// 걸을 때 뒤로 간 다리의 무릎을 굽히는 배율(허벅지가 뒤로 간 각도의 배). ponytail: 임시 값. 화면을 보며 맞춤
-const KNEE_BEND = 1
 // 라디안. 쏠 때 반동으로 팔이 들리는 각도. ponytail: 임시 값. 플레이해 보며 정함
 const RECOIL = 0.5
 // 리볼버 모델 1m의 길이(블록). 키 1.8m 사람이면 약 16.7인데, 총 두께(0.05m)가 권총집(0.75블록)에 들게 조금 줄임
@@ -95,8 +93,6 @@ const cross = (a: V, b: V): V => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] 
 // a에서 d에 나란한 부분을 뺀 방향
 const across = (a: V, d: V) => unit(add(a, d, -dot(a, d)))
 
-// 어깨나 엉덩이에서 아래로 뻗은 팔다리를 앞(+)뒤로 a만큼 흔든 방향
-const down = (a: number): V => [0, -Math.cos(a), Math.sin(a)]
 // 앞을 보다 위(+)아래로 a만큼 든 방향
 const ahead = (a: number): V => [0, Math.sin(a), Math.cos(a)]
 
@@ -145,6 +141,63 @@ function moves(j: Joints): Record<Seg, Move> {
   const [leftLeg0, leftLeg1] = limb([-1.5, HIP, 0], KNEE, j.leftLeg)
   return { head: { from: NECK, to: NECK, turn: nod(j.look) }, body: still, rightArm0, rightArm1, leftArm0, leftArm1, rightLeg0, rightLeg1, leftLeg0, leftLeg1 }
 }
+
+// 사람 동작 데이터. blend/motions.py가 Quaternius Universal Animation Library(CC0)의 동작을 이 틀의 관절에 옮겨 구움 (SHEEP-100).
+// 동작마다 프레임별 엉덩이 이동(블록)과, segments 순서로 이어 붙인 덩어리 회전 사원수(x, y, z, w). loop가 아니면 끝 프레임에 멈춤
+type Motion = { loop: boolean; hip: number[][]; rot: number[][] }
+const MOTIONS = motionData as { fps: number; segments: string[]; clips: Record<'stand' | 'walk' | 'fall', Motion> }
+
+// 사원수 (x, y, z, w)만큼 돌림
+function rotation([x, y, z, w]: readonly number[]): Turn {
+  const q: V = [x, y, z]
+  return (v) => {
+    const t = add([0, 0, 0], cross(q, v), 2)
+    return add(add(v, t, w), cross(q, t))
+  }
+}
+
+// 덩어리 → [축 관절의 쉬는 자리, 그 관절이 붙은 덩어리]. 부모가 늘 앞에 옴. 몸은 엉덩이 가운데가 축이고 팔다리와 머리가 몸에 붙음 (blend/motions.py와 같은 식)
+const CHAIN: readonly [Seg, V, Seg | null][] = [
+  ['body', [0, HIP, 0], null],
+  ['head', NECK, 'body'],
+  ['rightArm0', [4, SHOULDER, 0], 'body'],
+  ['rightArm1', [4, ELBOW, 0], 'rightArm0'],
+  ['leftArm0', [-4, SHOULDER, 0], 'body'],
+  ['leftArm1', [-4, ELBOW, 0], 'leftArm0'],
+  ['rightLeg0', [1.5, HIP, 0], 'body'],
+  ['rightLeg1', [1.5, KNEE, 0], 'rightLeg0'],
+  ['leftLeg0', [-1.5, HIP, 0], 'body'],
+  ['leftLeg1', [-1.5, KNEE, 0], 'leftLeg0'],
+]
+const slot = (seg: Seg) => MOTIONS.segments.indexOf(seg) * 4
+
+// 동작 m의 f번째 프레임(소수면 앞뒤 프레임 사이를 보간) 모습. 되풀이 동작은 끝에서 처음으로 이어짐
+function motionMoves(m: Motion, f: number): Record<Seg, Move> {
+  const n = m.rot.length
+  const at = m.loop ? ((f % n) + n) % n : Math.min(Math.max(f, 0), n - 1)
+  const i = Math.floor(at)
+  const j = m.loop ? (i + 1) % n : Math.min(i + 1, n - 1)
+  const u = at - i
+  const hip = m.hip[i].map((h, k) => h + (m.hip[j][k] - h) * u)
+  const out = {} as Record<Seg, Move>
+  for (const [seg, joint, parent] of CHAIN) {
+    const s = slot(seg)
+    const turn = rotation(slerp(m.rot[i].slice(s, s + 4), m.rot[j].slice(s, s + 4), u))
+    out[seg] = { from: joint, to: parent === null ? add(joint, [hip[0], hip[1], hip[2]]) : movePoint(joint, out[parent]), turn }
+  }
+  return out
+}
+
+// 걷기에서 오른 허벅지가 가장 앞으로 나온 프레임. 걷기 시각에 여기서 시작해 걸음(발소리)마다 한쪽 다리가 가장 앞에 옴
+const WALK_START = (() => {
+  const thigh = (r: number[]) => rotation(r.slice(slot('rightLeg0'), slot('rightLeg0') + 4))(DOWN)[2]
+  const rot = MOTIONS.clips.walk.rot
+  return rot.reduce((best, r, i) => (thigh(r) > thigh(rot[best]) ? i : best), 0)
+})()
+
+// ms. 쓰러지는 동작에서 몸이 바닥에 닿는 때. 엉덩이가 가장 낮은 높이에서 1블록 안에 처음 들어온 프레임 (쓰러지는 소리를 이때 냄)
+const FALL_HIP = MOTIONS.clips.fall.hip.map((h) => h[1])
+export const FALL_LAND_MS = (FALL_HIP.findIndex((y) => y <= Math.min(...FALL_HIP) + 1) * 1000) / MOTIONS.fps
 
 const rgb = (hex: string): RGB => {
   const n = parseInt(hex.slice(1), 16)
@@ -197,27 +250,25 @@ function ground(p: Pose): Pose {
   return { boxes: p.boxes.map((b) => moveBox(b, lift)), gun: p.gun.map((q) => movePoint(q, lift)) }
 }
 
-// 오른쪽으로 쓰러져 누움. 오른쪽이 바닥, 머리가 +x. 누운 몸의 가운데가 서 있던 자리
-function lay(p: Pose): Pose {
-  const top = Math.max(...p.boxes.flatMap((b) => corners(b).map((q) => q[1])))
-  const fall: Move = { from: [0, 0, 0], to: [-top / 2, 0, 0], turn: (v) => [v[1], -v[0], v[2]] }
-  return ground({ boxes: p.boxes.map((b) => moveBox(b, fall)), gun: p.gun.map((q) => movePoint(q, fall)) })
-}
-
 function build(data: CharacterData): Body {
   const shape = parts(data)
-  const posed = (j: Joints) => {
-    const m = moves(j)
-    return { boxes: shape.map(({ box, seg }) => moveBox(box, m[seg])), fist: movePoint([4, FIST, 0], m.rightArm1), thigh: m.rightLeg0 }
-  }
+  const posed = (m: Record<Seg, Move>) => ({
+    boxes: shape.map(({ box, seg }) => moveBox(box, m[seg])),
+    fist: movePoint([4, FIST, 0], m.rightArm1),
+    thigh: m.rightLeg0,
+  })
   // 총을 권총집에 꽂은 채. 총은 오른쪽 허벅지를 따라 움직임
-  const holstered = (j: Joints): Pose => {
-    const p = posed(j)
-    return { boxes: p.boxes, gun: holdGun(HOLSTER_GRIP, DOWN, Z).gun.map((q) => movePoint(q, p.thigh)) }
+  const holster = holdGun(HOLSTER_GRIP, DOWN, Z).gun
+  const holstered = (m: Record<Seg, Move>): Pose => {
+    const p = posed(m)
+    return { boxes: p.boxes, gun: holster.map((q) => movePoint(q, p.thigh)) }
   }
+  // 동작 데이터 m의 f번째 프레임. 가장 낮은 곳이 바닥에 닿게 둠
+  const play = (m: Motion, f: number) => ground(holstered(motionMoves(m, f)))
+  const frames = (ms: number) => (ms * MOTIONS.fps) / 1000
   // 위아래 시선(pitch)만큼 머리를 들고 오른팔과 총을 d쪽으로 뻗음. flash면 총구 앞에 불꽃
   const aimed = (pitch: number, d: V, flash: boolean): Pose => {
-    const p = posed({ ...rest, look: pitch, rightArm: [d, d] })
+    const p = posed(moves({ ...rest, look: pitch, rightArm: [d, d] }))
     const { gun, muzzle } = holdGun(p.fist, d, across(Y, d))
     return { boxes: flash ? [...p.boxes, rod(muzzle, d, 0, 5, 4, FLASH)] : p.boxes, gun }
   }
@@ -226,23 +277,21 @@ function build(data: CharacterData): Body {
     const grip = sub(TEMPLE, holdGun([0, 0, 0], [-1, 0, 0], Y).muzzle)
     const shoulder: V = [4, SHOULDER, 0]
     const elbow = elbowFor(shoulder, grip, SHOULDER - ELBOW, ELBOW - FIST, [1, -0.3, 0.3])
-    const p = posed({ ...rest, rightArm: [unit(sub(elbow, shoulder)), unit(sub(grip, elbow))] })
+    const p = posed(moves({ ...rest, rightArm: [unit(sub(elbow, shoulder)), unit(sub(grip, elbow))] }))
     const { gun, muzzle } = holdGun(p.fist, [-1, 0, 0], Y)
     return { boxes: flash ? [...p.boxes, rod(muzzle, X, -0.5, 4, 4, FLASH)] : p.boxes, gun }
   }
-  const stand = holstered(rest)
+  const { stand, walk, fall } = MOTIONS.clips
   return {
-    stand,
-    // 오른다리가 앞이면(+) 왼팔이 앞. 뒤로 간 다리는 무릎을 굽혀 발이 끌리지 않음
-    walk: (a) => {
-      const leg = (s: number): [V, V] => [down(s), down(s - KNEE_BEND * Math.max(0, -s))]
-      return ground(holstered({ ...rest, rightLeg: leg(a), leftLeg: leg(-a), rightArm: [down(-a), down(-a)], leftArm: [down(a), down(a)] }))
-    },
+    rest: holstered(moves(rest)),
+    stand: (ms) => play(stand, frames(ms)),
+    // 걸음 두 번(발소리 두 번)에 한 바퀴
+    walk: (ms) => play(walk, WALK_START + (ms / (2 * STEP_MS)) * walk.rot.length),
     // 쏠 때는 반동으로 팔만 더 들림
     aim: (pitch) => aimed(pitch, ahead(pitch), false),
     fire: (pitch) => aimed(pitch, ahead(pitch + RECOIL), true),
     suicide: [temple(false), temple(true)],
-    fallen: lay(stand),
+    fall: (ms) => play(fall, frames(ms)),
   }
 }
 
@@ -254,9 +303,6 @@ export const characterBody = (character: number): Body => (cache[character] ??= 
 // 상자의 꼭짓점 8개
 export const corners = (b: Box): V[] =>
   Array.from({ length: 8 }, (_, i) => b.axes.reduce((p, axis, j) => add(p, axis, (i >> j) & 1 ? b.half[j] : -b.half[j]), b.c))
-
-// 걷기 시각부터 지난 시간(ms)의 팔다리 흔들림 각도. 걸음(발소리, round.ts stepIndex)마다 한쪽 다리가 가장 앞에 오고 그 사이는 이어서 흔듦
-export const walkSwing = (elapsed: number) => SWING * Math.cos((Math.PI * elapsed) / STEP_MS)
 
 // 결투장에 선 사람 하나. facing은 바라보는 각도(라디안, 0 = +x)
 export type Figure = { x: number; y: number; facing: number } & Pose

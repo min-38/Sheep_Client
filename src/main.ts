@@ -1,7 +1,7 @@
 import './style.css'
 import revolverData from './assets/revolver-rig.json'
 import { orbit } from './backdrop.ts'
-import { CHARACTERS, characterBody, PORTRAITS, savedCharacter, suicideStage, walkSwing, type Body, type Pose } from './character.ts'
+import { CHARACTERS, characterBody, PORTRAITS, savedCharacter, SUICIDE_AIM, SUICIDE_FLASH, suicideStage, type Body, type Pose } from './character.ts'
 import { best, measure, toLocalTime, toServerTime, type ClockSample } from './clock.ts'
 import { makeProps, SKIES, timeOfDay } from './desert.ts'
 import { drawGun, gunClips, lift, RAISE_MS, RECOIL_MS, RELOAD_AT, RELOAD_SEATED, RELOAD_SHUT, revolverMesh } from './gun.ts'
@@ -255,8 +255,8 @@ function playFallOf(id: string, reason: 'shot' | 'timeout') {
 // viewer는 눈이 되는 사람이라 그리지 않음. 관전이나 다시 보기면 쓰러진 나도 보임
 function othersAt(t: number, viewer: string, scene: Scene): Thing[] {
   const duel = clock !== null && dueling(scene.schedule, toServerTime(t, clock.offset))
-  // 걷는 사람의 팔다리 흔들림. 발소리를 내는 걸음마다 한쪽 다리가 가장 앞에 옴
-  const swing = clock !== null && scene.schedule.walk !== undefined ? walkSwing(toServerTime(t, clock.offset) - scene.schedule.walk) : 0
+  // 걷기 시각부터 지난 시간(ms). 걷는 동작이 발소리를 내는 걸음마다 한쪽 다리를 가장 앞에 둠
+  const walked = clock !== null && scene.schedule.walk !== undefined ? toServerTime(t, clock.offset) - scene.schedule.walk : 0
   return [...scene.history]
     .filter(([id]) => id !== viewer)
     .map(([id, samples]) => {
@@ -265,16 +265,18 @@ function othersAt(t: number, viewer: string, scene: Scene): Thing[] {
       const flashing = shot !== undefined && t >= shot.at && t < shot.at + FLASH_SHOWN
       const body = characterBody(scene.characters.get(id)!)
       // "시작!"부터 서 있는 사람은 총을 겨눈 모습. 머리와 팔은 그 사람의 위아래 시선대로
-      const upright = duel ? body.aim(s.pitch) : s.pose === 'walk' ? body.walk(swing) : body.stand
+      const upright = duel ? body.aim(s.pitch) : s.pose === 'walk' ? body.walk(walked) : body.stand(t)
       // 불꽃 동안은 쏜 각도로 그림. 돌고 바로 쏘면 돌아간 각도는 다음 state로 늦게 옴
       return { x: s.x, y: s.y, facing: flashing ? shot.angle : s.angle, ...(flashing ? body.fire(s.pitch) : poseAt(body, scene.downs.get(id), t, upright)) }
     })
 }
 
+// 탈락하면 뒤로 넘어짐. 시간 초과는 자살 모습(총을 댐, 불꽃)을 보인 뒤 넘어짐
 function poseAt(body: Body, down: Down | undefined, t: number, upright: Pose) {
   if (down === undefined || t < down.at) return upright
-  const stage = down.reason === 'timeout' ? suicideStage(t - down.at) : null
-  return stage === null ? body.fallen : body.suicide[stage]
+  if (down.reason === 'shot') return body.fall(t - down.at)
+  const stage = suicideStage(t - down.at)
+  return stage === null ? body.fall(t - down.at - SUICIDE_AIM - SUICIDE_FLASH) : body.suicide[stage]
 }
 
 // 포인터 잠금 중에만 돌림. 잠금 전에는 커서가 화면 밖으로 나가 이동량이 끊김.
@@ -620,8 +622,8 @@ const BACKDROP_PITCH = 0.1
 // 첫 화면 배경에 세우는 것. 남북으로 마주 보고 총을 찬 채 선 두 사람과 둘레 소품. 그림은 여기서 한 번만 만듦.
 // 캐릭터가 찰스 하나뿐이라 둘 다 찰스임. 캐릭터가 늘면 서로 다른 캐릭터로 세움
 const BACKDROP_THINGS: Thing[] = [
-  { x: BACKDROP_MID, y: BACKDROP_MID - DUEL_GAP / 2, facing: Math.PI / 2, ...characterBody(0).stand },
-  { x: BACKDROP_MID, y: BACKDROP_MID + DUEL_GAP / 2, facing: -Math.PI / 2, ...characterBody(0).stand },
+  { x: BACKDROP_MID, y: BACKDROP_MID - DUEL_GAP / 2, facing: Math.PI / 2, ...characterBody(0).rest },
+  { x: BACKDROP_MID, y: BACKDROP_MID + DUEL_GAP / 2, facing: -Math.PI / 2, ...characterBody(0).rest },
   ...makeProps(BACKDROP_MID, BACKDROP_MID),
 ]
 // 배경이 돌기 시작한 시각(ms). 페이지가 뜨는 데 걸린 시간만큼 돌아가 있지 않고 늘 같은 장면에서 시작함.
