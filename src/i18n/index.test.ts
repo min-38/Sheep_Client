@@ -65,6 +65,14 @@ describe('문구', () => {
     expect(copyOf(l).lobby.characterNames).toHaveLength(en.lobby.characterNames.length)
   })
 
+  test('술집 주인 대사는 언어마다 영어와 같은 수 (SHEEP-116)', () => {
+    for (const language of LANGUAGES) {
+      const { tips, jokes } = copyOf(language).saloon.bartender
+      expect([tips.length, jokes.length]).toEqual([en.saloon.bartender.tips.length, en.saloon.bartender.jokes.length])
+      expect([...tips, ...jokes].every((line) => typeof line === 'string' && line.length > 0)).toBe(true)
+    }
+  })
+
   test('없는 키는 undefined', () => {
     expect(textAt(en, 'lobby.nope')).toBeUndefined()
     expect(textAt(en, 'lobby')).toBeUndefined()

@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest'
 import type { PlayerState } from './net.ts'
-import { BAR_LEFT, BAR_RIGHT, bountyRise, bountyText, copyKeys, seatSlots, seatSpot, seatTag, startBartender, stepBartender, tally } from './saloon.ts'
+import { BAR_LEFT, BAR_RIGHT, bountyRise, bountyText, bubbleX, CHATTER_FIRST, CHATTER_GAP, CHATTER_SHOW, copyKeys, seatSlots, seatSpot, seatTag, startBartender, startChatter, stepBartender, stepChatter, tally } from './saloon.ts'
 
 const player = (id: string, color: number, extra: Partial<PlayerState> = {}): PlayerState => ({
   id,
@@ -123,5 +123,47 @@ describe('copyKeys', () => {
     expect(copyKeys('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)')).toBe('⌘C')
     expect(copyKeys('Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X)')).toBe('⌘C')
     expect(copyKeys('Mozilla/5.0 (Windows NT 10.0; Win64; x64)')).toBe('Ctrl+C')
+  })
+})
+
+describe('stepChatter', () => {
+  const counts = { tips: 8, jokes: 6 }
+  // 정해 둔 값을 차례로 돌려주는 난수
+  const seq = (...xs: number[]) => () => xs.shift() ?? 0
+
+  test('방에 들어오고 CHATTER_FIRST 뒤에 첫 말을 꺼내 CHATTER_SHOW 동안 띄움', () => {
+    const c0 = startChatter(1000)
+    expect(stepChatter(c0, 1000 + CHATTER_FIRST - 1, counts, seq(0)).line).toBeNull()
+    const c1 = stepChatter(c0, 1000 + CHATTER_FIRST, counts, seq(0.2, 0.5))
+    expect(c1.line).toEqual({ kind: 'tips', index: 4 })
+    expect(stepChatter(c1, c1.until - 1, counts, seq(0))).toBe(c1)
+    expect(stepChatter(c1, c1.until, counts, seq(0)).line).toBeNull()
+    expect(c1.until - (1000 + CHATTER_FIRST)).toBe(CHATTER_SHOW)
+  })
+
+  test('난수 0.5부터는 농담', () => {
+    const c = stepChatter(startChatter(0), CHATTER_FIRST, counts, seq(0.5, 0.99))
+    expect(c.line).toEqual({ kind: 'jokes', index: 5 })
+  })
+
+  test('지운 뒤 다음 말까지 25~45초', () => {
+    const shown = stepChatter(startChatter(0), CHATTER_FIRST, counts, seq(0, 0))
+    expect(stepChatter(shown, shown.until, counts, seq(0)).next - shown.until).toBe(CHATTER_GAP[0])
+    expect(stepChatter(shown, shown.until, counts, seq(1)).next - shown.until).toBe(CHATTER_GAP[1])
+  })
+
+  test('바로 앞 대사는 다시 고르지 않음', () => {
+    const first = stepChatter(startChatter(0), CHATTER_FIRST, counts, seq(0, 0))
+    const hidden = stepChatter(first, first.until, counts, seq(0))
+    const second = stepChatter(hidden, hidden.next, counts, seq(0, 0))
+    expect(second.line).toEqual({ kind: 'tips', index: 1 })
+  })
+})
+
+describe('bubbleX', () => {
+  test('술집 주인을 따르되 칠판(352px)과 왼쪽 끝을 넘지 않음', () => {
+    expect(bubbleX(200)).toBe(200)
+    expect(bubbleX(BAR_RIGHT) + 75).toBeLessThanOrEqual(348)
+    expect(bubbleX(0) - 75).toBeGreaterThanOrEqual(4)
   })
 })

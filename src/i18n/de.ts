@@ -45,6 +45,26 @@ export const de: Copy = {
     copyFailed: (keys) => `Drück ${keys}, Partner`,
     readyStamp: 'Bereit',
     winStamp: 'Sieger',
+    bartender: {
+      tips: [
+        "Halt das Eisen 'nen Moment still, bevor du abdrückst. Zitternde Hände treffen nix, Partner.",
+        'Dreh dich zu schnell, und dein Arm wackelt wie verrückt. Lass ihn erst zur Ruhe kommen.',
+        "Eine Kugel pro Runde. Die solltest du besser nich' vergeuden.",
+        'Kopftreffer, und er ist erledigt. Einmal in den Bauch, und er steht noch. Zweimal, und er liegt.',
+        'Zehn Sekunden nach dem „Zieh!“, Partner. Wartest du länger, machst du die Arbeit vom Totengräber selbst.',
+        'Klick beim Laufen, und du bleibst stehen. Aber nur einmal, merk dir das.',
+        "Fallen zwei Kerle gleichzeitig? Dann stehen sie wieder auf und machen's nochmal.",
+        "Erwischt's dich, kannst du noch durch die Augen der anderen gucken. Klick zum Wechseln.",
+      ],
+      jokes: [
+        "Einer hat mal seine Zeche mit 'ner Kugel bezahlt. Ging glatt durch, würd' ich sagen.",
+        'Zehn Schritte. Eine Kugel. Kein Geld zurück.',
+        "Der Klavierspieler wird nich' fürs Ducken bezahlt.",
+        'Der Letzte, der zu früh gezogen hat, schuldet mir noch seinen Whiskey.',
+        'Der Totengräber trinkt hier umsonst. Gut fürs Geschäft, seins und meins.',
+        "Einer hat mal Milch bestellt. Hab ihn seitdem nich' mehr gesehen.",
+      ],
+    },
   },
   lobby: {
     nickname: 'Spitzname',

@@ -55,6 +55,27 @@ export const en = {
     copyFailed: (keys: string) => `Press ${keys}, partner`,
     readyStamp: 'Ready',
     winStamp: 'Winner',
+    // 술집 주인 말풍선 (SHEEP-116). 팁은 지금 규칙(시스템 기획서)을 알려 주고, 농담은 쓸데없는 말. 서부 사투리 말투 (CLAUDE.md Language)
+    bartender: {
+      tips: [
+        "Hold that iron still a spell 'fore you shoot. Shaky hands miss, partner.",
+        "Spin 'round fast and your aim'll wobble somethin' fierce. Let it settle.",
+        "One bullet a round. Reckon you'd best make it count.",
+        "Hit a man in the head, he's done. Gut him once, he's still standin'. Twice, he ain't.",
+        `Ten seconds after "Draw!", partner. Dawdle past that and you'll do the undertaker's job yourself.`,
+        "Click while you're walkin' and you'll stop short. Just the once, mind.",
+        'Two fellers drop at once? Reckon they stand up and go again.',
+        "Get shot and you can still watch through the eyes of them standin'. Click to switch.",
+      ],
+      jokes: [
+        'Feller paid his tab with a bullet once. Reckon it went right through.',
+        'Ten paces. One bullet. No refunds.',
+        "Piano player ain't paid to duck.",
+        'Last feller who drew early still owes me for his whiskey.',
+        'Undertaker drinks free here. Good for business, his and mine.',
+        "Feller once asked me for milk. Ain't seen him since.",
+      ],
+    },
   },
   // 첫 화면
   lobby: {
