@@ -28,7 +28,8 @@ export type Body = {
   aim: (pitch: number) => Pose
   fire: (pitch: number) => Pose
   suicide: Pose[]
-  fall: (ms: number) => Pose
+  // drop이면 바닥에 닿을 때 총을 놓쳐 손 옆 모래 위에 눕힘(맞아 쓰러짐). 아니면 누운 뒤에도 쥠(자살) (사용자 결정 2026-11-10, SHEEP-119)
+  fall: (ms: number, drop?: boolean) => Pose
   // 술집 바 의자에 앉은 모습. 엉덩이가 서 있을 때 높이(16블록) 그대로이고, 허벅지는 앞으로 눕고 아래팔은 카운터 위에 얹음 (SHEEP-115)
   sit: Pose
 }
@@ -250,9 +251,12 @@ function elbowFor(s: V, h: V, a: number, b: number, out: V): V {
   return add(add(s, u, along), across(out, u), Math.sqrt(Math.max(0, a * a - along * along)))
 }
 
+// 가장 낮은 곳의 높이(블록)
+const lowest = (points: readonly V[]) => Math.min(...points.map((q) => q[1]))
+
 // 가장 낮은 곳이 바닥에 닿게 올림
 function ground(p: Pose): Pose {
-  const bottom = Math.min(...p.boxes.flatMap((b) => corners(b).map((q) => q[1])), ...p.gun.map((q) => q[1]))
+  const bottom = lowest([...p.boxes.flatMap(corners), ...p.gun])
   const lift: Move = { from: [0, bottom, 0], to: [0, 0, 0], turn: (v) => v }
   return { boxes: p.boxes.map((b) => moveBox(b, lift)), gun: p.gun.map((q) => movePoint(q, lift)) }
 }
@@ -293,6 +297,17 @@ function build(data: CharacterData): Body {
     return { boxes: flash ? [...p.boxes, rod(muzzle, X, -0.5, 4, 4, FLASH)] : p.boxes, gun }
   }
   const { stand, walk, fall } = MOTIONS.clips
+  // 맞아 쓰러져 바닥에 닿을 때 놓친 총. 그때 주먹 아래 모래 위에, 총열은 아래팔을 바닥에 눕힌 쪽으로 두고 옆으로 눕힘.
+  // 그 뒤로 몸이 조금 더 움직여도 총은 그 자리에 있음
+  const dropped = (() => {
+    const m = motionMoves(fall, frames(FALL_LAND_MS))
+    const fist = movePoint([4, FIST, 0], m.rightArm1)
+    const arm = m.rightArm1.turn(DOWN)
+    const barrel: V = Math.hypot(arm[0], arm[2]) > 0.2 ? unit([arm[0], 0, arm[2]]) : Z
+    const gun = holdGun([fist[0], 0, fist[2]], barrel, cross(Y, barrel)).gun
+    const bottom = lowest(gun)
+    return gun.map((q): V => [q[0], q[1] - bottom, q[2]])
+  })()
   return {
     rest: holstered(moves(rest)),
     stand: (ms) => play(stand, frames(ms)),
@@ -302,8 +317,9 @@ function build(data: CharacterData): Body {
     aim: (pitch) => aimed(pitch, ahead(pitch), false),
     fire: (pitch) => aimed(pitch, ahead(pitch + RECOIL), true),
     suicide: [temple(false), temple(true)],
-    // 맞거나 쏜 뒤라 총을 손에 쥔 채 넘어짐
-    fall: (ms) => play(fall, frames(ms), held),
+    // 맞거나 쏜 뒤라 총을 손에 쥔 채 넘어짐. 맞았으면 바닥에 닿을 때 놓침
+    fall: (ms, drop = false) =>
+      drop && ms >= FALL_LAND_MS ? { ...ground({ boxes: posed(motionMoves(fall, frames(ms))).boxes, gun: [] }), gun: dropped } : play(fall, frames(ms), held),
     sit: holstered(moves(seated)),
   }
 }

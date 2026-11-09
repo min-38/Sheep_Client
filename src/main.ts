@@ -282,7 +282,7 @@ function othersAt(t: number, viewer: string, scene: Scene): Thing[] {
 // 탈락하면 뒤로 넘어짐. 시간 초과는 자살 모습(총을 댐, 불꽃)을 보인 뒤 넘어짐
 function poseAt(body: Body, down: Down | undefined, t: number, upright: Pose) {
   if (down === undefined || t < down.at) return upright
-  if (down.reason === 'shot') return body.fall(t - down.at)
+  if (down.reason === 'shot') return body.fall(t - down.at, true)
   const stage = suicideStage(t - down.at)
   return stage === null ? body.fall(t - down.at - SUICIDE_AIM - SUICIDE_FLASH) : body.suicide[stage]
 }

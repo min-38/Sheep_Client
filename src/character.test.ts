@@ -211,6 +211,23 @@ describe('characterBody', () => {
     }
   })
 
+  test('맞아 쓰러지면 바닥에 닿을 때 총을 놓쳐 모래 위에 눕힘. 시간 초과(자살)는 끝까지 쥠 (사용자 결정 2026-11-10, SHEEP-119)', () => {
+    const gap = (pose: Pose) => {
+      const [fist] = pick(pose, 'rightArm', 13.6)
+      return Math.min(...pose.gun.map((p) => Math.hypot(p[0] - fist.c[0], p[1] - fist.c[1], p[2] - fist.c[2])))
+    }
+    // 닿기 전에는 쥐고 있음
+    for (const t of [0, FALL_LAND_MS / 2, FALL_LAND_MS - 50]) expect(gap(body.fall(t, true)), `t=${t}`).toBeLessThan(0.8)
+    // 닿은 뒤에는 바닥에 옆으로 누운 총. 가장 낮은 곳이 바닥이고 두께만큼만 솟음
+    for (const t of [FALL_LAND_MS + 50, 2000, 5000]) {
+      const ys = body.fall(t, true).gun.map((p) => p[1])
+      near(Math.min(...ys) * CELL, 0)
+      expect(Math.max(...ys), `t=${t}`).toBeLessThan(1.2)
+    }
+    // 자살은 누운 뒤에도 손에 쥐고 있음
+    expect(gap(body.fall(5000, false))).toBeLessThan(0.8)
+  })
+
   test('넘어지다 바닥에 닿는 때(FALL_LAND_MS)는 0.5~1.5초 뒤이고, 그 앞은 몸통이 아직 높고 그때는 몸통이 낮음', () => {
     expect(FALL_LAND_MS).toBeGreaterThan(500)
     expect(FALL_LAND_MS).toBeLessThan(1500)
