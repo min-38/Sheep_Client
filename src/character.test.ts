@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { CELL, CHARACTERS, characterBody, corners, drawFigure, PORTRAITS, savedCharacter, SUICIDE_AIM, SUICIDE_FLASH, suicideStage, walkSwing, type Box, type Pose } from './character.ts'
+import { CELL, CHARACTERS, characterBody, corners, drawFigure, FALL_LAND_MS, PORTRAITS, savedCharacter, SUICIDE_AIM, SUICIDE_FLASH, suicideStage, type Box, type Pose } from './character.ts'
 import { makeCamera, type RGB } from './render.ts'
 import { STEP_MS } from './round.ts'
 
@@ -110,13 +110,23 @@ describe('savedCharacter', () => {
 
 describe('characterBody', () => {
   const body = characterBody(0)
-  const stand = body.stand
+  const rest = body.rest
   // 총 꼭짓점들의 i축 범위(블록)
   const gunSpan = (pose: Pose, i: number) => [Math.min(...pose.gun.map((p) => p[i])), Math.max(...pose.gun.map((p) => p[i]))]
+  // 찰스 상자 중 part이고 가운데가 높이 below(블록) 아래인 것. 동작마다 상자 순서는 JSON 그대로
+  const pick = (pose: Pose, part: string, below: number) =>
+    pose.boxes.filter((_, i) => {
+      const b = CHARACTERS[0].boxes[i]
+      return b.part === part && (b.from[1] + b.to[1]) / 2 < below
+    })
+  // 상자들의 가장 앞(z, 블록)
+  const front = (boxes: readonly Box[]) => Math.max(...boxes.flatMap((b) => corners(b).map((p) => p[2])))
+  // 두 모습의 상자 가운데가 같은지
+  const same = (a: Pose, b: Pose) => a.boxes.forEach((box, i) => box.c.forEach((v, j) => expect(v).toBeCloseTo(b.boxes[i].c[j], 6)))
 
-  test('서 있으면 발이 바닥, 모자를 뺀 머리 꼭대기가 0.9칸이고 머리 폭이 틀 그대로', () => {
-    near(span(stand.boxes, 1)[0], 0)
-    const head = holding(stand.boxes, [0, 28, 0])
+  test('틀 그대로 서면 발이 바닥, 모자를 뺀 머리 꼭대기가 0.9칸이고 머리 폭이 틀 그대로', () => {
+    near(span(rest.boxes, 1)[0], 0)
+    const head = holding(rest.boxes, [0, 28, 0])
     expect(head).toHaveLength(1)
     const [bottom, top] = span(head, 1)
     near(bottom, 26 * CELL)
@@ -125,7 +135,7 @@ describe('characterBody', () => {
   })
 
   test('몸과 팔을 합친 폭이 틀의 팔 바깥(±5블록)', () => {
-    const [left, right] = span(stand.boxes.filter((b) => b.c[1] > 12 && b.c[1] < 25), 0)
+    const [left, right] = span(rest.boxes.filter((b) => b.c[1] > 12 && b.c[1] < 25), 0)
     near(left, -5 * CELL)
     near(right, 5 * CELL)
   })
@@ -134,19 +144,53 @@ describe('characterBody', () => {
     expect(characterBody(0)).toBe(body)
   })
 
-  test('서 있으면 총이 오른쪽 허벅지 권총집에 꽂히고 손잡이가 위로 나옴', () => {
-    const [x0, x1] = gunSpan(stand, 0)
+  test('틀 그대로 서면 총이 오른쪽 허벅지 권총집에 꽂히고 손잡이가 위로 나옴', () => {
+    const [x0, x1] = gunSpan(rest, 0)
     expect(x0).toBeGreaterThan(2.5)
     expect(x1).toBeLessThan(3.75)
-    const [y0, y1] = gunSpan(stand, 1)
+    const [y0, y1] = gunSpan(rest, 1)
     expect(y0).toBeGreaterThan(8.5)
     expect(y1).toBeGreaterThan(12)
   })
 
-  test('걸을 때 흔드는 쪽에 따라 다리가 다르고, 권총집의 총이 허벅지를 따라 움직이며, 발은 바닥에 닿음', () => {
-    expect(body.walk(0.4).boxes).not.toEqual(body.walk(-0.4).boxes)
-    expect(body.walk(0.4).gun).not.toEqual(stand.gun)
-    near(span(body.walk(0.4).boxes, 1)[0], 0)
+  test('서 있으면 숨 쉬듯 조금씩 움직이지만 발은 바닥, 머리는 틀 언저리, 총은 권총집 (시스템 기획서 캐릭터 동작)', () => {
+    expect(body.stand(1000).boxes).not.toEqual(body.stand(0).boxes)
+    for (let t = 0; t < 3000; t += 250) {
+      const stand = body.stand(t)
+      near(span(stand.boxes, 1)[0], 0)
+      expect(Math.abs(span(stand.boxes, 1)[1] - span(rest.boxes, 1)[1])).toBeLessThan(1.5 * CELL)
+      expect(Math.abs(gunSpan(stand, 0)[0] - gunSpan(rest, 0)[0])).toBeLessThan(1)
+    }
+  })
+
+  test('걸으면 걸음(발소리)마다 다리가 번갈아 가장 앞에 오고, 두 걸음마다 되풀이함 (시스템 기획서 캐릭터 동작)', () => {
+    expect(front(pick(body.walk(0), 'rightLeg', 3))).toBeGreaterThan(front(pick(body.walk(0), 'leftLeg', 3)) + 2)
+    expect(front(pick(body.walk(STEP_MS), 'leftLeg', 3))).toBeGreaterThan(front(pick(body.walk(STEP_MS), 'rightLeg', 3)) + 2)
+    same(body.walk(2 * STEP_MS), body.walk(0))
+    same(body.walk(5 * STEP_MS + 120), body.walk(STEP_MS + 120))
+  })
+
+  test('걸으면 발이 바닥에 닿고 권총집의 총이 허벅지를 따라 움직임', () => {
+    for (let t = 0; t < 2 * STEP_MS; t += STEP_MS / 8) near(span(body.walk(t).boxes, 1)[0], 0)
+    expect(body.walk(0).gun).not.toEqual(body.walk(STEP_MS).gun)
+  })
+
+  test('쓰러지면 뒤로 넘어져 바닥에 눕고 끝 자세에 멈춤, 총도 같이 누움 (시스템 기획서 캐릭터 동작)', () => {
+    expect(span(body.fall(0).boxes, 1)[1]).toBeGreaterThan(25 * CELL)
+    for (let t = 0; t < 3000; t += 100) near(span(body.fall(t).boxes, 1)[0], 0)
+    const lying = body.fall(5000)
+    same(body.fall(9000), lying)
+    expect(span(lying.boxes, 1)[1]).toBeLessThan(10 * CELL)
+    expect(span(pick(lying, 'head', 31), 2)[1]).toBeLessThan(-10 * CELL)
+    expect(Math.max(...lying.gun.map((p) => p[1]))).toBeLessThan(10)
+  })
+
+  test('넘어지다 바닥에 닿는 때(FALL_LAND_MS)는 0.5~1.5초 뒤이고, 그 앞은 몸통이 아직 높고 그때는 몸통이 낮음', () => {
+    expect(FALL_LAND_MS).toBeGreaterThan(500)
+    expect(FALL_LAND_MS).toBeLessThan(1500)
+    const torsoTop = (ms: number) => span(pick(body.fall(ms), 'body', 99), 1)[1]
+    expect(torsoTop(FALL_LAND_MS - 300)).toBeGreaterThan(18 * CELL)
+    expect(torsoTop(FALL_LAND_MS)).toBeLessThan(12 * CELL)
   })
 
   // 가장 앞으로 나온 총 꼭짓점(총구)의 높이(블록)
@@ -169,8 +213,8 @@ describe('characterBody', () => {
     }
   })
 
-  test('정면을 보면 머리가 서 있을 때와 같은 자리', () => {
-    expect(holding(body.aim(0).boxes, [0, 28, 0])).toEqual(holding(stand.boxes, [0, 28, 0]))
+  test('정면을 보면 머리가 틀 그대로 섰을 때와 같은 자리', () => {
+    expect(holding(body.aim(0).boxes, [0, 28, 0])).toEqual(holding(rest.boxes, [0, 28, 0]))
   })
 
   test('위를 보면 머리가 들려 모자 꼭대기가 뒤로, 아래를 보면 앞으로 감', () => {
@@ -192,23 +236,6 @@ describe('characterBody', () => {
     expect(flash.boxes.length).toBe(aim.boxes.length + 1)
   })
 
-  test('쓰러지면 바닥에 옆으로 누워 몸 폭만큼만 높고, 총도 같이 누움', () => {
-    const [bottom, top] = span(body.fallen.boxes, 1)
-    near(bottom, 0)
-    near(top, 10 * CELL)
-    const [left, right] = span(body.fallen.boxes, 0)
-    expect(right - left).toBeGreaterThan((top - bottom) * 2)
-    expect(Math.max(...body.fallen.gun.map((p) => p[1]))).toBeLessThan(10)
-  })
-})
-
-describe('walkSwing', () => {
-  test('걸음마다 다리가 번갈아 가장 앞에 오고, 그 사이는 이어서 흔듦', () => {
-    expect(walkSwing(0)).toBeGreaterThan(0)
-    expect(walkSwing(STEP_MS)).toBeCloseTo(-walkSwing(0))
-    expect(walkSwing(2 * STEP_MS)).toBeCloseTo(walkSwing(0))
-    expect(walkSwing(STEP_MS / 2)).toBeCloseTo(0)
-  })
 })
 
 describe('drawFigure', () => {
@@ -219,7 +246,7 @@ describe('drawFigure', () => {
   const WHITE: RGB = [255, 255, 255]
   const body = characterBody(0)
 
-  function draw(x: number, facing: number, pose = body.stand, zbuf = new Float64Array(W).fill(Infinity), light = WHITE) {
+  function draw(x: number, facing: number, pose = body.rest, zbuf = new Float64Array(W).fill(Infinity), light = WHITE) {
     const pixels = new Uint32Array(W * H)
     drawFigure(pixels, W, H, zbuf, cam, { x, y: 0, facing, ...pose }, light)
     return pixels
@@ -270,7 +297,7 @@ describe('drawFigure', () => {
   })
 
   test('권총집의 총은 오른쪽에서 보면 보이고, 왼쪽에서 보면 다리에 가려져 뒤로 나온 손잡이만 보임', () => {
-    const bare = { ...body.stand, gun: [] }
+    const bare = { ...body.rest, gun: [] }
     const gunPixels = (facing: number) => {
       const a = draw(2, facing)
       const b = draw(2, facing, bare)
@@ -287,7 +314,7 @@ describe('drawFigure', () => {
 
   test('벽이 더 가까운 가로줄에는 그리지 않음', () => {
     const zbuf = new Float64Array(W).fill(Infinity).fill(2, 0, W / 2)
-    const cols = columns(draw(4, Math.PI, body.stand, zbuf))
+    const cols = columns(draw(4, Math.PI, body.rest, zbuf))
     expect(cols.length).toBeGreaterThan(0)
     expect(cols[0]).toBe(W / 2)
   })

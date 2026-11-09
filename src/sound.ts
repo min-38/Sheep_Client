@@ -3,7 +3,7 @@ import cockHammerUrl from './assets/audio/cock-hammer.mp3'
 import dryFireUrl from './assets/audio/dry-fire.mp3'
 import loadUrl from './assets/audio/load.mp3'
 import shotUrl from './assets/audio/shot.mp3'
-import { SUICIDE_AIM, SUICIDE_FLASH } from './character.ts'
+import { FALL_LAND_MS, SUICIDE_AIM, SUICIDE_FLASH } from './character.ts'
 
 // AudioContext 시계(초)와 내 시계(ms, performance.now())를 잇는 한 쌍. contextTime에 나간 소리가 스피커에서 들리는 순간이 performanceTime임
 export type AudioStamp = { contextTime: number; performanceTime: number }
@@ -106,8 +106,8 @@ export function playStep(audio: AudioContext, when: number, from?: { right: numb
   source.start(when)
 }
 
-// 탈락을 보여 주기 시작한 때부터 쓰러진 그림이 되기까지(ms). 시간 초과는 자살 모습(총을 댐, 불꽃)이 끝난 뒤
-export const fallDelay = (reason: 'shot' | 'timeout') => (reason === 'timeout' ? SUICIDE_AIM + SUICIDE_FLASH : 0)
+// 탈락을 보여 주기 시작한 때부터 뒤로 넘어지는 동작이 바닥에 닿기까지(ms). 시간 초과는 자살 모습(총을 댐, 불꽃)이 끝난 뒤에 넘어짐
+export const fallDelay = (reason: 'shot' | 'timeout') => (reason === 'timeout' ? SUICIDE_AIM + SUICIDE_FLASH : 0) + FALL_LAND_MS
 
 // 쓰러지는 소리 한 번을 when(AudioContext 시각, 초)에 냄. 방향과 거리는 총소리와 같음.
 // ponytail: 낮은 잡음으로 합성한 임시음(약 0.3초). CC0 효과음을 찾으면 소리 부분만 고침 (시스템 기획서 사운드)

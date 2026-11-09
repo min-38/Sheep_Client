@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'vitest'
+import { FALL_LAND_MS } from './character.ts'
 import type { Sample } from './interpolate.ts'
 import { cut, REPLAY_AFTER, REPLAY_BEFORE, replayWindow } from './replay.ts'
 
@@ -7,8 +8,12 @@ const at = (t: number): Sample => ({ at: t, x: t / 100, y: 0, angle: 0, pitch: 0
 describe('replayWindow', () => {
   test('쏜 시각 앞 REPLAY_BEFORE부터 내가 쓰러진 것을 받고 REPLAY_AFTER 뒤까지 (시스템 기획서 HUD 다시 보기)', () => {
     expect(REPLAY_BEFORE).toBe(3000)
-    expect(REPLAY_AFTER).toBe(1000)
-    expect(replayWindow(10000, 10300)).toEqual({ start: 7000, end: 11300 })
+    expect(REPLAY_AFTER).toBe(2000)
+    expect(replayWindow(10000, 10300)).toEqual({ start: 7000, end: 12300 })
+  })
+
+  test('뒤로 넘어지는 동작이 바닥에 닿고 1초 넘게 더 보여 누운 모습까지 보임 (시스템 기획서 캐릭터 동작)', () => {
+    expect(REPLAY_AFTER).toBeGreaterThan(FALL_LAND_MS + 1000)
   })
 })
 

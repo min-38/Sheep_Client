@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest'
 import { toLocalTime } from './clock.ts'
 import { makeCamera } from './render.ts'
-import { suicideStage } from './character.ts'
+import { FALL_LAND_MS, suicideStage } from './character.ts'
 import { fallDelay, heardFrom, stampOf, toAudioTime } from './sound.ts'
 
 describe('toAudioTime', () => {
@@ -67,12 +67,12 @@ describe('heardFrom', () => {
 })
 
 describe('fallDelay', () => {
-  test('맞아 쓰러지면 쓰러진 그림이 바로 보여 기다리지 않음', () => {
-    expect(fallDelay('shot')).toBe(0)
+  test('맞아 쓰러지면 뒤로 넘어지는 동작이 바닥에 닿는 때', () => {
+    expect(fallDelay('shot')).toBe(FALL_LAND_MS)
   })
 
-  test('시간 초과는 자살 모습이 끝나 쓰러진 그림이 되는 때', () => {
-    expect(suicideStage(fallDelay('timeout') - 1)).not.toBeNull()
-    expect(suicideStage(fallDelay('timeout'))).toBeNull()
+  test('시간 초과는 자살 모습이 끝나고 넘어지는 동작이 바닥에 닿는 때', () => {
+    expect(suicideStage(fallDelay('timeout') - FALL_LAND_MS - 1)).not.toBeNull()
+    expect(suicideStage(fallDelay('timeout') - FALL_LAND_MS)).toBeNull()
   })
 })
