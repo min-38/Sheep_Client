@@ -29,6 +29,8 @@ export type Body = {
   fire: (pitch: number) => Pose
   suicide: Pose[]
   fall: (ms: number) => Pose
+  // 술집 바 의자에 앉은 모습. 엉덩이가 서 있을 때 높이(16블록) 그대로이고, 허벅지는 앞으로 눕고 아래팔은 카운터 위에 얹음 (SHEEP-115)
+  sit: Pose
 }
 
 // 캐릭터 JSON. part는 head, body, rightArm, leftArm, rightLeg, leftLeg 중 하나. 색은 상자마다 단색 하나이고 명암은 그릴 때 넣음
@@ -130,6 +132,11 @@ function limb(root: V, mid: number, dirs: readonly [V, V]): [Move, Move] {
 type Joints = { look: number; rightArm: readonly [V, V]; leftArm: readonly [V, V]; rightLeg: readonly [V, V]; leftLeg: readonly [V, V] }
 const hanging: readonly [V, V] = [DOWN, DOWN]
 const rest: Joints = { look: 0, rightArm: hanging, leftArm: hanging, rightLeg: hanging, leftLeg: hanging }
+// 앉은 자세. 허벅지는 앞으로, 정강이는 아래로. 위팔은 아래에서 앞으로 0.5라디안, 아래팔은 거의 수평으로 앞을 봄.
+// ponytail: 화면을 보며 정한 값. 사람 동작 데이터에 앉기를 구우면 그것으로 바꿈
+const seatedLeg: readonly [V, V] = [Z, DOWN]
+const seatedArm: readonly [V, V] = [ahead(0.5 - Math.PI / 2), ahead(1.5 - Math.PI / 2)]
+const seated: Joints = { look: 0, rightArm: seatedArm, leftArm: seatedArm, rightLeg: seatedLeg, leftLeg: seatedLeg }
 
 // 덩어리 이름. 팔다리는 관절 높이 위아래로 나눔
 type Seg = 'head' | 'body' | 'rightArm0' | 'rightArm1' | 'leftArm0' | 'leftArm1' | 'rightLeg0' | 'rightLeg1' | 'leftLeg0' | 'leftLeg1'
@@ -292,6 +299,7 @@ function build(data: CharacterData): Body {
     fire: (pitch) => aimed(pitch, ahead(pitch + RECOIL), true),
     suicide: [temple(false), temple(true)],
     fall: (ms) => play(fall, frames(ms)),
+    sit: holstered(moves(seated)),
   }
 }
 
@@ -318,6 +326,7 @@ export function drawFigure(pixels: Uint32Array, w: number, h: number, zbuf: Floa
   const proj = w / (2 * Math.hypot(cam.planeX, cam.planeY))
   const horizon = horizonY(h, proj, cam.pitch)
   const invDet = 1 / (cam.planeX * cam.dirY - cam.dirX * cam.planeY)
+  const eyeZ = cam.z ?? 0.5
   const cos = Math.cos(fig.facing)
   const sin = Math.sin(fig.facing)
   // 격자 방향과 높이(칸)를 그 사람의 모델 좌표(블록)로 바꿈. 격자 y가 아래로 늘어 앞에서 시계 방향으로 90°가 오른쪽
@@ -328,10 +337,10 @@ export function drawFigure(pixels: Uint32Array, w: number, h: number, zbuf: Floa
     const ry = fig.y + (cos * p[0] + sin * p[2]) * CELL - cam.y
     const z = invDet * (cam.planeX * ry - cam.planeY * rx)
     if (z < NEAR) return null
-    return [(w / 2) * (1 + (invDet * (cam.dirY * rx - cam.dirX * ry)) / z), horizon + (proj * (0.5 - p[1] * CELL)) / z, z]
+    return [(w / 2) * (1 + (invDet * (cam.dirY * rx - cam.dirX * ry)) / z), horizon + (proj * (eyeZ - p[1] * CELL)) / z, z]
   }
-  // 눈은 벽 높이의 절반
-  const eye = toModel(cam.x - fig.x, cam.y - fig.y, 0.5)
+  // 눈은 벽 높이의 절반. 술집 카메라는 따로 정함
+  const eye = toModel(cam.x - fig.x, cam.y - fig.y, eyeZ)
   // 빛은 내 쪽 왼쪽 위에서 옴. 어느 쪽에서 봐도 같은 쪽이 밝음
   const screenX = unit(toModel(cam.planeX, cam.planeY, 0))
   const lit = unit(add(add(Y, screenX, -1), unit([eye[0], 0, eye[2]]), 1.4))

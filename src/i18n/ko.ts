@@ -30,7 +30,7 @@ export const ko: Copy = {
     miss: '빗나감',
   },
   saloon: {
-    posters: '방에 있는 사람',
+    seats: '바에 앉은 사람',
     board: '방',
     private: '비공개',
     leave: '나가기',
@@ -38,7 +38,8 @@ export const ko: Copy = {
     unready: '준비 풀기',
     readyCount: (ready, total) => `준비 ${ready}/${total}`,
     settings: '설정',
-    myPoster: '내 포스터',
+    mySeat: '내 자리',
+    wins: (n) => `${n}승`,
     copyCode: '방 코드 복사',
     copied: '적어 뒀어, 친구',
     copyFailed: (keys) => `${keys}를 눌러, 친구`,

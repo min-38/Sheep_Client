@@ -12,6 +12,8 @@ export type Camera = {
   planeY: number
   // 위아래 시선(라디안, 위가 +). 화면을 위아래로 밀어 보여 줌 (기술 설계서 렌더링 위아래 시점)
   pitch: number
+  // 눈높이(칸). 없으면 벽 높이의 절반(0.5). 술집은 손님 위에서 내려다봐 더 높음 (SHEEP-115)
+  z?: number
 }
 
 export type RGB = readonly [number, number, number]

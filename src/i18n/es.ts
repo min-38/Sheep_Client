@@ -30,7 +30,7 @@ export const es: Copy = {
     miss: 'Fallo',
   },
   saloon: {
-    posters: 'Personas en esta sala',
+    seats: 'Gente en la barra',
     board: 'Sala',
     private: 'Privada',
     leave: 'Salir',
@@ -38,7 +38,8 @@ export const es: Copy = {
     unready: 'No listo',
     readyCount: (ready, total) => `Listos ${ready}/${total}`,
     settings: 'Ajustes',
-    myPoster: 'Mi cartel',
+    mySeat: 'Mi asiento',
+    wins: (n) => `${n} victoria${n === 1 ? '' : 's'}`,
     copyCode: 'Copiar código de sala',
     copied: 'Copiado, compañero',
     copyFailed: (keys) => `Pulsa ${keys}, compañero`,

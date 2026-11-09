@@ -37,7 +37,7 @@ export const en = {
   },
   // 술집 대기실과 판 끝 포스터
   saloon: {
-    posters: 'People in this room',
+    seats: 'People at the bar',
     board: 'Room',
     private: 'Private',
     leave: 'Leave',
@@ -45,7 +45,9 @@ export const en = {
     unready: 'Unready',
     readyCount: (ready: number, total: number) => `Ready ${ready}/${total}`,
     settings: 'Settings',
-    myPoster: 'My poster',
+    mySeat: 'My seat',
+    // 좌석 꼬리표의 칼자국 눈금이 뜻하는 이긴 횟수
+    wins: (n: number) => `${n} win${n === 1 ? '' : 's'}`,
     // 칠판의 방 코드 복사 (SHEEP-114). 서부 사투리 말투 (CLAUDE.md Language)
     copyCode: 'Copy room code',
     copied: 'Copied, partner',

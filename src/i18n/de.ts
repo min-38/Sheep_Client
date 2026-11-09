@@ -30,7 +30,7 @@ export const de: Copy = {
     miss: 'Daneben',
   },
   saloon: {
-    posters: 'Leute in diesem Raum',
+    seats: 'Leute an der Bar',
     board: 'Raum',
     private: 'Privat',
     leave: 'Verlassen',
@@ -38,7 +38,8 @@ export const de: Copy = {
     unready: 'Nicht bereit',
     readyCount: (ready, total) => `Bereit ${ready}/${total}`,
     settings: 'Einstellungen',
-    myPoster: 'Mein Steckbrief',
+    mySeat: 'Mein Platz',
+    wins: (n) => `${n} Sieg${n === 1 ? '' : 'e'}`,
     copyCode: 'Raumcode kopieren',
     copied: 'Kopiert, Partner',
     copyFailed: (keys) => `Drück ${keys}, Partner`,
