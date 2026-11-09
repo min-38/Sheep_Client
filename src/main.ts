@@ -3,6 +3,7 @@ import revolverData from './assets/revolver-rig.json'
 import { orbit } from './backdrop.ts'
 import { CHARACTERS, characterBody, PORTRAITS, savedCharacter, SUICIDE_AIM, SUICIDE_FLASH, suicideStage, type Body, type Pose } from './character.ts'
 import { best, measure, toLocalTime, toServerTime, type ClockSample } from './clock.ts'
+import { CYLINDER_TURN, cylinderSvg } from './cylinder.ts'
 import { makeProps, SKIES, timeOfDay } from './desert.ts'
 import { enhanceSelect } from './dropdown.ts'
 import { drawGun, gunClips, lift, RAISE_MS, RECOIL_MS, RELOAD_AT, RELOAD_SEATED, RELOAD_SHUT, revolverMesh } from './gun.ts'
@@ -298,17 +299,23 @@ document.addEventListener('mousemove', (e) => {
 })
 
 const ammo = document.querySelector<SVGSVGElement>('#ammo')!
-const chambers = ammo.querySelectorAll('.chamber')
+ammo.innerHTML = cylinderSvg()
+const cartridges = ammo.querySelectorAll('.round')
+const spin = ammo.querySelector<SVGGElement>('.spin')!
 let gun = loaded(ROUNDS)
-// 6칸 실린더에서 장전된 칸만 금색. 위 칸부터 채움 (시스템 기획서 HUD 탄 수). 눈이 되는 사람의 총알이고,
+// 6칸 실린더에서 장전된 칸만 놋쇠 탄피 바닥. 맨 위 칸부터 쏘는 차례로 채움 (시스템 기획서 HUD 탄 수). 눈이 되는 사람의 총알이고,
 // 관전 대상의 spectating 전처럼 모르면(null) 숨김. 프레임마다 부르고 바뀔 때만 고침
 let shownRounds: number | null | undefined
-function showAmmo(rounds: number | null) {
-  if (rounds === shownRounds) return
-  shownRounds = rounds
-  ammo.style.visibility = rounds === null ? 'hidden' : ''
-  chambers.forEach((c, i) => c.classList.toggle('loaded', i < (rounds ?? 0)))
-  ammo.setAttribute('aria-label', copy.hud.ammo(rounds ?? 0))
+function showAmmo(left: number | null) {
+  if (left === shownRounds) return
+  // 한 발 줄면 1인칭 총처럼 실린더가 한 칸 돎. 다음 칸을 맨 위에 그려 두고, 그 칸이 있던 왼쪽 위(-60°)에서 제자리로 돌림
+  if (typeof shownRounds === 'number' && left !== null && left < shownRounds) {
+    spin.animate([{ transform: 'rotate(-60deg)' }, { transform: 'rotate(0deg)' }], { duration: CYLINDER_TURN, easing: 'cubic-bezier(.25,.9,.3,1.15)' })
+  }
+  shownRounds = left
+  ammo.style.visibility = left === null ? 'hidden' : ''
+  cartridges.forEach((c, i) => c.classList.toggle('loaded', i < (left ?? 0)))
+  ammo.setAttribute('aria-label', copy.hud.ammo(left ?? 0))
 }
 
 const flash = document.querySelector<HTMLDivElement>('#flash')!
