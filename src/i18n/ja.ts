@@ -71,7 +71,7 @@ export const ja: Copy = {
     nicknameRule: '2〜8文字',
     ok: 'OK',
     character: 'キャラクター',
-    characterNames: ['チャールズ'],
+    characterNames: ['チャールズ', 'ロサ', 'サイラス', 'ベル', 'クレイトン', 'ジェシー', 'ケイト', 'ディエゴ'],
     roomList: 'ルーム一覧',
     code: 'ルームコード',
     join: '入室',

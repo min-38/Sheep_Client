@@ -71,7 +71,7 @@ export const ru: Copy = {
     nicknameRule: '2–8 символов',
     ok: 'ОК',
     character: 'Персонаж',
-    characterNames: ['Чарльз'],
+    characterNames: ['Чарльз', 'Роса', 'Сайлас', 'Белль', 'Клейтон', 'Джесси', 'Кейт', 'Диего'],
     roomList: 'Список комнат',
     code: 'Код комнаты',
     join: 'Войти',

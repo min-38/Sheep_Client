@@ -74,6 +74,12 @@ describe('CHARACTERS 틀 검사 (시스템 기획서 캐릭터)', () => {
       }
     })
 
+    test(`${n} ${ch.name}: 핵심 파츠(key) 상자가 있고 모두 한 색 (SHEEP-118에서 이 색만 바꿈)`, () => {
+      const keys = boxes.filter((b) => b.key)
+      expect(keys.length).toBeGreaterThan(0)
+      expect(new Set(keys.map((b) => b.color)).size).toBe(1)
+    })
+
     test(`${n} ${ch.name}: 색이 다른 상자가 같은 면에서 겹치지 않음 (겹치면 얼룩져 보임)`, () => {
       const overlap = (a: readonly number[], b: readonly number[], c: readonly number[], d: readonly number[], i: number) => Math.min(b[i], d[i]) - Math.max(a[i], c[i]) > 1e-9
       for (const [i, a] of boxes.entries())

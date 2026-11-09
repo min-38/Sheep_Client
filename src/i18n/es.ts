@@ -71,7 +71,7 @@ export const es: Copy = {
     nicknameRule: '2–8 caracteres',
     ok: 'Aceptar',
     character: 'Personaje',
-    characterNames: ['Charles'],
+    characterNames: ['Charles', 'Rosa', 'Silas', 'Belle', 'Clayton', 'Jesse', 'Kate', 'Diego'],
     roomList: 'Lista de salas',
     code: 'Código de sala',
     join: 'Entrar',

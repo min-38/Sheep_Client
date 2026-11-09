@@ -703,11 +703,10 @@ const DUEL_GAP = 3
 const BACKDROP_RADIUS = 4
 // 라디안. 조금 올려 봐 두 사람이 제목 아래로 내려오고 석양 하늘이 넓게 보임. ponytail: 임시 값
 const BACKDROP_PITCH = 0.1
-// 첫 화면 배경에 세우는 것. 남북으로 마주 보고 총을 찬 채 선 두 사람과 둘레 소품. 그림은 여기서 한 번만 만듦.
-// 캐릭터가 찰스 하나뿐이라 둘 다 찰스임. 캐릭터가 늘면 서로 다른 캐릭터로 세움
+// 첫 화면 배경에 세우는 것. 남북으로 마주 보고 총을 찬 채 선 두 사람(찰스와 무법자 제시)과 둘레 소품. 그림은 여기서 한 번만 만듦
 const BACKDROP_THINGS: Thing[] = [
   { x: BACKDROP_MID, y: BACKDROP_MID - DUEL_GAP / 2, facing: Math.PI / 2, ...characterBody(0).rest },
-  { x: BACKDROP_MID, y: BACKDROP_MID + DUEL_GAP / 2, facing: -Math.PI / 2, ...characterBody(0).rest },
+  { x: BACKDROP_MID, y: BACKDROP_MID + DUEL_GAP / 2, facing: -Math.PI / 2, ...characterBody(5).rest },
   ...makeProps(BACKDROP_MID, BACKDROP_MID),
 ]
 // 배경이 돌기 시작한 시각(ms). 페이지가 뜨는 데 걸린 시간만큼 돌아가 있지 않고 늘 같은 장면에서 시작함.

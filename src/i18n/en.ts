@@ -84,7 +84,7 @@ export const en = {
     ok: 'OK',
     character: 'Character',
     // 캐릭터 번호 순서 (시스템 기획서 캐릭터 목록)
-    characterNames: ['Charles'],
+    characterNames: ['Charles', 'Rosa', 'Silas', 'Belle', 'Clayton', 'Jesse', 'Kate', 'Diego'],
     roomList: 'Room list',
     code: 'Room code',
     join: 'Join',

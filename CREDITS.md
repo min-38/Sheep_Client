@@ -20,3 +20,5 @@
 | `src/assets/motions.json` | Quaternius Universal Animation Library [Standard]의 `UAL1_Standard.glb`에서 `Idle_Loop`, `Walk_Loop`, `Death01`을 블록 캐릭터 틀의 관절 회전으로 옮겨 구움(`blend/motions.py`, SHEEP-100). 출처와 라이선스는 `src/assets/motions.json.license` | Quaternius | [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) | https://quaternius.itch.io/universal-animation-library |
 | `src/assets/characters/charles.json` | 찰스의 상자 목록. ChatGPT로 디자인한 것을 고쳐 씀(조끼가 몸통을 감쌈, 모자 크라운, 허벅지 권총집, 목수건 분홍 `#ee77b8`) | 이 프로젝트 (ChatGPT로 디자인) | 이 repo와 같음 | — |
 | `src/assets/portrait/charles.png` | 찰스의 WANTED 포스터 초상화. ChatGPT로 그린 그림을 64×64 도트로 줄이고 마젠타 목수건을 분홍으로 바꿈 | 이 프로젝트 (ChatGPT로 그림) | 이 repo와 같음 | — |
+| `src/assets/characters/{rosa,silas,belle,clayton,jesse,kate,diego}.json` | 1~7번 캐릭터의 상자 목록. 찰스와 같은 틀로 Claude가 디자인함 (SHEEP-117) | 이 프로젝트 (Claude) | 이 repo와 같음 | — |
+| `src/assets/portrait/{rosa,silas,belle,clayton,jesse,kate,diego}.png` | 1~7번 캐릭터의 WANTED 포스터 초상화. 그 캐릭터 상자 목록을 정면에서 15° 돌려 64×64 도트로 그리고, 목수건과 핵심 파츠 밖은 갈색 인쇄 톤으로 바꿈 (SHEEP-117) | 이 프로젝트 (Claude가 상자 목록에서 그림) | 이 repo와 같음 | — |
