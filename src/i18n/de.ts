@@ -4,6 +4,7 @@ import { en, type Copy } from './en.ts'
 export const de: Copy = {
   languageName: 'Deutsch',
   title: en.title,
+  titleLines: en.titleLines,
   hud: {
     screen: 'Spielbildschirm',
     hitCard: 'Mein Schussergebnis',

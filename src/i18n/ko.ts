@@ -4,6 +4,7 @@ import { en, type Copy } from './en.ts'
 export const ko: Copy = {
   languageName: '한국어',
   title: en.title,
+  titleLines: en.titleLines,
   hud: {
     screen: '게임 화면',
     hitCard: '내 사격 결과',

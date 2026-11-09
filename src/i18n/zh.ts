@@ -4,6 +4,7 @@ import { en, type Copy } from './en.ts'
 export const zh: Copy = {
   languageName: '简体中文',
   title: en.title,
+  titleLines: en.titleLines,
   hud: {
     screen: '游戏画面',
     hitCard: '我的射击结果',

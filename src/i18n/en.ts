@@ -5,6 +5,8 @@ export const en = {
   languageName: 'English',
   // 모든 언어에서 같은 영어 제목 (사용자 결정 2026-11-09)
   title: 'The Quick, the Slow and the Shot!',
+  // 첫 화면 제목을 세 줄로 나눈 것. 줄마다 오른쪽으로 들여 씀 (SHEEP-111). 브라우저 탭 제목은 위 한 줄
+  titleLines: ['The Quick,', 'the Slow', 'and the Shot!'],
   // 결투 화면
   hud: {
     screen: 'Game screen',
