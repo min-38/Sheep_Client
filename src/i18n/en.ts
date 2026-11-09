@@ -46,6 +46,11 @@ export const en = {
     readyCount: (ready: number, total: number) => `Ready ${ready}/${total}`,
     settings: 'Settings',
     myPoster: 'My poster',
+    // 칠판의 방 코드 복사 (SHEEP-114). 서부 사투리 말투 (CLAUDE.md Language)
+    copyCode: 'Copy room code',
+    copied: 'Copied, partner',
+    // 클립보드가 막혀 코드를 선택해 둠. keys는 Ctrl+C 또는 ⌘C
+    copyFailed: (keys: string) => `Press ${keys}, partner`,
     readyStamp: 'Ready',
     winStamp: 'Winner',
   },

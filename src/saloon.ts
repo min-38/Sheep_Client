@@ -25,6 +25,12 @@ export function posterSlots(players: readonly PlayerState[], myId: string | null
   return slots
 }
 
+// ms. 방 코드를 복사했다는 알림을 칠판에 띄워 두는 시간 (SHEEP-114)
+export const COPIED_MS = 1500
+
+// 클립보드가 막혀 직접 복사할 때 누를 키. 애플 기기는 Command
+export const copyKeys = (userAgent: string) => (/Mac|iPhone|iPad/.test(userAgent) ? '⌘C' : 'Ctrl+C')
+
 // 술집 주인. 장식이라 사람마다 화면에서 따로 움직이고 서버는 모름. x는 몸 가운데(px)
 export type Bartender = { x: number; action: 'walk' | 'stand' | 'wipe'; target: number; until: number }
 

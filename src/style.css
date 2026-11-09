@@ -1277,9 +1277,66 @@ body {
   font-size: 1.8cqw;
 }
 
+/* 방 코드 버튼. 분필 글씨 그대로이고, 올리거나 초점이 오면 분필 물결 밑줄 (SHEEP-114) */
 #board-code {
-  font-size: 2.4cqw;
+  display: flex;
+  align-items: center;
+  gap: 0.6cqw;
+  margin: 0;
+  padding: 0 0.4cqw;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: 2.4cqw / 1.2 var(--display);
   letter-spacing: 0.4cqw;
+  text-shadow: inherit;
+  cursor: pointer;
+}
+
+#board-code:is(:hover, :focus-visible) #board-code-text {
+  text-decoration: underline wavy #e8ecdfaa 0.15cqw;
+  text-underline-offset: 0.5cqw;
+}
+
+#board-code:focus-visible {
+  outline: 0.3cqw solid #f7d27a;
+  outline-offset: 0.2cqw;
+}
+
+/* 분필로 그린 종이 두 장. 앞장은 칠판 색으로 칠해 뒷장 선을 가림 */
+.copy-icon {
+  position: relative;
+  width: 1.5cqw;
+  height: 1.8cqw;
+  flex: none;
+}
+
+.copy-icon::before,
+.copy-icon::after {
+  content: '';
+  position: absolute;
+  width: 1.1cqw;
+  height: 1.35cqw;
+  border: 0.18cqw solid currentColor;
+  border-radius: 0.2cqw;
+  box-sizing: border-box;
+}
+
+.copy-icon::before {
+  top: 0;
+  left: 0;
+}
+
+.copy-icon::after {
+  right: 0;
+  bottom: 0;
+  background: #23302a;
+}
+
+/* 복사 알림. 비공개 줄 자리에 잠깐 분필로 씀 */
+#board-copied {
+  color: #f4f0c8;
+  font-size: 1.3cqw;
 }
 
 #board-private {

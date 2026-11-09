@@ -20,7 +20,7 @@ import { makeCamera, renderFrame } from './render.ts'
 import { loaded, pull, ROUNDS } from './revolver.ts'
 import type { Rig } from './rig.ts'
 import { banner, DUEL_LIMIT, dueling, formatTime, joins, locked, resultText, standingCount, stepIndex, timeLeft, walking, type Schedule } from './round.ts'
-import { bountyRise, drawSaloon, POSTER_SLOTS, posterSlots, startBartender, stepBartender } from './saloon.ts'
+import { bountyRise, COPIED_MS, copyKeys, drawSaloon, POSTER_SLOTS, posterSlots, startBartender, stepBartender } from './saloon.ts'
 import { cut, replayWindow } from './replay.ts'
 // 지금 언어의 문구. 이 파일은 t를 시각 변수로 많이 써 문구는 copy로 부름
 import { copyOf, HTML_LANG, LANGUAGES, setLanguage, t as copy, textAt, type Language } from './i18n/index.ts'
@@ -542,8 +542,32 @@ const room = document.querySelector<HTMLOutputElement>('#room')!
 // 술집 대기실. 방에 들어가 판이 시작되기 전과 판이 끝난 뒤에 보임
 const saloon = document.querySelector<HTMLDivElement>('#saloon')!
 const boardName = document.querySelector<HTMLParagraphElement>('#board-name')!
-const boardCode = document.querySelector<HTMLParagraphElement>('#board-code')!
+const boardCode = document.querySelector<HTMLButtonElement>('#board-code')!
+const boardCodeText = document.querySelector<HTMLSpanElement>('#board-code-text')!
 const boardPrivate = document.querySelector<HTMLParagraphElement>('#board-private')!
+const boardCopied = document.querySelector<HTMLParagraphElement>('#board-copied')!
+// 복사 알림을 1.5초 비공개 줄 자리에 띄움 (시스템 기획서 방 화면 방 코드 복사)
+let roomPrivate = false
+let copiedTimer = 0
+function showCopied(text: string | null) {
+  clearTimeout(copiedTimer)
+  boardCopied.hidden = text === null
+  boardCopied.textContent = text ?? ''
+  boardPrivate.hidden = text !== null || !roomPrivate
+  if (text !== null) copiedTimer = setTimeout(() => showCopied(null), COPIED_MS)
+}
+// 클립보드는 보안 컨텍스트(HTTPS, localhost)에서만 있어 그 밖에서는 navigator.clipboard가 없어 throw함.
+// 막히면 조용히 넘기지 않고 코드를 선택해 두고 직접 복사하는 키를 알림
+boardCode.addEventListener('click', async () => {
+  try {
+    await navigator.clipboard.writeText(boardCodeText.textContent ?? '')
+    getSelection()?.removeAllRanges()
+    showCopied(copy.saloon.copied)
+  } catch {
+    getSelection()?.selectAllChildren(boardCodeText)
+    showCopied(copy.saloon.copyFailed(copyKeys(navigator.userAgent)))
+  }
+})
 
 // 포스터 8장 (시스템 기획서 방 화면 포스터). 자리 번호가 목수건 색 번호이고, 초상화는 그 자리 사람이 고른 캐릭터의 그림.
 // 닉네임은 사용자가 넣은 이름이라 textContent로만 넣음
@@ -926,8 +950,9 @@ function receive(data: string) {
       saloon.hidden = false
       // 칠판에 방 이름, 코드, 비공개를 적음. 판 도중에는 칠판이 없어 코드만 오른쪽 위에 둠 (시스템 기획서 방 화면)
       boardName.textContent = m.name
-      boardCode.textContent = m.code
-      boardPrivate.hidden = !m.private
+      boardCodeText.textContent = m.code
+      roomPrivate = m.private
+      showCopied(null)
       room.value = m.code
       myId = m.playerId
       placed = false

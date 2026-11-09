@@ -44,7 +44,9 @@
         <ol id="posters" data-i18n-label="saloon.posters"></ol>
         <div id="chalkboard" data-i18n-label="saloon.board">
           <p id="board-name"></p>
-          <p id="board-code"></p>
+          <!-- 방 코드. 누르면 클립보드에 복사함. 옆의 종이 두 장 아이콘이 복사할 수 있다는 표시 (SHEEP-114) -->
+          <button type="button" id="board-code" data-i18n-label="saloon.copyCode"><span id="board-code-text"></span><i class="copy-icon" aria-hidden="true"></i></button>
+          <p id="board-copied" role="status" hidden></p>
           <p id="board-private" data-i18n="saloon.private" hidden></p>
         </div>
         <!-- 카운터 앞면. 왼쪽부터 나가기, 준비, 설정 -->
