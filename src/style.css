@@ -1,15 +1,41 @@
-/* 포스터와 제목 글꼴 (시스템 기획서 방 화면 글꼴, CREDITS.md). Rye는 이름이 지켜진 글꼴이라 고치지 않은 원본을 넣고,
-   Black Han Sans는 woff2로만 바꿈. 받는 동안은 기본 글꼴로 먼저 보임 */
+/* 서부 목판 글꼴 (시스템 기획서 방 화면 글꼴, CREDITS.md). 받는 동안은 기본 글꼴로 먼저 보임.
+   글꼴마다 굵기가 하나뿐이라 모든 굵기에 같은 파일을 써 브라우저가 가짜 굵게를 덧입히지 않게 함.
+   한글 글꼴은 한글만 남겨 한글이 보일 때만 받음 */
 @font-face {
-  font-family: 'Rye';
-  src: url('./assets/fonts/Rye-Regular.ttf') format('truetype');
+  font-family: 'Holtwood One SC';
+  src: url('./assets/fonts/holtwood-one-sc.woff2') format('woff2');
+  font-weight: 100 900;
   font-display: swap;
 }
 
 @font-face {
-  font-family: 'Black Han Sans';
-  src: url('./assets/fonts/black-han-sans.woff2') format('woff2');
+  font-family: 'Rokkitt';
+  src: url('./assets/fonts/rokkitt-bold.woff2') format('woff2');
+  font-weight: 100 900;
   font-display: swap;
+}
+
+@font-face {
+  font-family: 'Gasoek One';
+  src: url('./assets/fonts/gasoek-one.woff2') format('woff2');
+  font-weight: 100 900;
+  font-display: swap;
+  unicode-range: U+3131-318E, U+AC00-D7A3;
+}
+
+@font-face {
+  font-family: 'Sheep Myeongjo';
+  src: url('./assets/fonts/sheep-myeongjo-bold.woff2') format('woff2');
+  font-weight: 100 900;
+  font-display: swap;
+  unicode-range: U+3131-318E, U+AC00-D7A3;
+}
+
+/* 제목·포스터·도장·칠판·남은 시간·"시작!"은 큰 글자, 버튼·창·나머지 글은 작은 글자.
+   Gasoek One에 없는 드문 한글은 명조로, 일본어·중국어·러시아어는 브라우저 기본 글꼴로 보임 */
+:root {
+  --display: 'Holtwood One SC', 'Gasoek One', 'Sheep Myeongjo', serif;
+  --text: 'Rokkitt', 'Sheep Myeongjo', serif;
 }
 
 html,
@@ -102,7 +128,7 @@ body {
   border: 0.25cqw solid #c0262d;
   border-radius: 0.3cqw;
   color: #c0262d;
-  font: bold 1.5cqw / 1.1 sans-serif;
+  font: 1cqw / 1.1 var(--display);
   white-space: nowrap;
   opacity: 0.9;
 }
@@ -135,7 +161,7 @@ body {
 #watching,
 #room {
   color: #f2dfa7;
-  font: 3cqw / 1 sans-serif;
+  font: 3cqw / 1 var(--text);
   letter-spacing: 0.4cqw;
   text-shadow: 0 0 0.3cqw #000;
 }
@@ -183,7 +209,7 @@ body {
     repeating-linear-gradient(180deg, #8a5a32 0 0.9cqw, #7a4c28 0.9cqw 1.2cqw);
   box-shadow: 0 0.3cqw 0.6cqw #0009;
   color: #f7e6bd;
-  font: bold 2.6cqw / 1 Georgia, serif;
+  font: 2.6cqw / 1 var(--display);
   font-variant-numeric: tabular-nums;
   text-shadow: 0 0.15cqw 0 #3d2412;
 }
@@ -199,7 +225,7 @@ body {
   background: repeating-linear-gradient(180deg, #8a5a32 0 0.7cqw, #7a4c28 0.7cqw 0.9cqw);
   box-shadow: 0 0.2cqw 0.4cqw #0009;
   color: #f7e6bd;
-  font: bold 1.6cqw / 1 Georgia, serif;
+  font: 1.6cqw / 1 var(--text);
   text-shadow: 0 0.1cqw 0 #3d2412;
 }
 
@@ -208,6 +234,7 @@ body {
   left: 50%;
   top: 25%;
   translate: -50% -50%;
+  font-family: var(--display);
   font-size: 10cqw;
   letter-spacing: 0;
 }
@@ -265,15 +292,19 @@ body {
     radial-gradient(ellipse at 50% 45%, #0000 35%, #1a0c06aa 100%),
     linear-gradient(#2a1838b0, #c8642a60 55%, #2a1208d0);
   color: #f2dfa7;
-  font: 2cqw / 1.2 sans-serif;
+  font: 2cqw / 1.2 var(--text);
 }
 
 /* 블록 글자처럼 아래로 두께를 줌 */
 #title {
+  max-width: 80cqw;
   margin: 0 0 1.5cqw;
   color: #f7d27a;
-  font: 7cqw / 1 'Black Han Sans', sans-serif;
-  letter-spacing: 0.3cqw;
+  font: 4.6cqw / 1.05 var(--display);
+  letter-spacing: 0.2cqw;
+  /* 목판 글꼴이 넓어 한 줄에 다 들어가지 않음. 줄 길이를 고르게 나눔 */
+  text-align: center;
+  text-wrap: balance;
   -webkit-text-stroke: 0.12cqw #6e3a14;
   /* 같은 색을 촘촘히 겹쳐 아래로 이어진 두께로 보이게 함. 띄엄띄엄 겹치면 판이 여러 장 쌓인 것처럼 보임 */
   text-shadow:
@@ -349,7 +380,7 @@ body {
 }
 
 #lobby:has(#room-step:not([hidden])) #title {
-  font-size: 4.5cqw;
+  font-size: 3cqw;
   margin-bottom: 0.5cqw;
 }
 
@@ -484,7 +515,7 @@ body {
   display: grid;
   place-items: center;
   background: #000a;
-  font: 2cqw / 1.2 sans-serif;
+  font: 2cqw / 1.2 var(--text);
 }
 
 #create-panel[hidden],
@@ -508,7 +539,7 @@ body {
 #create-title,
 #settings-title {
   margin: 0;
-  font: 900 3cqw / 1 sans-serif;
+  font: 3cqw / 1 var(--display);
   text-align: center;
 }
 
@@ -622,7 +653,7 @@ body {
 #saloon {
   position: absolute;
   inset: 0;
-  font: 2cqw / 1.2 sans-serif;
+  font: 2cqw / 1.2 var(--text);
 }
 
 /* 왼쪽 벽의 포스터 8자리, 4장씩 2줄 */
@@ -683,7 +714,7 @@ body {
 }
 
 .poster .wanted {
-  font: 2.1cqw / 1 'Rye', serif;
+  font: 1.6cqw / 1 var(--display);
   letter-spacing: 0.1cqw;
 }
 
@@ -696,13 +727,13 @@ body {
 .poster .nick {
   max-width: 100%;
   overflow: hidden;
-  font: 1.7cqw / 1.1 'Black Han Sans', sans-serif;
+  font: 1.5cqw / 1.1 var(--display);
   white-space: nowrap;
   text-overflow: ellipsis;
 }
 
 .poster .bounty {
-  font: 1.5cqw / 1 'Rye', serif;
+  font: 1.5cqw / 1 var(--display);
 }
 
 /* 내 포스터의 금색 보안관 별 */
@@ -728,7 +759,7 @@ body {
   border: 0.3cqw solid #c0262d;
   border-radius: 0.3cqw;
   color: #c0262d;
-  font: 2cqw / 1 'Black Han Sans', sans-serif;
+  font: 1.6cqw / 1 var(--display);
   opacity: 0.85;
 }
 
@@ -757,7 +788,7 @@ body {
 }
 
 #win .wanted {
-  font-size: 4.2cqw;
+  font-size: 3.2cqw;
 }
 
 #win img {
@@ -765,18 +796,18 @@ body {
 }
 
 #win .nick {
-  font-size: 3.4cqw;
+  font-size: 3cqw;
 }
 
 #win .stamp {
   top: 9cqw;
   border-width: 0.5cqw;
-  font-size: 4.4cqw;
+  font-size: 3cqw;
 }
 
 #win-bounty {
   color: #f7d27a;
-  font: 3cqw / 1 'Rye', serif;
+  font: 3cqw / 1 var(--display);
   text-shadow: 0 0.2cqw 0 #3d2412, 0 0 0.6cqw #000;
 }
 
@@ -792,7 +823,7 @@ body {
   justify-items: center;
   gap: 0.4cqw;
   color: #e8ecdfdd;
-  font-family: 'Black Han Sans', sans-serif;
+  font-family: var(--display);
   text-shadow: 0 0 0.15cqw #e8ecdf88;
 }
 
@@ -809,7 +840,7 @@ body {
 }
 
 #board-code {
-  font-size: 2.8cqw;
+  font-size: 2.4cqw;
   letter-spacing: 0.4cqw;
 }
 
