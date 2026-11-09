@@ -255,6 +255,15 @@ describe('drawFigure', () => {
   // 거리 d에서 높이 z(칸)가 그려지는 줄. 눈높이 0.5가 지평선(H/2)
   const rowAt = (z: number, d: number) => H / 2 + ((W / 2) * (0.5 - z)) / d
 
+  test('화면 밖 바로 옆에 선 사람은 그리지 않고 오류도 없음 (SHEEP-134)', () => {
+    // 시야 90°라 앞으로 0.2칸이면 옆으로 0.2칸 넘게 비켜선 사람은 화면 밖. 권총집의 총은 화면 안 높이에 있음
+    for (const y of [0.5, 1, -0.5, -1]) {
+      const pixels = new Uint32Array(W * H)
+      expect(() => drawFigure(pixels, W, H, new Float64Array(W).fill(Infinity), cam, { x: 0.2, y, facing: Math.PI, ...body.rest }, WHITE)).not.toThrow()
+      expect(pixels.every((c) => c === 0)).toBe(true)
+    }
+  })
+
   test('나를 보면 얼굴에 눈이 보이고, 등지면 안 보임', () => {
     const d = 2 - 1.75 * CELL
     const dark = (pixels: Uint32Array) => {
