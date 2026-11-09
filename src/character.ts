@@ -270,8 +270,12 @@ function build(data: CharacterData): Body {
     const p = posed(m)
     return { boxes: p.boxes, gun: holster.map((q) => movePoint(q, p.thigh)) }
   }
+  // 총을 오른손에 쥔 채. 팔을 내린 자세에서 총열은 팔을 따라 아래, 총 위는 앞이라 앞으로 뻗으면 겨눈 모습과 같음.
+  // 총은 오른 아래팔을 따라 움직임 (SHEEP-119)
+  const inHand = holdGun([4, FIST, 0], DOWN, Z).gun
+  const held = (m: Record<Seg, Move>): Pose => ({ boxes: posed(m).boxes, gun: inHand.map((q) => movePoint(q, m.rightArm1)) })
   // 동작 데이터 m의 f번째 프레임. 가장 낮은 곳이 바닥에 닿게 둠
-  const play = (m: Motion, f: number) => ground(holstered(motionMoves(m, f)))
+  const play = (m: Motion, f: number, pose = holstered) => ground(pose(motionMoves(m, f)))
   const frames = (ms: number) => (ms * MOTIONS.fps) / 1000
   // 위아래 시선(pitch)만큼 머리를 들고 오른팔과 총을 d쪽으로 뻗음. flash면 총구 앞에 불꽃
   const aimed = (pitch: number, d: V, flash: boolean): Pose => {
@@ -298,7 +302,8 @@ function build(data: CharacterData): Body {
     aim: (pitch) => aimed(pitch, ahead(pitch), false),
     fire: (pitch) => aimed(pitch, ahead(pitch + RECOIL), true),
     suicide: [temple(false), temple(true)],
-    fall: (ms) => play(fall, frames(ms)),
+    // 맞거나 쏜 뒤라 총을 손에 쥔 채 넘어짐
+    fall: (ms) => play(fall, frames(ms), held),
     sit: holstered(moves(seated)),
   }
 }

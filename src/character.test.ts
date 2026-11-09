@@ -201,6 +201,16 @@ describe('characterBody', () => {
     expect(Math.max(...lying.gun.map((p) => p[1]))).toBeLessThan(10)
   })
 
+  test('쓰러지는 동안 총은 오른손에 쥔 채 같이 넘어감: 손잡이가 오른 주먹에 붙어 있음 (SHEEP-119)', () => {
+    for (const t of [0, 300, 600, FALL_LAND_MS, 2000, 5000]) {
+      const pose = body.fall(t)
+      // 오른팔에서 팔꿈치 아래 끝(손)
+      const [fist] = pick(pose, 'rightArm', 13.6)
+      const gap = Math.min(...pose.gun.map((p) => Math.hypot(p[0] - fist.c[0], p[1] - fist.c[1], p[2] - fist.c[2])))
+      expect(gap, `t=${t}`).toBeLessThan(0.8)
+    }
+  })
+
   test('넘어지다 바닥에 닿는 때(FALL_LAND_MS)는 0.5~1.5초 뒤이고, 그 앞은 몸통이 아직 높고 그때는 몸통이 낮음', () => {
     expect(FALL_LAND_MS).toBeGreaterThan(500)
     expect(FALL_LAND_MS).toBeLessThan(1500)
