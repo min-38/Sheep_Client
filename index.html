@@ -10,7 +10,7 @@
     <div id="game">
       <canvas id="screen" data-i18n-label="hud.screen"></canvas>
       <div id="blood" aria-hidden="true" hidden></div>
-      <div id="crosshair" aria-hidden="true" hidden></div>
+      <div id="crosshair" class="reticle" aria-hidden="true" hidden></div>
       <div id="flash" aria-hidden="true" hidden></div>
       <figure id="hit-card" data-i18n-label="hud.hitCard" hidden>
         <!-- 정면 블록 몸(7.5등신 틀, 시스템 기획서 캐릭터: 머리, 목, 몸통, 팔, 다리). 키 30블록이 판정 원기둥의 머리 위 높이와 같음 -->
@@ -150,6 +150,14 @@
             <span data-i18n="settings.hand"></span>
             <label><input type="radio" name="hand" value="right" /> <span data-i18n="settings.right"></span></label>
             <label><input type="radio" name="hand" value="left" /> <span data-i18n="settings.left"></span></label>
+          </div>
+          <!-- 조준점 모양. 칸마다 결투 화면의 조준점과 같은 그림과 이름 (시스템 기획서 HUD 조준점) -->
+          <div class="row" role="radiogroup" aria-labelledby="crosshair-label">
+            <span id="crosshair-label" data-i18n="settings.crosshair"></span>
+            <label class="reticle-choice"><input type="radio" name="crosshair" value="ringDot" /><span class="reticle-tile"><span class="reticle" data-shape="ringDot"></span></span><span data-i18n="settings.ringDot"></span></label>
+            <label class="reticle-choice"><input type="radio" name="crosshair" value="cross" /><span class="reticle-tile"><span class="reticle" data-shape="cross"></span></span><span data-i18n="settings.cross"></span></label>
+            <label class="reticle-choice"><input type="radio" name="crosshair" value="dot" /><span class="reticle-tile"><span class="reticle" data-shape="dot"></span></span><span data-i18n="settings.dot"></span></label>
+            <label class="reticle-choice"><input type="radio" name="crosshair" value="ring" /><span class="reticle-tile"><span class="reticle" data-shape="ring"></span></span><span data-i18n="settings.ring"></span></label>
           </div>
           <button id="settings-close" class="plank" data-i18n="settings.close"></button>
         </form>

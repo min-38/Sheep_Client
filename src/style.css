@@ -172,18 +172,43 @@ body {
   opacity: 0.9;
 }
 
-/* 흰 고리와 가운데 점 (시스템 기획서 HUD). 화면 가운데가 시선이고, 팔 흔들림만큼 main.ts가 transform으로 옮겨 총알이 갈 곳을 보여 줌 */
+/* 조준점. 모양은 설정에서 고름(.reticle). 화면 가운데가 시선이고, 팔 흔들림만큼 main.ts가 transform으로 옮겨 총알이 갈 곳을 보여 줌 */
 #crosshair {
   left: 50%;
   top: 50%;
+  translate: -50% -50%;
+}
+
+/* 조준점 모양 (settings.ts CROSSHAIRS, 시스템 기획서 HUD 조준점). 결투 화면의 조준점과 설정 창의 견본이 같이 씀. 흰색에 검은 그림자 */
+.reticle {
+  box-sizing: border-box;
   width: 2cqw;
   aspect-ratio: 1;
-  translate: -50% -50%;
-  box-sizing: border-box;
+  filter: drop-shadow(0 0 1px #000);
+}
+
+.reticle[data-shape='ringDot'] {
   border: 2px solid #fff;
   border-radius: 50%;
   background: radial-gradient(circle, #fff 0 2px, #fff0 2.5px);
-  filter: drop-shadow(0 0 1px #000);
+}
+
+.reticle[data-shape='ring'] {
+  border: 2px solid #fff;
+  border-radius: 50%;
+}
+
+.reticle[data-shape='dot'] {
+  background: radial-gradient(circle, #fff 0 3px, #fff0 3.5px);
+}
+
+/* 가운데가 빈 십자 */
+.reticle[data-shape='cross'] {
+  background:
+    linear-gradient(#fff, #fff) 50% 0 / 2px 35% no-repeat,
+    linear-gradient(#fff, #fff) 50% 100% / 2px 35% no-repeat,
+    linear-gradient(#fff, #fff) 0 50% / 35% 2px no-repeat,
+    linear-gradient(#fff, #fff) 100% 50% / 35% 2px no-repeat;
 }
 
 /* 내 발사 불꽃. main.ts가 리볼버를 그리며 구한 총구 자리로 transform을 써서 옮김 (기술 설계서 렌더링 무기) */
@@ -804,6 +829,43 @@ body {
 
 #settings-panel label:not(.row) {
   cursor: pointer;
+}
+
+/* 조준점 고르기: 캐릭터 고르기처럼 라디오는 숨기고 모양을 그린 어두운 칸을 누름. 고른 칸은 놋쇠 테, 이름은 칸 아래 */
+#settings-panel .row > .reticle-choice {
+  position: relative;
+  align-self: start;
+  flex: 1;
+  flex-direction: column;
+  gap: 0.3cqw;
+  min-width: 0;
+  font-size: 1.3cqw;
+  text-align: center;
+}
+
+.reticle-choice input {
+  position: absolute;
+  opacity: 0;
+}
+
+.reticle-tile {
+  display: grid;
+  place-items: center;
+  width: 3.4cqw;
+  aspect-ratio: 1;
+  border: 0.25cqw solid #3d2412;
+  border-radius: 0.3cqw;
+  background: #2a1f18;
+}
+
+.reticle-choice input:checked + .reticle-tile {
+  border-color: #e2b23c;
+  box-shadow: 0 0 0 0.15cqw #a07818;
+}
+
+.reticle-choice input:focus-visible + .reticle-tile {
+  outline: 0.3cqw solid #8a2b0e;
+  outline-offset: 0.3cqw;
 }
 
 #room-name {

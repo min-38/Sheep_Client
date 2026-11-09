@@ -24,7 +24,7 @@ import { bountyRise, drawSaloon, POSTER_SLOTS, posterSlots, startBartender, step
 import { cut, replayWindow } from './replay.ts'
 // 지금 언어의 문구. 이 파일은 t를 시각 변수로 많이 써 문구는 copy로 부름
 import { copyOf, HTML_LANG, LANGUAGES, setLanguage, t as copy, textAt, type Language } from './i18n/index.ts'
-import { readSettings, radiansPerPixel, type Hand, type Settings } from './settings.ts'
+import { readSettings, radiansPerPixel, type Crosshair, type Hand, type Settings } from './settings.ts'
 import { oneTab } from './tablock.ts'
 import { nextTarget } from './spectate.ts'
 import { fallDelay, heardFrom, loadEffects, play, playFall, playSignal, playStep, setEffectsVolume, stampOf, toAudioTime } from './sound.ts'
@@ -320,6 +320,8 @@ function showAmmo(left: number | null) {
 
 const flash = document.querySelector<HTMLDivElement>('#flash')!
 const crosshair = document.querySelector<HTMLDivElement>('#crosshair')!
+// 설정에서 고른 모양. 관전과 다시 보기에서도 내 모양 (시스템 기획서 HUD 조준점)
+crosshair.dataset.shape = settings.crosshair
 const hitCard = document.querySelector<HTMLElement>('#hit-card')!
 const hitHole = document.querySelector<SVGCircleElement>('#hit-hole')!
 const hitStamp = document.querySelector<HTMLOutputElement>('#hit-stamp')!
@@ -1081,6 +1083,7 @@ function showSettings() {
     document.querySelector<HTMLOutputElement>(`#${key}-value`)!.value = `${sliders[key].value}%`
   }
   settingsForm.querySelector<HTMLInputElement>(`input[name="hand"][value="${settings.hand}"]`)!.checked = true
+  settingsForm.querySelector<HTMLInputElement>(`input[name="crosshair"][value="${settings.crosshair}"]`)!.checked = true
   languageSelect.value = settings.language
   languageList.sync()
 }
@@ -1088,10 +1091,12 @@ function showSettings() {
 settingsForm.addEventListener('input', () => {
   // 막대의 min·max가 설정 범위와 같고 언어 목록은 LANGUAGES로만 채워, 읽은 값은 늘 범위 안임
   const hand = settingsForm.querySelector<HTMLInputElement>('input[name="hand"]:checked')!.value as Hand
+  const crosshairShape = settingsForm.querySelector<HTMLInputElement>('input[name="crosshair"]:checked')!.value as Crosshair
   const percent = (key: keyof typeof sliders) => Number(sliders[key].value) / 100
   const language = languageSelect.value as Language
   const relabel = language !== settings.language
-  settings = { sensitivity: percent('sensitivity'), music: percent('music'), effects: percent('effects'), hand, language }
+  settings = { sensitivity: percent('sensitivity'), music: percent('music'), effects: percent('effects'), hand, language, crosshair: crosshairShape }
+  crosshair.dataset.shape = settings.crosshair
   setEffectsVolume(settings.effects)
   setMusicVolume(settings.music)
   if (relabel) applyCopy()
