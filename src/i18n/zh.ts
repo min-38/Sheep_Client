@@ -56,6 +56,7 @@ export const zh: Copy = {
     settings: '设置',
     connecting: '正在连接服务器…',
     disconnected: '与服务器的连接已断开。请刷新页面重新连接。',
+    otherTab: '游戏已在另一个标签页中打开。请关闭那个标签页，然后刷新本页面。',
     noRooms: '没有开放的房间',
     members: (names, more) => `${names} 等另外 ${more} 人`,
     playing: '对局中',

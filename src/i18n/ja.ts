@@ -56,6 +56,7 @@ export const ja: Copy = {
     settings: '設定',
     connecting: 'サーバーに接続中…',
     disconnected: 'サーバーとの接続が切れました。ページを再読み込みして接続し直してください。',
+    otherTab: 'ゲームはすでに別のタブで開いています。そのタブを閉じてから、このページを再読み込みしてください。',
     noRooms: '開いているルームはありません',
     members: (names, more) => `${names} ほか${more}人`,
     playing: '対戦中',

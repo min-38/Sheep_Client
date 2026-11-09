@@ -56,6 +56,7 @@ export const de: Copy = {
     settings: 'Einstellungen',
     connecting: 'Verbindung zum Server wird hergestellt …',
     disconnected: 'Keine Verbindung zum Server. Lade die Seite neu, um dich wieder zu verbinden.',
+    otherTab: 'Das Spiel ist schon in einem anderen Tab geöffnet. Schließe diesen Tab und lade dann diese Seite neu.',
     noRooms: 'Keine offenen Räume',
     members: (names, more) => `${names} und ${more} weitere`,
     playing: 'Im Spiel',

@@ -23,6 +23,7 @@ import { cut, replayWindow } from './replay.ts'
 // 지금 언어의 문구. 이 파일은 t를 시각 변수로 많이 써 문구는 copy로 부름
 import { copyOf, HTML_LANG, LANGUAGES, setLanguage, t as copy, textAt, type Language } from './i18n/index.ts'
 import { readSettings, radiansPerPixel, type Hand, type Settings } from './settings.ts'
+import { oneTab } from './tablock.ts'
 import { nextTarget } from './spectate.ts'
 import { fallDelay, heardFrom, loadEffects, play, playFall, playSignal, playStep, setEffectsVolume, stampOf, toAudioTime } from './sound.ts'
 import type { Thing } from './sprite.ts'
@@ -443,7 +444,7 @@ function frame(now: number) {
     const muzzle = drawGun(ctx, revolverMesh(revolver, plays, rounds ?? 0), { ...s, kick, lower: hold.lower }, W, H, PROJ, settings.hand === 'left' ? -1 : 1)
     flash.style.transform = `translate(${(muzzle.x * 100) / W}cqw, ${(muzzle.y * 100) / W}cqw)`
     // 마우스 이벤트가 아니라 여기서 보내야 마지막으로 멈춘 각도도 빠지지 않고 감
-    if ((angle !== sentAngle || pitch !== sentPitch) && now - sentAt >= TURN_INTERVAL && ws.readyState === WebSocket.OPEN) {
+    if ((angle !== sentAngle || pitch !== sentPitch) && now - sentAt >= TURN_INTERVAL && ws?.readyState === WebSocket.OPEN) {
       send({ type: 'turn', angle, pitch })
       sentAngle = angle
       sentPitch = pitch
@@ -749,13 +750,13 @@ function enterWith(message: (nickname: string) => ClientMessage) {
   send(message(nickname))
 }
 
-// 같은 출처의 /ws. 개발 중에는 vite가 로컬 서버로 넘김 (vite.config.ts)
-const ws = new WebSocket('/ws')
+// 같은 출처의 /ws. 개발 중에는 vite가 로컬 서버로 넘김 (vite.config.ts). 탭 잠금(tablock.ts)을 잡은 뒤에 붙고, 못 잡은 탭은 끝까지 null
+let ws: WebSocket | null = null
 // 개발 빌드에서만 주소의 ?lag=N(ms)만큼 왕복을 늘림. 보내기와 받기를 반씩 늦춰 지연이 다른 창끼리 판정을 확인함 (기술 설계서 개발 마일스톤 5).
 // 늦추는 시간이 모두 같아 메시지 순서는 그대로임
 const LAG = import.meta.env.DEV ? Number(new URLSearchParams(location.search).get('lag')) : 0
 const later = (f: () => void) => (LAG > 0 ? setTimeout(f, LAG / 2) : f())
-const send = (m: ClientMessage) => later(() => ws.send(JSON.stringify(m)))
+const send = (m: ClientMessage) => later(() => ws?.send(JSON.stringify(m)))
 
 // 서버 시계와 내 시계의 차이. 맞추기 전에는 null. 서버가 알린 시각을 내 시계로 바꿀 때 씀
 let clock: ClockSample | null = null
@@ -805,25 +806,31 @@ function syncClock() {
   send({ type: 'clockSync', t0: performance.now() })
 }
 
-ws.addEventListener('open', () => {
-  connected = true
-  showStep()
-  showStatus(() => '')
-  syncClock()
-})
-// 처음부터 못 붙어도 여기로 옴. ponytail: 재접속 없음. 재접속 이슈에서 다시 붙어 방으로 돌아가게 함
-ws.addEventListener('close', () => {
-  document.exitPointerLock()
-  connected = false
-  createPanel.hidden = true
-  lobby.hidden = false
-  showStep()
-  saloon.hidden = true
-  winView.hidden = true
-  room.value = ''
-  showStatus(() => copy.lobby.disconnected)
-})
-ws.addEventListener('message', (e) => later(() => receive(e.data)))
+function connect() {
+  ws = new WebSocket('/ws')
+  ws.addEventListener('open', () => {
+    connected = true
+    showStep()
+    showStatus(() => '')
+    syncClock()
+  })
+  // 처음부터 못 붙어도 여기로 옴. ponytail: 재접속 없음. 재접속 이슈에서 다시 붙어 방으로 돌아가게 함
+  ws.addEventListener('close', () => {
+    document.exitPointerLock()
+    connected = false
+    createPanel.hidden = true
+    lobby.hidden = false
+    showStep()
+    saloon.hidden = true
+    winView.hidden = true
+    room.value = ''
+    showStatus(() => copy.lobby.disconnected)
+  })
+  ws.addEventListener('message', (e) => later(() => receive(e.data)))
+}
+// 배포 빌드에서는 같은 브라우저의 탭 하나만 붙음. 개발 빌드는 창 여러 개와 ?lag, 봇으로 시험하려고 잠그지 않음.
+// HTTP로 연 페이지(보안 컨텍스트 밖)에는 navigator.locks가 없어 그냥 붙음. 못 붙은 탭은 첫 화면 칸이 꺼진 채로 문구만 보임
+oneTab(import.meta.env.DEV ? undefined : (navigator.locks as LockManager | undefined), connect, () => showStatus(() => copy.lobby.otherTab))
 function receive(data: string) {
   const m = parseServerMessage(data)
   switch (m?.type) {
