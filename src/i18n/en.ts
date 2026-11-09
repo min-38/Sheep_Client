@@ -50,7 +50,7 @@ export const en = {
   // 첫 화면
   lobby: {
     nickname: 'Nickname',
-    nicknameRule: '2–8 characters: Hangul, letters A–Z, digits',
+    nicknameRule: '2–8 characters',
     ok: 'OK',
     rename: 'Change',
     character: 'Character',

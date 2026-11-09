@@ -43,7 +43,7 @@ export const de: Copy = {
   },
   lobby: {
     nickname: 'Spitzname',
-    nicknameRule: '2–8 Zeichen: Hangul, Buchstaben A–Z, Ziffern',
+    nicknameRule: '2–8 Zeichen',
     ok: 'OK',
     rename: 'Ändern',
     character: 'Figur',

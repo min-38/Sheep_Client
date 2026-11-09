@@ -43,7 +43,7 @@ export const ja: Copy = {
   },
   lobby: {
     nickname: 'ニックネーム',
-    nicknameRule: '2〜8文字、ハングル・英字・数字のみ',
+    nicknameRule: '2〜8文字',
     ok: 'OK',
     rename: '変更',
     character: 'キャラクター',

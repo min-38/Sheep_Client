@@ -43,7 +43,7 @@ export const ru: Copy = {
   },
   lobby: {
     nickname: 'Никнейм',
-    nicknameRule: '2–8 символов: хангыль, буквы A–Z, цифры',
+    nicknameRule: '2–8 символов',
     ok: 'ОК',
     rename: 'Изменить',
     character: 'Персонаж',

@@ -43,7 +43,7 @@ export const ko: Copy = {
   },
   lobby: {
     nickname: '닉네임',
-    nicknameRule: '2~8자, 한글·영문·숫자만',
+    nicknameRule: '2~8자',
     ok: '확인',
     rename: '바꾸기',
     character: '캐릭터',

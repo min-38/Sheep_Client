@@ -43,7 +43,7 @@ export const zh: Copy = {
   },
   lobby: {
     nickname: '昵称',
-    nicknameRule: '2–8 个字符，仅限韩文、英文字母和数字',
+    nicknameRule: '2–8 个字符',
     ok: '确定',
     rename: '更改',
     character: '角色',
