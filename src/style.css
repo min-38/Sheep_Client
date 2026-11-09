@@ -347,16 +347,15 @@ body {
   font: 2cqw / 1.2 var(--text);
 }
 
-/* 블록 글자처럼 아래로 두께를 줌 */
+/* 블록 글자처럼 아래로 두께를 줌. 세 줄로 나눠 줄마다 오른쪽으로 들여 씀 (SHEEP-111) */
 #title {
-  max-width: 80cqw;
+  display: grid;
+  justify-items: start;
   margin: 0 0 1.5cqw;
   color: #f7d27a;
-  font: 4.6cqw / 1.05 var(--display);
+  font: 3.6cqw / 1.08 var(--display);
   letter-spacing: 0.2cqw;
-  /* 목판 글꼴이 넓어 한 줄에 다 들어가지 않음. 줄 길이를 고르게 나눔 */
-  text-align: center;
-  text-wrap: balance;
+  white-space: nowrap;
   -webkit-text-stroke: 0.12cqw #6e3a14;
   /* 같은 색을 촘촘히 겹쳐 아래로 이어진 두께로 보이게 함. 띄엄띄엄 겹치면 판이 여러 장 쌓인 것처럼 보임 */
   text-shadow:
@@ -367,6 +366,15 @@ body {
     0 0.5cqw 0 #6e3a14,
     0 0.6cqw 0 #6e3a14,
     0 1.2cqw 1.2cqw #000b;
+}
+
+/* 글자 크기를 따라 들여 쓰게 em */
+#title span:nth-child(2) {
+  padding-left: 1.1em;
+}
+
+#title span:nth-child(3) {
+  padding-left: 2.2em;
 }
 
 /* 첫 화면과 술집 동안은 게임 HUD를 숨김. 그대로 두면 실린더와 조준점이 겹침. 방 코드는 술집 칠판에 있음 */
@@ -464,8 +472,8 @@ body {
 }
 
 #lobby:has(#room-step:not([hidden])) #title {
-  font-size: 3cqw;
-  margin-bottom: 0.5cqw;
+  font-size: 2cqw;
+  margin-bottom: 0;
 }
 
 #who {

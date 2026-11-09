@@ -59,7 +59,7 @@
       </div>
       <!-- 첫 화면. 위에서부터 제목, 닉네임, 랜덤 입장, 방 만들기, 방 코드로 입장 (시스템 기획서 방 화면 M8 첫 화면) -->
       <form id="lobby">
-        <h1 id="title" data-i18n="title"></h1>
+        <h1 id="title"><span data-i18n="titleLines.0"></span> <span data-i18n="titleLines.1"></span> <span data-i18n="titleLines.2"></span></h1>
         <!-- 1단계: 닉네임을 정함. 브라우저에 기억한 닉네임이 있으면 건너뜀 -->
         <fieldset id="name-step" disabled>
           <input id="nickname" data-i18n-label="lobby.nickname" aria-describedby="nickname-rule" data-i18n-placeholder="lobby.nickname" maxlength="12" autocomplete="nickname" spellcheck="false" />

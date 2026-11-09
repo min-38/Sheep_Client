@@ -4,6 +4,7 @@ import { en, type Copy } from './en.ts'
 export const ja: Copy = {
   languageName: '日本語',
   title: en.title,
+  titleLines: en.titleLines,
   hud: {
     screen: 'ゲーム画面',
     hitCard: '自分の射撃結果',

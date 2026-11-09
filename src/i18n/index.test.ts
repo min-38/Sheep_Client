@@ -47,6 +47,11 @@ describe('문구', () => {
     for (const l of LANGUAGES) expect(copyOf(l).title).toBe('The Quick, the Slow and the Shot!')
   })
 
+  test('첫 화면 제목 세 줄을 이으면 제목 그대로 (시스템 기획서 방 화면 M8 첫 화면)', () => {
+    for (const l of LANGUAGES) expect(copyOf(l).titleLines).toEqual(['The Quick,', 'the Slow', 'and the Shot!'])
+    expect(en.titleLines.join(' ')).toBe(en.title)
+  })
+
   test.each(LANGUAGES)('%s: index.html에 적은 키가 모두 글자로 있음', (l) => {
     expect(htmlKeys.length).toBeGreaterThan(30)
     for (const key of htmlKeys) expect(textAt(copyOf(l), key), key).toEqual(expect.any(String))
