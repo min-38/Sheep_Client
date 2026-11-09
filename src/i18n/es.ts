@@ -46,7 +46,6 @@ export const es: Copy = {
     nickname: 'Apodo',
     nicknameRule: '2–8 caracteres',
     ok: 'Aceptar',
-    rename: 'Cambiar',
     character: 'Personaje',
     characterNames: ['Charles'],
     roomList: 'Lista de salas',

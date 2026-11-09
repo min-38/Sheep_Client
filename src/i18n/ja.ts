@@ -46,7 +46,6 @@ export const ja: Copy = {
     nickname: 'ニックネーム',
     nicknameRule: '2〜8文字',
     ok: 'OK',
-    rename: '変更',
     character: 'キャラクター',
     characterNames: ['チャールズ'],
     roomList: 'ルーム一覧',

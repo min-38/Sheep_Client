@@ -46,7 +46,6 @@ export const zh: Copy = {
     nickname: '昵称',
     nicknameRule: '2–8 个字符',
     ok: '确定',
-    rename: '更改',
     character: '角色',
     characterNames: ['查尔斯'],
     roomList: '房间列表',

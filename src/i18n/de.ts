@@ -46,7 +46,6 @@ export const de: Copy = {
     nickname: 'Spitzname',
     nicknameRule: '2–8 Zeichen',
     ok: 'OK',
-    rename: 'Ändern',
     character: 'Figur',
     characterNames: ['Charles'],
     roomList: 'Raumliste',
