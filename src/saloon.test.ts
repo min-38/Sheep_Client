@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest'
 import type { PlayerState } from './net.ts'
-import { BAR_LEFT, BAR_RIGHT, bountyRise, bountyText, posterSlots, startBartender, stepBartender } from './saloon.ts'
+import { BAR_LEFT, BAR_RIGHT, bountyRise, bountyText, copyKeys, posterSlots, startBartender, stepBartender } from './saloon.ts'
 
 const player = (id: string, color: number, extra: Partial<PlayerState> = {}): PlayerState => ({
   id,
@@ -77,5 +77,13 @@ describe('stepBartender', () => {
       seen.add(b.action)
     }
     expect([...seen].sort()).toEqual(['stand', 'walk', 'wipe'])
+  })
+})
+
+describe('copyKeys', () => {
+  test('애플 기기는 ⌘C, 그 밖은 Ctrl+C', () => {
+    expect(copyKeys('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)')).toBe('⌘C')
+    expect(copyKeys('Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X)')).toBe('⌘C')
+    expect(copyKeys('Mozilla/5.0 (Windows NT 10.0; Win64; x64)')).toBe('Ctrl+C')
   })
 })
