@@ -56,6 +56,7 @@ export const es: Copy = {
     settings: 'Ajustes',
     connecting: 'Conectando con el servidor…',
     disconnected: 'Sin conexión con el servidor. Recarga la página para volver a conectarte.',
+    otherTab: 'El juego ya está abierto en otra pestaña. Ciérrala y vuelve a cargar esta página.',
     noRooms: 'No hay salas abiertas',
     members: (names, more) => `${names} y ${more} más`,
     playing: 'En partida',

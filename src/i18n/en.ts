@@ -64,6 +64,8 @@ export const en = {
     settings: 'Settings',
     connecting: 'Connecting to the server…',
     disconnected: 'Disconnected from the server. Refresh the page to reconnect.',
+    // 같은 브라우저의 다른 탭이 이미 접속해 있을 때 (시스템 기획서 방 화면 탭 하나만)
+    otherTab: 'The game is already open in another tab. Close that tab, then refresh this page.',
     noRooms: 'No open rooms',
     // 방 목록 한 줄에 3명까지 적고 나머지는 수만 (시스템 기획서 방 화면 대기실 보기)
     members: (names: string, more: number) => `${names} and ${more} more`,

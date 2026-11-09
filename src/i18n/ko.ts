@@ -56,6 +56,7 @@ export const ko: Copy = {
     settings: '설정',
     connecting: '서버에 접속하는 중',
     disconnected: '서버와 연결되지 않음. 새로고침해 다시 접속',
+    otherTab: '다른 탭에 게임이 이미 열려 있음. 그 탭을 닫고 새로고침',
     noRooms: '열린 방이 없음',
     members: (names, more) => `${names} 외 ${more}명`,
     playing: '판 진행 중',
