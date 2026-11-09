@@ -28,6 +28,29 @@
         </svg>
         <output id="hit-stamp"></output>
       </figure>
+      <!-- 쓰러지는 장면의 자막 카드. 누가 어디를 맞혀 나를 쓰러뜨렸는지 무성 영화 자막처럼 띄움 (시스템 기획서 HUD 쓰러짐, SHEEP-119) -->
+      <figure id="kill-card" data-i18n-label="hud.killCard" hidden>
+        <img id="kill-face" alt="" />
+        <span class="who">
+          <span id="kill-kicker"></span>
+          <span id="kill-name"></span>
+        </span>
+        <!-- 사격 결과 카드와 같은 정면 블록 몸. 구멍 자리는 main.ts가 맞은 부위로 옮김 -->
+        <svg viewBox="0 0 100 100" aria-hidden="true">
+          <g class="figure">
+            <rect x="45" y="0" width="10" height="13.333" />
+            <rect x="46.667" y="13.333" width="6.667" height="3.333" />
+            <rect x="40" y="16.667" width="20" height="30" />
+            <rect x="33.333" y="16.667" width="6.667" height="43.333" />
+            <rect x="60" y="16.667" width="6.667" height="43.333" />
+            <rect x="40.833" y="46.667" width="8.333" height="53.333" />
+            <rect x="50.833" y="46.667" width="8.333" height="53.333" />
+          </g>
+          <circle id="kill-old" r="3.5" />
+          <circle id="kill-hole" r="4" />
+        </svg>
+        <figcaption id="kill-line"></figcaption>
+      </figure>
       <!-- 리볼버 실린더 6칸. 그림은 cylinder.ts가 채우고, 장전된 칸만 놋쇠 탄피 바닥이 보임 (시스템 기획서 HUD 탄 수) -->
       <svg id="ammo" viewBox="0 0 100 100" role="img"></svg>
       <output id="timer" data-i18n-label="hud.timer" hidden></output>

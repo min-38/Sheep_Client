@@ -28,6 +28,14 @@ export const zh: Copy = {
     wounded: '负伤',
     hitDown: '击倒',
     miss: '未命中',
+    killCard: '谁把你撂倒了',
+    downedBy: '撂倒你的是',
+    outtaTime: '时间到',
+    killLine: {
+      head: (name: string) => `${name}一枪打穿了你的帽子，伙计。`,
+      body: (name: string) => `${name}第二枪把你撂倒了，伙计。`,
+      timeout: '时间用光喽，伙计。',
+    },
   },
   saloon: {
     seats: '吧台边的人',

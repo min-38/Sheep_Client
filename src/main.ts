@@ -22,6 +22,7 @@ import type { Rig } from './rig.ts'
 import { banner, DUEL_LIMIT, dueling, formatTime, joins, locked, resultText, standingCount, stepIndex, timeLeft, walking, type Schedule } from './round.ts'
 import { bountyRise, bubbleX, COPIED_MS, copyKeys, drawSaloon, SALOON_CAMERA, seatSlots, seatSpot, seatTag, startBartender, startChatter, stepBartender, stepChatter, STOOL, tally } from './saloon.ts'
 import { cut, replayWindow } from './replay.ts'
+import { filming, motionMs, SCENE_MS, sceneCamera, SLOW } from './downscene.ts'
 // 지금 언어의 문구. 이 파일은 t를 시각 변수로 많이 써 문구는 copy로 부름
 import { copyOf, HTML_LANG, LANGUAGES, setLanguage, t as copy, textAt, type Language } from './i18n/index.ts'
 import { readSettings, radiansPerPixel, type Crosshair, type Hand, type Settings } from './settings.ts'
@@ -48,9 +49,11 @@ const TURN_INTERVAL = 50
 const INTERP_DELAY = 100
 // 한 번 맞출 때 재는 횟수. 그중 왕복이 가장 짧은 값을 씀 (기술 설계서 시간 맞추기)
 const SYNC_COUNT = 5
-// ms. 쓰러져 "쓰러짐"을 보인 뒤 관전으로 넘어가기까지. 함께 쓰러짐으로 늦게 오는 내 shotResult(맞고 D 안에 쏜 발사)가 그 안에 다 와서,
-// 관전을 시작한 뒤 오는 shotResult는 관전 대상의 복사본임. ponytail: 임시 값(시스템 기획서 HUD 관전). 플레이해 보며 정함
-const SPECTATE_AFTER = 1000
+// ms. 쓰러져 쓰러짐 장면(SHEEP-119)을 보인 뒤 관전으로 넘어가기까지. 함께 쓰러짐으로 늦게 오는 내 shotResult(맞고 D 안에 쏜 발사)가
+// 그 안에 다 와서, 관전을 시작한 뒤 오는 shotResult는 관전 대상의 복사본임 (시스템 기획서 HUD 관전)
+const SPECTATE_AFTER = SCENE_MS
+// px. 쓰러짐 장면의 위아래 검은 띠 높이(화면 높이의 9%)
+const FILM_BAR = Math.round(H * 0.09)
 
 const canvas = document.querySelector<HTMLCanvasElement>('#screen')!
 canvas.width = W
@@ -250,7 +253,8 @@ function playFallOf(id: string, reason: 'shot' | 'timeout') {
   if (!audio || !placed || !samples) return
   const now = performance.now()
   const when = toAudioTime(now + INTERP_DELAY + (id === myId ? 0 : fallDelay(reason)), stampOf(audio))
-  if (id === myId) return playFall(audio, when)
+  // 내 쓰러짐은 장면처럼 늦춰 느리게 넘어진 몸이 바닥에 닿을 때 낮게 들림 (SHEEP-119)
+  if (id === myId) return playFall(audio, toAudioTime(now + INTERP_DELAY + fallDelay(reason) / SLOW, stampOf(audio)), undefined, SLOW)
   const view = eyes(now)
   const body = sampleAt(samples, now - INTERP_DELAY)
   playFall(audio, when, heardFrom(view.x, view.y, view.angle, body.x, body.y))
@@ -278,7 +282,7 @@ function othersAt(t: number, viewer: string, scene: Scene): Thing[] {
 // 탈락하면 뒤로 넘어짐. 시간 초과는 자살 모습(총을 댐, 불꽃)을 보인 뒤 넘어짐
 function poseAt(body: Body, down: Down | undefined, t: number, upright: Pose) {
   if (down === undefined || t < down.at) return upright
-  if (down.reason === 'shot') return body.fall(t - down.at)
+  if (down.reason === 'shot') return body.fall(t - down.at, true)
   const stage = suicideStage(t - down.at)
   return stage === null ? body.fall(t - down.at - SUICIDE_AIM - SUICIDE_FLASH) : body.suicide[stage]
 }
@@ -323,6 +327,36 @@ const crosshair = document.querySelector<HTMLDivElement>('#crosshair')!
 // 설정에서 고른 모양. 관전과 다시 보기에서도 내 모양 (시스템 기획서 HUD 조준점)
 crosshair.dataset.shape = settings.crosshair
 const hitCard = document.querySelector<HTMLElement>('#hit-card')!
+// 쓰러지는 장면의 자막 카드 (SHEEP-119). 탈락과 downedBy를 받을 때 채우고, 장면 동안 보임
+const killCard = document.querySelector<HTMLElement>('#kill-card')!
+const killFace = document.querySelector<HTMLImageElement>('#kill-face')!
+const killKicker = document.querySelector<HTMLElement>('#kill-kicker')!
+const killName = document.querySelector<HTMLElement>('#kill-name')!
+const killLine = document.querySelector<HTMLElement>('#kill-line')!
+const killHole = document.querySelector<SVGCircleElement>('#kill-hole')!
+const killOld = document.querySelector<SVGCircleElement>('#kill-old')!
+// 몸 그림(100×100)에서 구멍 자리. 머리, 두 번째 반샷(가슴과 앞서 맞은 배), 시간 초과는 오른쪽 관자놀이
+const KILL_HOLES = { head: [51, 6], body: [53, 26], timeout: [55.5, 7] } as const
+const OLD_WOUND = [45, 38] as const
+// 나를 쓰러뜨린 사람과 맞은 부위. 시간 초과면 null
+let downedBy: { playerId: string; zone: 'head' | 'body' } | null = null
+
+function fillKillCard() {
+  const by = downedBy && roster.find((p) => p.id === downedBy!.playerId)
+  const me = roster.find((p) => p.id === myId)
+  const who = by ?? me
+  if (!who) return
+  killFace.src = PORTRAITS[who.character]
+  killKicker.textContent = by ? copy.hud.downedBy : copy.hud.outtaTime
+  killName.textContent = who.nickname
+  killLine.textContent = by ? copy.hud.killLine[downedBy!.zone](by.nickname) : copy.hud.killLine.timeout
+  const [x, y] = KILL_HOLES[by ? downedBy!.zone : 'timeout']
+  killHole.setAttribute('cx', `${x}`)
+  killHole.setAttribute('cy', `${y}`)
+  killOld.setAttribute('cx', `${OLD_WOUND[0]}`)
+  killOld.setAttribute('cy', `${OLD_WOUND[1]}`)
+  killOld.style.display = by && downedBy!.zone === 'body' ? '' : 'none'
+}
 const hitHole = document.querySelector<SVGCircleElement>('#hit-hole')!
 const hitStamp = document.querySelector<HTMLOutputElement>('#hit-stamp')!
 const bloodView = document.querySelector<HTMLDivElement>('#blood')!
@@ -435,6 +469,10 @@ function frame(now: number) {
   showAmmo(rounds)
   const dt = now - lastFrame
   lastFrame = now
+  // 내가 쓰러진 것을 보인 때부터 장면 시간(ms). 다시 보기와 관전 중에는 장면이 없음 (시스템 기획서 HUD 쓰러짐)
+  const mine = !r && !watch && myId !== null ? downs.get(myId) : undefined
+  const sceneT = mine ? now - INTERP_DELAY - mine.at : -1
+  const inScene = mine !== undefined && sceneT >= 0 && sceneT < SCENE_MS
   if (!saloon.hidden) {
     // 판 사이에는 결투장 대신 술집 한 장면을 그림 (시스템 기획서 방 화면 M8 대기실 짜임)
     bartender = stepBartender(bartender, now, dt, Math.random)
@@ -448,6 +486,21 @@ function frame(now: number) {
       if (bartenderLine.textContent !== text) bartenderLine.textContent = text
       bartenderLine.style.left = `${(bubbleX(bartender.x) * 100) / W}%`
     }
+  } else if (grid && view && inScene) {
+    // 내 앞 위에서 내 몸을 내려다보며 넘어지는 동작만 늦춤. 늘 카메라를 보는 소품 그림은 위에서 보면 납작해 빼고, 하늘은 화면 밖임 (SHEEP-119)
+    const me = sampleAt(history.get(myId!)!, now - INTERP_DELAY)
+    const body = characterBody(characters.get(myId!)!)
+    const self = { x: me.x, y: me.y, facing: me.angle, ...poseAt(body, { at: 0, reason: mine.reason }, motionMs(sceneT), body.rest) }
+    const things = [self, ...othersAt(now - INTERP_DELAY, myId!, scene)]
+    renderFrame(pixels, W, H, grid, sceneCamera(me.x, me.y, me.angle, sceneT, FOV), things, SKIES[timeOfDay(standing ?? history.size)])
+    ctx.putImageData(image, 0, 0)
+    // 바닥에 닿을 때까지 옛 영화처럼 위아래에 검은 띠
+    if (filming(sceneT, mine.reason)) {
+      ctx.fillStyle = '#000'
+      ctx.fillRect(0, 0, W, FILM_BAR)
+      ctx.fillRect(0, H - FILM_BAR, W, FILM_BAR)
+    }
+    playSteps(now)
   } else if (grid && view) {
     // 내 자리도 다른 사람처럼 INTERP_DELAY 전을 그림. 받은 그대로 그리면 걷는 동안 20Hz로 끊겨 보임
     const things = [...othersAt(r ? t : now - INTERP_DELAY, view.id, scene), ...props]
@@ -481,6 +534,8 @@ function frame(now: number) {
   flash.hidden = t - fired >= FLASH_SHOWN
   // 다시 보기에서는 그 사람의 혈흔과 사격 결과를 몰라 숨김
   game.classList.toggle('replaying', r !== null)
+  game.classList.toggle('filming', inScene && filming(sceneT, mine.reason))
+  killCard.hidden = !inScene
   bloodView.hidden = r !== null || !(watch ? watch.wounded : blood.shown)
   replayButton.hidden = replay === null
   // "쓰러짐"이 뜰 때부터 판 도중에만 보임. 재대결로 다시 서거나 판이 끝나 술집으로 돌아가면 숨음
@@ -495,20 +550,23 @@ function frame(now: number) {
   // 내가 쓰러진 것과 판 결과도 INTERP_DELAY 뒤에 알림. 나를 맞힌 사람의 불꽃보다 먼저 뜨지 않게 함.
   // 승리는 글자 대신 이긴 사람의 포스터를 띄움
   const shown = result && now - INTERP_DELAY >= result.at ? result : null
-  if (shown?.outcome === 'win' && winView.hidden) showWinner(shown.playerIds[0])
-  const text = r
-    ? clock
-      ? banner(scene.schedule, toServerTime(t, clock.offset))
-      : ''
-    : shown
-      ? winView.hidden
-        ? resultText(shown, myId)
+  // 내 쓰러짐 장면 동안은 포스터와 결과 글자를 미룸. 마지막 한 발이면 장면이 끝난 뒤 남은 결과 시간에 포스터가 뜸 (SHEEP-119)
+  if (shown?.outcome === 'win' && winView.hidden && !inScene) showWinner(shown.playerIds[0])
+  const text = inScene
+    ? ''
+    : r
+      ? clock
+        ? banner(scene.schedule, toServerTime(t, clock.offset))
         : ''
-      : myId !== null && isDown(myId, now - INTERP_DELAY) && !watch
-        ? copy.hud.down
-        : clock
-          ? banner(schedule, toServerTime(now, clock.offset))
+      : shown
+        ? winView.hidden
+          ? resultText(shown, myId)
           : ''
+        : myId !== null && isDown(myId, now - INTERP_DELAY) && !watch
+          ? copy.hud.down
+          : clock
+            ? banner(schedule, toServerTime(now, clock.offset))
+            : ''
   if (bannerText.value !== text) bannerText.value = text
   // 관전과 다시 보기에서는 그 사람 화면 그대로라 누구의 눈인지 적어 둠
   const who = (id: string) => roster.find((p) => p.id === id)?.nickname ?? ''
@@ -1070,6 +1128,9 @@ function receive(data: string) {
       downs.set(m.playerId, { at: performance.now(), reason: m.reason })
       playFallOf(m.playerId, m.reason)
       if (m.playerId !== myId) break
+      // 맞아 쓰러졌으면 바로 뒤에 downedBy가 와 카드를 다시 채움
+      downedBy = null
+      fillKillCard()
       // 쓰러지면 돌지도 쏘지도 않아 포인터 잠금을 풂. 관전은 화면을 눌러 바꾸고, 다시 보기는 버튼을 누름
       document.exitPointerLock()
       // 시간 초과는 쏜 사람이 없어 제한 시각 앞을 내 눈으로 봄 (컨셉 기획서 규칙 탈락한 뒤 다시 보기)
@@ -1078,6 +1139,8 @@ function receive(data: string) {
     case 'downedBy':
       // 나를 쓰러뜨린 사람의 눈으로 그 발사 앞뒤를 봄
       if (clock) planReplay(m.playerId, toLocalTime(m.at, clock.offset))
+      downedBy = { playerId: m.playerId, zone: m.zone }
+      fillKillCard()
       break
     case 'result':
       // 창이 숨어 그리기가 멈춘 동안에는 앞 결과가 끝나지 않은 채 다음 결과가 올 수 있어 먼저 끝냄

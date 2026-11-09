@@ -28,6 +28,14 @@ export const ko: Copy = {
     wounded: '반샷',
     hitDown: '쓰러짐',
     miss: '빗나감',
+    killCard: '나를 쓰러뜨린 이',
+    downedBy: '쓰러뜨린 이',
+    outtaTime: '시간 다 됐수',
+    killLine: {
+      head: (name: string) => `${name}의 총알이 모자를 꿰뚫었구먼, 친구.`,
+      body: (name: string) => `${name}의 두 번째 총알에 고꾸라졌구먼, 친구.`,
+      timeout: '시간이 다 돼 버렸구먼, 친구.',
+    },
   },
   saloon: {
     seats: '바에 앉은 사람',

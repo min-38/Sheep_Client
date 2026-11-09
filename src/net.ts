@@ -83,7 +83,8 @@ export type ServerMessage =
   // leaveRoom의 답. 첫 화면으로 돌아감
   | { type: 'left' }
   // 맞아 쓰러진 나에게만 eliminated 바로 뒤에 옴. playerId는 쓰러뜨린 사람, at은 그 발사의 쏜 시각(ms, 서버 시계). 시간 초과면 오지 않음
-  | { type: 'downedBy'; playerId: string; at: number }
+  // zone은 쓰러뜨린 발사가 맞은 부위. 쓰러지는 장면에 띄움 (SHEEP-119)
+  | { type: 'downedBy'; playerId: string; at: number; zone: 'head' | 'body' }
   // 받아들인 spectate의 답. wounds는 그 사람의 지금 반샷 수, ammo는 남은 총알. 그 뒤로 그 사람의 shotResult와 wounded가 복사돼 옴
   | { type: 'spectating'; playerId: string; wounds: number; ammo: number }
 
@@ -153,7 +154,9 @@ export function parseServerMessage(text: string): ServerMessage | null {
     case 'left':
       return { type: 'left' }
     case 'downedBy':
-      return typeof m.playerId === 'string' && Number.isFinite(m.at) ? { type: 'downedBy', playerId: m.playerId, at: m.at } : null
+      return typeof m.playerId === 'string' && Number.isFinite(m.at) && (m.zone === 'head' || m.zone === 'body')
+        ? { type: 'downedBy', playerId: m.playerId, at: m.at, zone: m.zone }
+        : null
     case 'spectating':
       return typeof m.playerId === 'string' && isCount(m.wounds) && isCount(m.ammo)
         ? { type: 'spectating', playerId: m.playerId, wounds: m.wounds, ammo: m.ammo }
