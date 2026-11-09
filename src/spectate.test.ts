@@ -14,6 +14,7 @@ const p = (id: string, pose: PlayerState['pose'] = 'stand'): PlayerState => ({
   color: 0,
   wins: 0,
   character: 0,
+  seat: 0,
 })
 
 describe('nextTarget', () => {

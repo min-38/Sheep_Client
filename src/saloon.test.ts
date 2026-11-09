@@ -1,24 +1,26 @@
 import { describe, expect, test } from 'vitest'
 import type { PlayerState } from './net.ts'
-import { BAR_LEFT, BAR_RIGHT, bountyRise, bountyText, bubbleX, CHATTER_FIRST, CHATTER_GAP, CHATTER_SHOW, copyKeys, seatSlots, seatSpot, seatTag, startBartender, startChatter, stepBartender, stepChatter, tally } from './saloon.ts'
+import { BAR_LEFT, BAR_RIGHT, bountyRise, bountyText, bubbleX, CHATTER_FIRST, CHATTER_GAP, CHATTER_SHOW, copyKeys, seatSlots, seatSpot, seatTag, startBartender, startChatter, stepBartender, stepChatter, tally, WARDROBE_RIGHT } from './saloon.ts'
 
-const player = (id: string, color: number, extra: Partial<PlayerState> = {}): PlayerState => ({
+// seat번 좌석에 앉은 사람. 색은 따로 주지 않으면 좌석 번호와 같음
+const player = (id: string, seat: number, extra: Partial<PlayerState> = {}): PlayerState => ({
   id,
   x: 0,
   y: 0,
   angle: 0,
   pose: 'stand',
   ready: false,
-  nickname: `총잡이${color}`,
-  color,
+  nickname: `총잡이${seat}`,
+  color: seat,
   wins: 0,
   pitch: 0,
   character: 0,
+  seat,
   ...extra,
 })
 
 describe('seatSlots', () => {
-  test('좌석 수는 방 인원 제한이고 목수건 색 번호가 좌석 번호라, 나간 사람의 좌석은 비고 남은 사람은 그대로', () => {
+  test('좌석 수는 방 인원 제한이고 서버가 준 좌석 번호에 앉아, 나간 사람의 좌석은 비고 남은 사람은 그대로', () => {
     const slots = seatSlots([player('a', 0), player('c', 2)], 'c', 4)
     expect(slots).toHaveLength(4)
     expect(slots[0]?.nickname).toBe('총잡이0')
@@ -27,7 +29,7 @@ describe('seatSlots', () => {
     expect(slots[3]).toBeNull()
   })
 
-  test('새로 온 사람은 서버가 준 빈 색 번호의 좌석에 앉음', () => {
+  test('새로 온 사람은 서버가 준 빈 좌석 번호에 앉음', () => {
     const before = seatSlots([player('a', 0), player('c', 2)], null, 3)
     const after = seatSlots([player('a', 0), player('c', 2), player('d', 1)], null, 3)
     expect(before[1]).toBeNull()
@@ -36,10 +38,16 @@ describe('seatSlots', () => {
     expect(after[2]).toEqual(before[2])
   })
 
-  test('내 좌석, 준비, 이긴 횟수, 고른 캐릭터를 그 사람 것으로 적음', () => {
-    const slots = seatSlots([player('a', 0, { ready: true, wins: 2 }), player('b', 1, { character: 0 })], 'b', 2)
-    expect(slots[0]).toEqual({ nickname: '총잡이0', character: 0, ready: true, mine: false, wins: 2 })
-    expect(slots[1]).toEqual({ nickname: '총잡이1', character: 0, ready: false, mine: true, wins: 0 })
+  test('내 좌석, 준비, 이긴 횟수, 고른 캐릭터와 색을 그 사람 것으로 적음', () => {
+    const slots = seatSlots([player('a', 0, { ready: true, wins: 2 }), player('b', 1, { character: 3, color: 6 })], 'b', 2)
+    expect(slots[0]).toEqual({ nickname: '총잡이0', character: 0, color: 0, ready: true, mine: false, wins: 2 })
+    expect(slots[1]).toEqual({ nickname: '총잡이1', character: 3, color: 6, ready: false, mine: true, wins: 0 })
+  })
+
+  test('색을 바꿔도 좌석은 그대로이고, 좌석 수보다 큰 색 번호도 앉음 (SHEEP-118)', () => {
+    const slots = seatSlots([player('a', 0, { color: 7 }), player('b', 1, { color: 0 })], null, 2)
+    expect(slots[0]?.color).toBe(7)
+    expect(slots[1]?.color).toBe(0)
   })
 })
 
@@ -161,9 +169,9 @@ describe('stepChatter', () => {
 })
 
 describe('bubbleX', () => {
-  test('술집 주인을 따르되 칠판(352px)과 왼쪽 끝을 넘지 않음', () => {
+  test('술집 주인을 따르되 칠판(352px)과 왼쪽 현상금 게시판을 넘지 않음', () => {
     expect(bubbleX(200)).toBe(200)
     expect(bubbleX(BAR_RIGHT) + 75).toBeLessThanOrEqual(348)
-    expect(bubbleX(0) - 75).toBeGreaterThanOrEqual(4)
+    expect(bubbleX(0) - 75).toBeGreaterThanOrEqual(WARDROBE_RIGHT + 4)
   })
 })

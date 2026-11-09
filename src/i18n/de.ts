@@ -53,6 +53,11 @@ export const de: Copy = {
     copyFailed: (keys) => `Drück ${keys}, Partner`,
     readyStamp: 'Bereit',
     winStamp: 'Sieger',
+    wardrobe: 'Figur und Farbe',
+    keyParts: ['Halstuch', 'Sombrero', 'Hemd', 'Korsett', 'Weste', 'Mantel', 'Hut', 'Poncho'],
+    partColor: (part) => `Farbe: ${part}`,
+    colors: ['Rot', 'Himmelblau', 'Grün', 'Gelb', 'Orange', 'Rosa', 'Weiß', 'Schwarz'],
+    colorTaken: (color) => `${color} – hat schon einer`,
     bartender: {
       tips: [
         "Halt das Eisen 'nen Moment still, bevor du abdrückst. Zitternde Hände treffen nix, Partner.",
@@ -78,7 +83,6 @@ export const de: Copy = {
     nickname: 'Spitzname',
     nicknameRule: '2–8 Zeichen',
     ok: 'OK',
-    character: 'Figur',
     characterNames: ['Charles', 'Rosa', 'Silas', 'Belle', 'Clayton', 'Jesse', 'Kate', 'Diego'],
     roomList: 'Raumliste',
     code: 'Raumcode',
@@ -106,6 +110,7 @@ export const de: Copy = {
       roomName: 'Dieser Raumname passt nicht zu den Regeln',
       maxPlayers: 'Es müssen 2–8 Spieler sein',
       character: 'Diese Figur gibt es nicht',
+      color: 'Diese Farbe gibt es nicht',
     },
   },
   create: {
