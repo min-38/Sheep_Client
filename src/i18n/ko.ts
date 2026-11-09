@@ -46,7 +46,6 @@ export const ko: Copy = {
     nickname: '닉네임',
     nicknameRule: '2~8자',
     ok: '확인',
-    rename: '바꾸기',
     character: '캐릭터',
     characterNames: ['찰스'],
     roomList: '방 목록',

@@ -54,7 +54,6 @@ export const en = {
     nickname: 'Nickname',
     nicknameRule: '2–8 characters',
     ok: 'OK',
-    rename: 'Change',
     character: 'Character',
     // 캐릭터 번호 순서 (시스템 기획서 캐릭터 목록)
     characterNames: ['Charles'],

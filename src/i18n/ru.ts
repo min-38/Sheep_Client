@@ -46,7 +46,6 @@ export const ru: Copy = {
     nickname: 'Никнейм',
     nicknameRule: '2–8 символов',
     ok: 'ОК',
-    rename: 'Изменить',
     character: 'Персонаж',
     characterNames: ['Чарльз'],
     roomList: 'Список комнат',

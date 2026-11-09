@@ -525,7 +525,6 @@ requestAnimationFrame(frame)
 const lobby = document.querySelector<HTMLFormElement>('#lobby')!
 const nameStep = document.querySelector<HTMLFieldSetElement>('#name-step')!
 const roomStep = document.querySelector<HTMLFieldSetElement>('#room-step')!
-const whoName = document.querySelector<HTMLElement>('#who-name')!
 const roomList = document.querySelector<HTMLUListElement>('#room-list')!
 const roomHint = document.querySelector<HTMLParagraphElement>('#room-hint')!
 const menu = document.querySelector<HTMLDivElement>('#menu')!
@@ -658,8 +657,15 @@ const SAVED_NICKNAME = 'nickname'
 try {
   nicknameInput.value = localStorage.getItem(SAVED_NICKNAME) ?? ''
 } catch {}
-// 정한 닉네임. 정하기 전(1단계)에는 null. 기억한 이름이 맞으면 바로 방 목록 단계로 감
+// 정한 닉네임. 정하기 전(닉네임 단계)에는 null. 기억한 이름이 맞으면 바로 메뉴로 감
 let nickname = normalizeNickname(nicknameInput.value)
+// 규칙을 지난 이름을 정하고 브라우저에 기억함. 닉네임 단계의 확인과 설정 창의 닉네임 칸이 씀
+function saveNickname(name: string) {
+  nickname = name
+  try {
+    localStorage.setItem(SAVED_NICKNAME, name)
+  } catch {}
+}
 // 고른 캐릭터 번호 (시스템 기획서 캐릭터 고르기). 첫 화면 2단계에서 고르고 브라우저에 기억해 방에 들어갈 때마다 보냄
 const SAVED_CHARACTER = 'character'
 let character = 0
@@ -716,19 +722,12 @@ function showStep() {
   nameStep.disabled = !connected || !naming
   roomStep.disabled = !connected || roomStep.hidden
   enterButton.disabled = !connected
-  whoName.textContent = nickname ?? ''
   clearInterval(roomsTimer)
   if (roomStep.hidden || !connected || lobby.hidden) return
   send({ type: 'listRooms' })
   roomsTimer = setInterval(() => send({ type: 'listRooms' }), ROOMS_EVERY)
 }
 showStep()
-
-document.querySelector('#rename')!.addEventListener('click', () => {
-  nickname = null
-  showStep()
-  nicknameInput.focus()
-})
 
 enterButton.addEventListener('click', () => {
   view = 'rooms'
@@ -1113,10 +1112,7 @@ lobby.addEventListener('submit', (e) => {
   if (nickname === null) {
     const name = checkNickname()
     if (name === null) return
-    nickname = name
-    try {
-      localStorage.setItem(SAVED_NICKNAME, name)
-    } catch {}
+    saveNickname(name)
     showStep()
     return
   }
@@ -1172,8 +1168,22 @@ settingsForm.addEventListener('input', () => {
   showSettings()
 })
 
+// 설정 창의 닉네임 칸 (시스템 기획서 방 화면 설정). 첫 화면에서 열 때만 보이고, 열 때마다 기억한 이름으로 채움.
+// 규칙에 맞으면 바로 기억하고, 틀리면 규칙을 빨갛게 보이고 기억하지 않아 창을 닫으면 기억한 이름이 남음
+const settingsName = document.querySelector<HTMLDivElement>('#settings-name')!
+const settingsNickname = document.querySelector<HTMLInputElement>('#settings-nickname')!
+const settingsNicknameRule = document.querySelector<HTMLParagraphElement>('#settings-nickname-rule')!
+settingsNickname.addEventListener('input', () => {
+  const name = normalizeNickname(settingsNickname.value)
+  settingsNicknameRule.classList.toggle('bad', name === null && settingsNickname.value !== '')
+  if (name !== null) saveNickname(name)
+})
+
 for (const button of document.querySelectorAll('.settings-open')) {
   button.addEventListener('click', () => {
+    settingsName.hidden = lobby.hidden
+    settingsNickname.value = nickname ?? ''
+    settingsNicknameRule.classList.remove('bad')
     showSettings()
     settingsPanel.hidden = false
     document.querySelector<HTMLButtonElement>('#settings-close')!.focus()

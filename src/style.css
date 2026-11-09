@@ -437,7 +437,8 @@ body {
 /* 칸은 낡은 종이색. 나무 판 버튼과 같은 테두리와 높이 */
 #nickname,
 #code,
-#room-name {
+#room-name,
+#settings-nickname {
   box-sizing: border-box;
   min-width: 0;
   border: 0.25cqw solid #3d2412;
@@ -547,12 +548,6 @@ body {
   margin-top: 1.6cqw;
 }
 
-#who {
-  margin: 0;
-  text-align: center;
-  text-shadow: 0 0 0.3cqw #000;
-}
-
 /* 고른 캐릭터의 초상화에 금색 테두리. 라디오 단추는 숨기고 초상화를 누름 */
 #character-pick {
   display: flex;
@@ -587,15 +582,6 @@ body {
 
 #character-pick input:focus-visible + img {
   outline: 0.2cqw solid #fff;
-}
-
-#rename {
-  padding: 0 0.4cqw;
-  border: 0;
-  background: none;
-  color: #f7d27a;
-  text-decoration: underline;
-  cursor: pointer;
 }
 
 /* 방 목록. 들어갈 수 있는 방이 위, 그 안에서는 사람이 많은 방부터 (서버가 정렬함) */
@@ -754,15 +740,10 @@ body {
   font: 3cqw / 1 var(--display);
 }
 
-/* 밝은 종이 위라 글자 그림자를 지우고 왼쪽에 붙임. 바꾸기 링크는 짙은 색 */
-#room-step :is(#who, #character-pick) {
+/* 밝은 종이 위라 글자 그림자를 지우고 왼쪽에 붙임 */
+#room-step #character-pick {
   justify-content: start;
-  text-align: left;
   text-shadow: none;
-}
-
-#room-step #rename {
-  color: #8a2b0e;
 }
 
 #room-hint {
@@ -779,6 +760,7 @@ body {
 
 #create-panel button,
 #room-name,
+#settings-nickname,
 #settings-panel button,
 .settings-open {
   font: inherit;
@@ -1009,6 +991,31 @@ body {
 
 #room-name {
   flex: 1;
+}
+
+/* 설정 창의 닉네임 칸 (SHEEP-113). 규칙은 칸 아래에 칸 머리와 맞춰 적음 */
+#settings-name {
+  display: grid;
+  gap: 0.3cqw;
+}
+
+#settings-name[hidden] {
+  display: none;
+}
+
+#settings-nickname {
+  flex: 1;
+  text-align: left;
+}
+
+#settings-nickname-rule {
+  margin: 0 0 0 10cqw;
+  color: #7a5a3a;
+  font-size: 1.4cqw;
+}
+
+#settings-nickname-rule.bad {
+  color: #b3261e;
 }
 
 #dice {

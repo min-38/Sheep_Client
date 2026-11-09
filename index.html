@@ -79,7 +79,6 @@
             <h2 data-i18n="lobby.rooms"></h2>
             <button type="button" id="create" class="plank" data-i18n="lobby.create"></button>
           </div>
-          <p id="who"><span data-i18n="lobby.nickname"></span> <strong id="who-name"></strong> <button type="button" id="rename" data-i18n="lobby.rename"></button></p>
           <!-- 캐릭터 고르기. 칸은 main.ts가 캐릭터마다 초상화로 만듦 (시스템 기획서 캐릭터 고르기) -->
           <div id="character-pick" role="radiogroup" aria-labelledby="character-label"><span id="character-label" data-i18n="lobby.character"></span></div>
           <!-- 줄은 main.ts가 만듦. 들어갈 수 있는 줄은 눌러 고르고(방 코드 칸에 코드가 들어감) 두 번 눌러 들어감 -->
@@ -135,6 +134,14 @@
       <div id="settings-panel" role="dialog" aria-modal="true" aria-labelledby="settings-title" hidden>
         <form id="settings-form" class="sheet">
           <h2 id="settings-title" data-i18n="lobby.settings"></h2>
+          <!-- 닉네임. 첫 화면에서 연 설정에만 보임. 방 안에서는 이름을 바꾸지 않음 (시스템 기획서 방 화면 설정) -->
+          <div id="settings-name">
+            <label class="row">
+              <span data-i18n="lobby.nickname"></span>
+              <input id="settings-nickname" aria-describedby="settings-nickname-rule" maxlength="12" autocomplete="nickname" spellcheck="false" />
+            </label>
+            <p id="settings-nickname-rule" data-i18n="lobby.nicknameRule"></p>
+          </div>
           <!-- 언어 목록은 main.ts가 언어마다 그 언어로 쓴 이름으로 채움 -->
           <label class="row">
             <span id="language-label" data-i18n="settings.language"></span>
