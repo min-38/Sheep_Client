@@ -339,6 +339,8 @@ body {
   justify-items: center;
   gap: 1.2cqw;
   margin: 0;
+  /* 이정표 기둥이 화면 아래로 뻗어 나가 자름 */
+  overflow: hidden;
   /* ponytail: 석양처럼 보이게 덮는 임시 색. 사막 작업(M8 C6)에서 결투장을 석양 빛으로 그리면 지움 */
   background:
     radial-gradient(ellipse at 50% 45%, #0000 35%, #1a0c06aa 100%),
@@ -467,13 +469,82 @@ body {
 }
 
 /* 방 목록 단계는 목록이 들어가게 넓히고 제목을 줄임 */
-#lobby #room-step {
-  width: 48cqw;
+/* 메뉴와 입장 게시판에서는 제목이 왼쪽 위로 감 (시스템 기획서 방 화면 M8 첫 화면, 시안 C) */
+#lobby:not([data-view='name']) #title {
+  position: absolute;
+  left: 5cqw;
+  top: 5cqw;
+  margin: 0;
 }
 
-#lobby:has(#room-step:not([hidden])) #title {
-  font-size: 2cqw;
-  margin-bottom: 0;
+/* 게시판이 오른쪽을 차지해 제목을 줄임 */
+#lobby[data-view='rooms'] #title {
+  top: 3cqw;
+  font-size: 2.4cqw;
+}
+
+/* 메뉴: 나무 기둥(::before)에 박은 이정표 판. 판을 화살표로 깎으면 판의 그림자도 잘려, 그림자는 묶음 전체에 줌 */
+#menu {
+  position: absolute;
+  right: 7cqw;
+  top: 24cqw;
+  display: grid;
+  width: 23cqw;
+  gap: 1.6cqw;
+  filter: drop-shadow(0 0.45cqw 0 #3d2412) drop-shadow(0 0.6cqw 0.6cqw #0007);
+}
+
+#menu::before {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  left: calc(50% - 0.8cqw);
+  top: -2cqw;
+  width: 1.6cqw;
+  height: 40cqw;
+  border: 0.2cqw solid #3d2412;
+  background: repeating-linear-gradient(90deg, #6e4424 0 0.5cqw, #5c381c 0.5cqw 0.8cqw);
+}
+
+#menu .plank {
+  font-size: 2.3cqw;
+}
+
+/* 판 한쪽 끝을 화살표로 깎음. 연습 판만 왼쪽을 가리켜 이정표처럼 엇갈림 */
+.sign {
+  clip-path: polygon(0 0, calc(100% - 2.2cqw) 0, 100% 50%, calc(100% - 2.2cqw) 100%, 0 100%);
+  box-shadow: none;
+  text-align: left;
+}
+
+#game .plank.sign {
+  padding-inline: 1.8cqw 3.4cqw;
+}
+
+.sign.left {
+  clip-path: polygon(2.2cqw 0, 100% 0, 100% 100%, 2.2cqw 100%, 0 50%);
+  margin-right: 3cqw;
+  text-align: right;
+}
+
+#game .plank.sign.left {
+  padding-inline: 3.4cqw 1.8cqw;
+}
+
+/* 막힌 판도 기둥이 비쳐 보이지 않게 흐리게 하는 대신 어둡게 함 */
+#menu .plank:disabled {
+  opacity: 1;
+  filter: saturate(0.3) brightness(0.6);
+}
+
+/* 깎은 판 바깥은 잘려 보이지 않아 초점 테두리를 판 안쪽에 그림 */
+#menu .plank:focus-visible {
+  outline-offset: -0.7cqw;
+}
+
+/* 연습과 설정 사이 한 칸 여백 */
+#menu .settings-open {
+  margin-top: 1.6cqw;
 }
 
 #who {
@@ -538,13 +609,13 @@ body {
   overflow-y: auto;
   border: 0.25cqw solid #3d2412;
   border-radius: 0.4cqw;
-  background: #1a0c0699;
+  background: #3d241222;
   list-style: none;
 }
 
 #room-list li {
   display: grid;
-  grid-template-columns: 1.3fr 1.7fr auto auto 5.5cqw;
+  grid-template-columns: 1.3fr 1.7fr auto auto;
   align-items: center;
   gap: 1cqw;
   padding: 0.5cqw 0.8cqw;
@@ -560,7 +631,27 @@ body {
   text-overflow: ellipsis;
 }
 
-/* 판 진행 중이거나 꽉 찬 방은 흐리게 하고 입장 버튼이 없음 */
+/* 들어갈 수 있는 줄은 눌러 고르고 두 번 눌러 들어감 */
+#room-list li[data-code] {
+  cursor: pointer;
+}
+
+#room-list li[data-code]:hover {
+  background: #f8ecc8;
+}
+
+/* 고른 방(방 코드 칸에 적힌 방)에 금색 테두리 */
+#room-list li.pick {
+  background: #f8ecc8;
+  box-shadow: 0 0 0 0.3cqw #f7d27a, inset 0.6cqw 0 0 #c8952a;
+}
+
+#room-list li:focus-visible {
+  outline: 0.25cqw solid #8a2b0e;
+  outline-offset: 0.2cqw;
+}
+
+/* 판 진행 중이거나 꽉 찬 방은 흐리게 하고 고를 수 없음 */
 #room-list li.closed {
   opacity: 0.5;
 }
@@ -568,7 +659,7 @@ body {
 #room-list li.empty {
   display: block;
   background: none;
-  color: #f2dfa7;
+  color: #6e4a2a;
   text-align: center;
 }
 
@@ -580,12 +671,6 @@ body {
   border: 0.15cqw solid #3d2412;
   border-radius: 50%;
   vertical-align: middle;
-}
-
-/* 목록 줄의 입장 버튼은 작아 못 머리가 글자를 가려 못을 뺌 */
-#room-list .plank {
-  padding: 0.2cqw 0.6cqw;
-  background: var(--planks);
 }
 
 /* 줄마다 폭을 같게 나눔 */
@@ -618,7 +703,8 @@ body {
 }
 
 #create-panel .sheet,
-#settings-panel .sheet {
+#settings-panel .sheet,
+#lobby #room-step {
   display: grid;
   gap: 1.2cqw;
   width: 34cqw;
@@ -644,6 +730,51 @@ body {
   margin: 0;
   font: 3cqw / 1 var(--display);
   text-align: center;
+}
+
+/* 입장 게시판: 설정 창과 같은 못 박은 종이를 오른쪽에 붙임 (시안 C) */
+#lobby #room-step {
+  position: absolute;
+  right: 5cqw;
+  top: 4cqw;
+  box-sizing: border-box;
+  width: 54cqw;
+  gap: 1cqw;
+}
+
+#board-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1cqw;
+}
+
+#board-head h2 {
+  margin: 0;
+  font: 3cqw / 1 var(--display);
+}
+
+/* 밝은 종이 위라 글자 그림자를 지우고 왼쪽에 붙임. 바꾸기 링크는 짙은 색 */
+#room-step :is(#who, #character-pick) {
+  justify-content: start;
+  text-align: left;
+  text-shadow: none;
+}
+
+#room-step #rename {
+  color: #8a2b0e;
+}
+
+#room-hint {
+  margin: -0.4cqw 0 0;
+  color: #7a5a3a;
+  font-size: 1.4cqw;
+  text-align: center;
+}
+
+/* 뒤로·입장은 글자 폭, 방 코드 칸이 나머지 */
+#room-step .row > .plank {
+  flex: none;
 }
 
 #create-panel button,
@@ -906,6 +1037,8 @@ body {
 /* display: grid·flex가 hidden 속성의 display: none을 덮어씀 */
 #lobby[hidden],
 #lobby fieldset[hidden],
+#lobby #room-step[hidden],
+#menu[hidden],
 #saloon[hidden] {
   display: none;
 }
@@ -932,9 +1065,15 @@ body {
   text-transform: uppercase;
 }
 
+/* 화면 아래 가운데. 어느 단계에서나 같은 자리 */
 #status {
+  position: absolute;
+  right: 0;
+  bottom: 1.5cqw;
+  left: 0;
   margin: 0;
   min-height: 1.2em;
+  text-align: center;
   text-shadow: 0 0 0.3cqw #000;
 }
 
