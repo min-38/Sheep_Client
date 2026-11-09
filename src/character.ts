@@ -364,6 +364,8 @@ export function drawFigure(pixels: Uint32Array, w: number, h: number, zbuf: Floa
   const x1 = Math.min(w, Math.max(...local.map((b) => b.x1), ...gunOn.map((s) => Math.ceil(s[0]) + 1)))
   const y0 = Math.max(0, Math.min(...local.map((b) => (b.x0 < b.x1 ? b.y0 : h)), ...gunOn.map((s) => Math.floor(s[1]))))
   const y1 = Math.min(h, Math.max(...local.map((b) => (b.x0 < b.x1 ? b.y1 : 0)), ...gunOn.map((s) => Math.ceil(s[1]) + 1)))
+  // 화면 밖 옆에 선 사람은 범위가 빔. 상자 범위는 화면 폭으로 자르지 않아 x0가 w를 넘을 수 있고, 그대로 두면 깊이 버퍼 밖에 씀 (SHEEP-134)
+  if (x0 >= x1 || y0 >= y1) return
   for (let py = y0; py < y1; py++) depth.set(zbuf.subarray(x0, x1), py * w + x0)
 
   for (let px = x0; px < x1; px++) {
