@@ -504,6 +504,9 @@ function frame(now: number) {
   // 결투 중에만 보임. 결과를 받으면 숨김 (시스템 기획서 HUD 남은 시간)
   const left = clock && (r || !result) ? timeLeft(scene.schedule, toServerTime(t, clock.offset)) : null
   timer.hidden = left === null
+  // 조준점도 남은 시간처럼 "시작!"부터 판 결과를 받을 때까지. 눈이 되는 사람이 쓰러지면 숨김.
+  // 쓰러진 것은 쓰러지는 그림과 같은 시각으로 봄 (시스템 기획서 HUD 조준점)
+  crosshair.hidden = left === null || !view || (scene.downs.get(view.id)?.at ?? Infinity) <= (r ? t : now - INTERP_DELAY)
   const clockText = left === null ? '' : formatTime(left)
   if (timer.value !== clockText) timer.value = clockText
   // 남은 시간과 같이 보이고 숨음. 쓰러진 그림과 같은 시각으로 세어 그림보다 먼저 줄지 않음 (시스템 기획서 HUD 남은 인원)
