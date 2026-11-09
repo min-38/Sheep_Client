@@ -28,17 +28,8 @@
         </svg>
         <output id="hit-stamp"></output>
       </figure>
-      <!-- 리볼버 실린더 6칸. 장전된 칸만 금색 (시스템 기획서 HUD 탄 수). 첫 칸이 맨 위이고 시계 방향 -->
-      <svg id="ammo" viewBox="0 0 100 100" role="img">
-        <circle class="cylinder" cx="50" cy="50" r="46" />
-        <circle class="chamber" cx="50" cy="22" r="10" />
-        <circle class="chamber" cx="74.2" cy="36" r="10" />
-        <circle class="chamber" cx="74.2" cy="64" r="10" />
-        <circle class="chamber" cx="50" cy="78" r="10" />
-        <circle class="chamber" cx="25.8" cy="64" r="10" />
-        <circle class="chamber" cx="25.8" cy="36" r="10" />
-        <circle class="pin" cx="50" cy="50" r="6" />
-      </svg>
+      <!-- 리볼버 실린더 6칸. 그림은 cylinder.ts가 채우고, 장전된 칸만 놋쇠 탄피 바닥이 보임 (시스템 기획서 HUD 탄 수) -->
+      <svg id="ammo" viewBox="0 0 100 100" role="img"></svg>
       <output id="timer" data-i18n-label="hud.timer" hidden></output>
       <output id="alive" data-i18n-label="hud.alive" hidden></output>
       <output id="banner" data-i18n-label="hud.banner"></output>

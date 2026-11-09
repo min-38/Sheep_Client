@@ -213,25 +213,13 @@ body {
   filter: drop-shadow(0 0 0.3cqw #000);
 }
 
-#ammo .cylinder {
-  fill: #6b6863;
-  stroke: #2b2925;
-  stroke-width: 3;
+/* 쏘면 cylinder.ts의 .spin을 main.ts가 돌림. 축은 실린더 가운데 */
+#ammo .spin {
+  transform-origin: 50px 50px;
 }
 
-#ammo .chamber {
-  fill: #1b1a18;
-  stroke: #3b3934;
-  stroke-width: 2;
-}
-
-#ammo .chamber.loaded {
-  fill: #e2b23c;
-  stroke: #fff0b0;
-}
-
-#ammo .pin {
-  fill: #2b2925;
+#ammo .round:not(.loaded) {
+  display: none;
 }
 
 /* 남은 시간. 화면 위 가운데 나무 팻말에 못 두 개 (시스템 기획서 HUD) */
