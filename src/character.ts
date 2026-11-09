@@ -1,6 +1,20 @@
+import belle from './assets/characters/belle.json'
 import charles from './assets/characters/charles.json'
+import clayton from './assets/characters/clayton.json'
+import diego from './assets/characters/diego.json'
+import jesse from './assets/characters/jesse.json'
+import kate from './assets/characters/kate.json'
+import rosa from './assets/characters/rosa.json'
+import silas from './assets/characters/silas.json'
 import motionData from './assets/motions.json'
+import bellePortrait from './assets/portrait/belle.png'
 import charlesPortrait from './assets/portrait/charles.png'
+import claytonPortrait from './assets/portrait/clayton.png'
+import diegoPortrait from './assets/portrait/diego.png'
+import jessePortrait from './assets/portrait/jesse.png'
+import katePortrait from './assets/portrait/kate.png'
+import rosaPortrait from './assets/portrait/rosa.png'
+import silasPortrait from './assets/portrait/silas.png'
 import revolverData from './assets/revolver-rig.json'
 import { revolverMesh } from './gun.ts'
 import { HEAD } from './hitcard.ts'
@@ -33,12 +47,13 @@ export type Body = {
   sit: Pose
 }
 
-// 캐릭터 JSON. part는 head, body, rightArm, leftArm, rightLeg, leftLeg 중 하나. 색은 상자마다 단색 하나이고 명암은 그릴 때 넣음
-export type CharacterData = { name: string; boxes: { part: string; from: number[]; to: number[]; color: string }[] }
+// 캐릭터 JSON. part는 head, body, rightArm, leftArm, rightLeg, leftLeg 중 하나. 색은 상자마다 단색 하나이고 명암은 그릴 때 넣음.
+// key는 핵심 파츠(사람이 색을 고를 수 있는 곳, SHEEP-118)의 상자에만 true로 둠 (시스템 기획서 캐릭터 핵심 파츠)
+export type CharacterData = { name: string; boxes: { part: string; from: number[]; to: number[]; color: string; key?: boolean }[] }
 // 캐릭터 번호(메시지의 character) 순서 (시스템 기획서 캐릭터 목록)
-export const CHARACTERS: readonly CharacterData[] = [charles]
+export const CHARACTERS: readonly CharacterData[] = [charles, rosa, silas, belle, clayton, jesse, kate, diego]
 // 캐릭터 번호 순서의 WANTED 포스터 초상화(64×64 PNG 주소) (시스템 기획서 캐릭터 초상화)
-export const PORTRAITS: readonly string[] = [charlesPortrait]
+export const PORTRAITS: readonly string[] = [charlesPortrait, rosaPortrait, silasPortrait, bellePortrait, claytonPortrait, jessePortrait, katePortrait, diegoPortrait]
 
 // 브라우저에 기억한 캐릭터 번호. 없거나 지금 캐릭터 번호가 아니면 처음 캐릭터 0 (시스템 기획서 캐릭터 고르기)
 export function savedCharacter(raw: string | null): number {

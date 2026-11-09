@@ -71,7 +71,7 @@ export const ko: Copy = {
     nicknameRule: '2~8자',
     ok: '확인',
     character: '캐릭터',
-    characterNames: ['찰스'],
+    characterNames: ['찰스', '로사', '사일러스', '벨', '클레이턴', '제시', '케이트', '디에고'],
     roomList: '방 목록',
     code: '방 코드',
     join: '입장',

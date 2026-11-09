@@ -71,7 +71,7 @@ export const zh: Copy = {
     nicknameRule: '2–8 个字符',
     ok: '确定',
     character: '角色',
-    characterNames: ['查尔斯'],
+    characterNames: ['查尔斯', '罗莎', '塞拉斯', '贝尔', '克莱顿', '杰西', '凯特', '迭戈'],
     roomList: '房间列表',
     code: '房间代码',
     join: '加入',
