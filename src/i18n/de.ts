@@ -28,6 +28,14 @@ export const de: Copy = {
     wounded: 'Verwundet',
     hitDown: 'Gefallen',
     miss: 'Daneben',
+    killCard: 'Wer dich umgelegt hat',
+    downedBy: 'Umgelegt von',
+    outtaTime: 'Zeit um',
+    killLine: {
+      head: (name: string) => `Die Kugel von ${name} hat deinen Hut gefunden, Partner.`,
+      body: (name: string) => `Die zweite Kugel von ${name} hat dich umgehauen, Partner.`,
+      timeout: 'Die Zeit ist dir davongelaufen, Partner.',
+    },
   },
   saloon: {
     seats: 'Leute an der Bar',

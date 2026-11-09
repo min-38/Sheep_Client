@@ -34,6 +34,15 @@ export const en = {
     wounded: 'Wounded',
     hitDown: 'Down',
     miss: 'Miss',
+    // 쓰러지는 장면의 자막 카드 (SHEEP-119). 서부 사투리 말투 (CLAUDE.md Language)
+    killCard: 'Who brought you down',
+    downedBy: 'Downed by',
+    outtaTime: 'Outta time',
+    killLine: {
+      head: (name: string) => `${name}'s bullet found your hat, partner.`,
+      body: (name: string) => `${name}'s second slug laid you low, partner.`,
+      timeout: 'Ran plumb outta time, partner.',
+    },
   },
   // 술집 대기실과 판 끝 포스터
   saloon: {

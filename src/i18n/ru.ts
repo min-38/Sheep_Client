@@ -28,6 +28,14 @@ export const ru: Copy = {
     wounded: 'Ранен',
     hitDown: 'Повержен',
     miss: 'Мимо',
+    killCard: 'Кто тебя уложил',
+    downedBy: 'Стрелок',
+    outtaTime: 'Время вышло',
+    killLine: {
+      head: (name: string) => `Стрелок ${name} — и пуля прямо под шляпу, приятель.`,
+      body: (name: string) => `Стрелок ${name} — вторая пуля тебя и уложила, приятель.`,
+      timeout: 'Время-то вышло, приятель.',
+    },
   },
   saloon: {
     seats: 'Люди у стойки',

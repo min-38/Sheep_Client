@@ -28,6 +28,14 @@ export const es: Copy = {
     wounded: 'Herido',
     hitDown: 'Abatido',
     miss: 'Fallo',
+    killCard: 'Quién te tumbó',
+    downedBy: 'Te tumbó',
+    outtaTime: 'Sin tiempo',
+    killLine: {
+      head: (name: string) => `La bala de ${name} te halló el sombrero, compadre.`,
+      body: (name: string) => `El segundo plomazo de ${name} te tumbó, compadre.`,
+      timeout: 'Se te acabó el tiempo, compadre.',
+    },
   },
   saloon: {
     seats: 'Gente en la barra',

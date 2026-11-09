@@ -28,6 +28,14 @@ export const ja: Copy = {
     wounded: '負傷',
     hitDown: 'ダウン',
     miss: 'ミス',
+    killCard: 'あんたを仕留めた奴',
+    downedBy: '仕留めたのは',
+    outtaTime: '時間切れ',
+    killLine: {
+      head: (name: string) => `${name}の弾が帽子をぶち抜いたぜ、相棒。`,
+      body: (name: string) => `${name}の二発目でお陀仏だ、相棒。`,
+      timeout: '時間切れだぜ、相棒。',
+    },
   },
   saloon: {
     seats: 'カウンターの客',
