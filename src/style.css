@@ -36,6 +36,13 @@
 :root {
   --display: 'Holtwood One SC', 'Gasoek One', 'Sheep Myeongjo', serif;
   --text: 'Rokkitt', 'Sheep Myeongjo', serif;
+  /* 나무 판 무늬와 양 끝 못 머리. 버튼과 선택 칸이 같이 씀 */
+  --planks: repeating-linear-gradient(180deg, #8a5a32 0 1.1cqw, #7a4c28 1.1cqw 1.4cqw);
+  --nails:
+    radial-gradient(circle, #d8c8a8 0 0.16cqw, #2a1a0e 0.2cqw 0.34cqw, #0000 0.38cqw) 0.35cqw 50% / 0.8cqw 0.8cqw no-repeat,
+    radial-gradient(circle, #d8c8a8 0 0.16cqw, #2a1a0e 0.2cqw 0.34cqw, #0000 0.38cqw) calc(100% - 0.35cqw) 50% / 0.8cqw 0.8cqw no-repeat;
+  /* 놋쇠 머리. 막대 손잡이, 라디오, 체크 칸이 같이 씀 */
+  --brass: radial-gradient(circle at 35% 30%, #fff3c0, #e2b23c 45%, #a07818 100%);
 }
 
 html,
@@ -322,16 +329,32 @@ body {
   visibility: hidden;
 }
 
-/* 나무 판 버튼 */
+/* 못 박은 나무 판 버튼 (시스템 기획서 방 화면 설정). 양 끝에 못 머리, 아래로 두께 */
 .plank {
   border: 0.25cqw solid #3d2412;
   border-radius: 0.4cqw;
-  background: repeating-linear-gradient(180deg, #8a5a32 0 1.1cqw, #7a4c28 1.1cqw 1.4cqw);
-  box-shadow: 0 0.3cqw 0 #3d2412;
+  background: var(--nails), var(--planks);
+  box-shadow: 0 0.45cqw 0 #3d2412, 0 0.6cqw 0.6cqw #0007;
   color: #f7e6bd;
   font-weight: bold;
   text-shadow: 0 0.15cqw 0 #3d2412;
   cursor: pointer;
+  transition: filter 0.1s, translate 0.05s, box-shadow 0.05s;
+}
+
+/* 양 끝 못 머리와 글자 사이를 띄움. 버튼마다 따로 준 padding보다 앞서게 #game을 붙임 */
+#game .plank {
+  padding-inline: 1.8cqw;
+}
+
+/* 올리면 밝아지고, 누르면 두께만큼 내려앉음 */
+.plank:not(:disabled):hover {
+  filter: brightness(1.15);
+}
+
+.plank:not(:disabled):active {
+  translate: 0 0.35cqw;
+  box-shadow: 0 0.1cqw 0 #3d2412, 0 0.15cqw 0.2cqw #0007;
 }
 
 .plank:disabled {
@@ -339,11 +362,27 @@ body {
   cursor: not-allowed;
 }
 
+/* 키보드 초점. 어두운 나무와 화면 위에서는 금색, 밝은 종이 창 안에서는 짙은 갈색으로 보이게 함 */
+.plank:focus-visible,
+.sheet :is(input, .dropdown-button):focus-visible {
+  outline: 0.3cqw solid #f7d27a;
+  outline-offset: 0.3cqw;
+}
+
+.sheet :is(.plank, input, .dropdown-button):focus-visible {
+  outline-color: #8a2b0e;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .plank {
+    transition: none;
+  }
+}
+
 /* 칸은 낡은 종이색. 나무 판 버튼과 같은 테두리와 높이 */
 #nickname,
 #code,
-#room-name,
-#max-players {
+#room-name {
   box-sizing: border-box;
   min-width: 0;
   border: 0.25cqw solid #3d2412;
@@ -490,8 +529,10 @@ body {
   vertical-align: middle;
 }
 
+/* 목록 줄의 입장 버튼은 작아 못 머리가 글자를 가려 못을 뺌 */
 #room-list .plank {
   padding: 0.2cqw 0.6cqw;
+  background: var(--planks);
 }
 
 /* 줄마다 폭을 같게 나눔 */
@@ -531,7 +572,13 @@ body {
   padding: 2cqw 2.5cqw;
   border: 0.3cqw solid #3d2412;
   border-radius: 0.6cqw;
-  background: radial-gradient(ellipse closest-side, #f1e0b3 70%, #d4b479 140%);
+  /* 네 귀퉁이에 못을 박은 낡은 종이 */
+  background:
+    radial-gradient(circle, #2a1a0e 0.25cqw, #0000 0.32cqw) 0.6cqw 0.6cqw / 0.7cqw 0.7cqw no-repeat,
+    radial-gradient(circle, #2a1a0e 0.25cqw, #0000 0.32cqw) calc(100% - 0.6cqw) 0.6cqw / 0.7cqw 0.7cqw no-repeat,
+    radial-gradient(circle, #2a1a0e 0.25cqw, #0000 0.32cqw) 0.6cqw calc(100% - 0.6cqw) / 0.7cqw 0.7cqw no-repeat,
+    radial-gradient(circle, #2a1a0e 0.25cqw, #0000 0.32cqw) calc(100% - 0.6cqw) calc(100% - 0.6cqw) / 0.7cqw 0.7cqw no-repeat,
+    radial-gradient(ellipse closest-side, #f1e0b3 70%, #d4b479 140%);
   box-shadow: 0 1cqw 2cqw #000c;
   color: #3d2412;
 }
@@ -544,13 +591,170 @@ body {
 }
 
 #create-panel button,
-#create-panel input,
-#create-panel select,
+#room-name,
 #settings-panel button,
-#settings-panel select,
 .settings-open {
   font: inherit;
   padding: 0.6cqw 1.2cqw;
+}
+
+/* 막대·라디오·체크 칸은 브라우저 모양을 지우고 나무와 놋쇠로 그림 */
+.sheet :is(input[type='range'], input[type='radio'], input[type='checkbox']) {
+  appearance: none;
+  margin: 0;
+  cursor: pointer;
+}
+
+/* 선택 칸 (dropdown.ts): 나무 판에 놋쇠 화살표. 펼치면 화살표가 위를 봄 */
+.dropdown {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+}
+
+.dropdown-button {
+  width: 100%;
+  border: 0.25cqw solid #3d2412;
+  border-radius: 0.4cqw;
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 12'%3E%3Cpath d='M2 2 L8 9 L14 2' fill='none' stroke='%23e2b23c' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") calc(100% - 0.9cqw) 50% / 1.3cqw auto no-repeat,
+    var(--planks);
+  color: #f7e6bd;
+  font-weight: bold;
+  text-align: left;
+  text-shadow: 0 0.15cqw 0 #3d2412;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+
+.dropdown-button[aria-expanded='true'] {
+  background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 12'%3E%3Cpath d='M2 10 L8 3 L14 10' fill='none' stroke='%23e2b23c' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"),
+    var(--planks);
+}
+
+/* 오른쪽 화살표 자리. 창 버튼마다 준 padding보다 앞서게 #game을 붙임 */
+#game .dropdown-button {
+  padding-right: 3cqw;
+}
+
+/* 펼친 목록: 종이 쪽지. 가리킨 줄은 나무 판 띠, 지금 고른 줄 앞에는 놋쇠 못 */
+.dropdown-list {
+  --stud: radial-gradient(circle, #f7d27a 0 0.1cqw, #e2b23c 0.3cqw, #8a6416 0.45cqw, #0000 0.5cqw) 0.9cqw 50% / 1cqw 1cqw no-repeat;
+  position: absolute;
+  z-index: 1;
+  top: calc(100% + 0.4cqw);
+  left: 0;
+  right: 0;
+  max-height: 24cqw;
+  margin: 0;
+  padding: 0.5cqw;
+  overflow-y: auto;
+  border: 0.25cqw solid #3d2412;
+  border-radius: 0.4cqw;
+  background: radial-gradient(ellipse closest-side, #f8ecc8 70%, #d4b479 150%);
+  box-shadow: 0 0.6cqw 1.2cqw #000a;
+  list-style: none;
+}
+
+.dropdown-list li {
+  padding: 0.5cqw 1cqw 0.5cqw 2.4cqw;
+  border-radius: 0.3cqw;
+  color: #3d2412;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+
+.dropdown-list li[aria-selected='true'] {
+  background: var(--stud);
+}
+
+.dropdown-list li.active {
+  background: var(--planks);
+  color: #f7e6bd;
+  text-shadow: 0 0.15cqw 0 #3d2412;
+}
+
+.dropdown-list li.active[aria-selected='true'] {
+  background: var(--stud), var(--planks);
+}
+
+/* 막대: 나무 홈에 놋쇠 손잡이 */
+.sheet input[type='range'] {
+  height: 2.4cqw;
+  background: none;
+}
+
+.sheet input[type='range']::-webkit-slider-runnable-track {
+  height: 0.8cqw;
+  border-radius: 0.4cqw;
+  background: linear-gradient(#3d2412, #6b4426);
+  box-shadow: inset 0 0.15cqw 0.2cqw #000a, 0 0.1cqw 0 #fff6;
+}
+
+.sheet input[type='range']::-moz-range-track {
+  height: 0.8cqw;
+  border-radius: 0.4cqw;
+  background: linear-gradient(#3d2412, #6b4426);
+  box-shadow: inset 0 0.15cqw 0.2cqw #000a, 0 0.1cqw 0 #fff6;
+}
+
+/* 손잡이를 홈 가운데에 둠: (홈 높이 − 손잡이 높이) / 2 */
+.sheet input[type='range']::-webkit-slider-thumb {
+  appearance: none;
+  box-sizing: border-box;
+  width: 2cqw;
+  height: 2cqw;
+  margin-top: -0.6cqw;
+  border: 0.2cqw solid #8a6416;
+  border-radius: 50%;
+  background: var(--brass);
+  box-shadow: 0 0.2cqw 0.3cqw #0008;
+}
+
+.sheet input[type='range']::-moz-range-thumb {
+  box-sizing: border-box;
+  width: 2cqw;
+  height: 2cqw;
+  border: 0.2cqw solid #8a6416;
+  border-radius: 50%;
+  background: var(--brass);
+  box-shadow: 0 0.2cqw 0.3cqw #0008;
+}
+
+/* 라디오: 박힌 못. 고르면 머리가 놋쇠로 빛남 */
+.sheet input[type='radio'] {
+  flex: none;
+  width: 1.8cqw;
+  height: 1.8cqw;
+  border: 0.25cqw solid #3d2412;
+  border-radius: 50%;
+  background: radial-gradient(circle, #6b4426 40%, #3d2412 100%);
+}
+
+.sheet input[type='radio']:checked {
+  background: var(--brass);
+}
+
+/* 체크 칸: 나무 칸. 켜면 가운데에 놋쇠 못 하나 */
+.sheet input[type='checkbox'] {
+  flex: none;
+  width: 1.9cqw;
+  height: 1.9cqw;
+  border: 0.25cqw solid #3d2412;
+  border-radius: 0.3cqw;
+  background: linear-gradient(#6b4426, #4c301a);
+  box-shadow: inset 0 0.15cqw 0.2cqw #000a;
+}
+
+.sheet input[type='checkbox']:checked {
+  background:
+    radial-gradient(circle at 40% 35%, #fff3c0 0 0.15cqw, #e2b23c 0.45cqw, #a07818 0.6cqw, #0000 0.68cqw),
+    linear-gradient(#6b4426, #4c301a);
 }
 
 /* 이름 칸은 같은 폭으로 두고 막대가 남는 폭을 다 씀. 값은 막대 오른쪽에 같은 폭으로 */
@@ -558,10 +762,9 @@ body {
   flex: 0 0 9cqw;
 }
 
-#settings-panel input[type='range'],
-#language {
+#settings-panel input[type='range'] {
   flex: 1;
-  accent-color: #8a5a32;
+  min-width: 0;
 }
 
 #settings-panel output {
@@ -570,8 +773,10 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
-#settings-panel input[type='radio'] {
-  accent-color: #8a5a32;
+#settings-panel .row > label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5cqw;
 }
 
 #settings-panel label:not(.row) {
@@ -587,8 +792,7 @@ body {
   padding: 0.4cqw 1cqw;
 }
 
-#create-panel .row > .plank:not(#dice),
-#create-panel label.row > select {
+#create-panel .row > .plank:not(#dice) {
   flex: 1;
 }
 
@@ -604,13 +808,6 @@ body {
   align-items: center;
   gap: 0.5cqw;
   cursor: pointer;
-}
-
-#private {
-  width: 1.8cqw;
-  height: 1.8cqw;
-  margin: 0;
-  accent-color: #8a5a32;
 }
 
 /* display: grid·flex가 hidden 속성의 display: none을 덮어씀 */

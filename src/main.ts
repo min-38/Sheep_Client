@@ -4,6 +4,7 @@ import { orbit } from './backdrop.ts'
 import { CHARACTERS, characterBody, PORTRAITS, savedCharacter, SUICIDE_AIM, SUICIDE_FLASH, suicideStage, type Body, type Pose } from './character.ts'
 import { best, measure, toLocalTime, toServerTime, type ClockSample } from './clock.ts'
 import { makeProps, SKIES, timeOfDay } from './desert.ts'
+import { enhanceSelect } from './dropdown.ts'
 import { drawGun, gunClips, lift, RAISE_MS, RECOIL_MS, RELOAD_AT, RELOAD_SEATED, RELOAD_SHUT, revolverMesh } from './gun.ts'
 import { dotPosition, noBlood, onGameEnd, onRevived, onWalk, onWounded, resultLabel } from './hitcard.ts'
 import { record, sampleAt, type Sample } from './interpolate.ts'
@@ -969,6 +970,7 @@ const createPanel = document.querySelector<HTMLDivElement>('#create-panel')!
 const roomNameInput = document.querySelector<HTMLInputElement>('#room-name')!
 const roomNameRule = document.querySelector<HTMLParagraphElement>('#room-name-rule')!
 const maxPlayersSelect = document.querySelector<HTMLSelectElement>('#max-players')!
+const maxPlayersList = enhanceSelect(maxPlayersSelect, document.querySelector('#max-players-label')!)
 const createOk = document.querySelector<HTMLButtonElement>('#create-ok')!
 
 // 맞는 이름이면 그 이름, 틀리면 null. 틀리면 규칙을 빨갛게 보이고 생성 버튼을 막음
@@ -988,6 +990,7 @@ document.querySelector('#create')!.addEventListener('click', () => {
   if (nickname === null) return
   rollRoomName()
   maxPlayersSelect.value = '8'
+  maxPlayersList.sync()
   privateBox.checked = false
   createPanel.hidden = false
   roomNameInput.select()
@@ -1045,6 +1048,7 @@ languageSelect.append(
     return option
   }),
 )
+const languageList = enhanceSelect(languageSelect, document.querySelector('#language-label')!)
 
 // 막대는 % 정수, 설정은 배율이라 100으로 나눔. 값 글자는 막대 옆에 %로
 function showSettings() {
@@ -1054,6 +1058,7 @@ function showSettings() {
   }
   settingsForm.querySelector<HTMLInputElement>(`input[name="hand"][value="${settings.hand}"]`)!.checked = true
   languageSelect.value = settings.language
+  languageList.sync()
 }
 
 settingsForm.addEventListener('input', () => {
