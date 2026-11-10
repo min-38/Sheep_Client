@@ -132,7 +132,6 @@ export const zh: Copy = {
     cancel: '取消',
   },
   settings: {
-    sensitivity: '灵敏度',
     music: '音乐',
     effects: '音效',
     hand: '持枪手',

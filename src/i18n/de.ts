@@ -133,7 +133,6 @@ export const de: Copy = {
     cancel: 'Abbrechen',
   },
   settings: {
-    sensitivity: 'Empfindlichkeit',
     music: 'Musik',
     effects: 'Soundeffekte',
     hand: 'Waffenhand',

@@ -132,7 +132,6 @@ export const ja: Copy = {
     cancel: 'キャンセル',
   },
   settings: {
-    sensitivity: '感度',
     music: 'BGM',
     effects: '効果音',
     hand: '銃を持つ手',

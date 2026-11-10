@@ -132,7 +132,6 @@ export const ko: Copy = {
     cancel: '취소',
   },
   settings: {
-    sensitivity: '감도',
     music: '배경음악',
     effects: '효과음',
     hand: '총을 든 손',
