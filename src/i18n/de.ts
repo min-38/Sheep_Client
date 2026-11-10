@@ -25,6 +25,8 @@ export const de: Copy = {
     lockHint: 'Klick aufs Bild, um anzulegen, Partner',
     win: 'Nur du stehst noch!',
     lastStanding: 'Der Letzte, der noch steht',
+    paidLine: 'Das Kopfgeld is ausgezahlt',
+    paidTo: (name) => `an ${name}, ehrlich verdient`,
     lose: 'Nicht dein Tag, Partner',
     rematch: (n) => `${n} geh'n nochmal ran`,
     head: 'Kopfschuss',

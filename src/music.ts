@@ -1,11 +1,13 @@
 import dustySaloonUrl from './assets/audio/dusty-saloon.mp3'
 import highNoonStandoffUrl from './assets/audio/high-noon-standoff.mp3'
 import lastOneStandingUrl from './assets/audio/last-one-standing.mp3'
+import quickestHandUrl from './assets/audio/quickest-hand-in-town.mp3'
 import { STEPS_FROM, WALK_DURATION, type Schedule } from './round.ts'
 
 // 배경음악 (시스템 기획서 사운드 배경음악). 사용자가 Suno로 만든 곡이고 출처는 CREDITS.md.
 // ponytail: 화면마다 곡은 임시로 고름. 들어 보고 사용자가 정함
-const TRACKS = { title: lastOneStandingUrl, saloon: dustySaloonUrl, standoff: highNoonStandoffUrl }
+// victory는 승리 결과 동안 한 번만 트는 승리 곡(9.88초, SHEEP-150)이고 나머지는 되풀이함
+const TRACKS = { title: lastOneStandingUrl, saloon: dustySaloonUrl, standoff: highNoonStandoffUrl, victory: quickestHandUrl }
 export type Track = keyof typeof TRACKS
 // 지금 보이는 화면. 첫 화면, 술집 대기실, 결투장
 export type Screen = 'title' | 'saloon' | 'arena'
@@ -14,13 +16,15 @@ export type Screen = 'title' | 'saloon' | 'arena'
 export const MUSIC_FADE = 300
 
 // ms. 10걸음을 다 걸은 뒤 결투 전 곡을 천천히 줄여 끄는 시간 (사용자 결정 2026-11-10, SHEEP-141).
-// "시작!"까지 기다리는 시간(1~3초)보다 길 수 있어 결투 첫머리에 작게 남기도 함. ponytail: 임시 값. 들어 보고 정함
+// "시작!"까지 기다리는 시간(0.1~10초)보다 길 수 있어 결투 첫머리에 작게 남기도 함. ponytail: 임시 값. 들어 보고 정함
 export const MUSIC_STOP_FADE = 3000
 
 // now(서버 시계)에 틀 곡. 결투장에서는 카운트다운부터 10걸음을 다 걸을 때까지만 틀고, 그 뒤로 결투와 판 결과 동안은
-// 총소리와 발소리만 남게 조용함(null) (사용자 결정 2026-11-10, SHEEP-141)
-export function trackAt(screen: Screen, s: Schedule, now: number): Track | null {
+// 총소리와 발소리만 남게 조용함(null) (사용자 결정 2026-11-10, SHEEP-141). won은 승리 결과를 받아 보이는 중인지이고,
+// 그동안은 판 끝 포스터부터 받은 돈 자막까지 승리 곡을 끝까지 틂. 이긴 사람, 진 사람, 관전자 모두 같이 들음 (SHEEP-150)
+export function trackAt(screen: Screen, s: Schedule, now: number, won = false): Track | null {
   if (screen !== 'arena') return screen
+  if (won) return 'victory'
   return s.walk !== undefined && now >= s.walk + STEPS_FROM + WALK_DURATION ? null : 'standoff'
 }
 
@@ -72,7 +76,7 @@ function player(audio: AudioContext, track: Track) {
       bus.connect(audio.destination)
     }
     const element = new Audio(TRACKS[track])
-    element.loop = true
+    element.loop = track !== 'victory'
     const gain = new GainNode(audio, { gain: 0 })
     new MediaElementAudioSourceNode(audio, { mediaElement: element }).connect(gain).connect(bus)
     p = { element, gain }

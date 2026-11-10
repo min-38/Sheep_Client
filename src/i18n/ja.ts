@@ -25,6 +25,8 @@ export const ja: Copy = {
     lockHint: '画面をクリックして構えな、相棒',
     win: '最後まで立ってたのはあんただ！',
     lastStanding: '最後まで立ってた',
+    paidLine: '賞金はきっちり払ったぜ',
+    paidTo: (name) => `${name}の取り分だ、文句なしだぜ`,
     lose: '今日はツイてねえな、相棒',
     rematch: (n) => `${n}人でもう一勝負だ`,
     head: '頭に一発',
