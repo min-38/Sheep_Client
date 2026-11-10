@@ -474,6 +474,47 @@ export const corners = (b: Box): V[] =>
 // 결투장에 선 사람 하나. facing은 바라보는 각도(라디안, 0 = +x)
 export type Figure = { x: number; y: number; facing: number } & Pose
 
+// 격자 좌표 (wx, wy)와 높이 h(칸)를 x, y에 facing으로 선 사람의 모델 좌표(블록)로. inWorld를 되돌림
+export function toModel(x: number, y: number, facing: number, wx: number, wy: number, h: number): V {
+  const cos = Math.cos(facing)
+  const sin = Math.sin(facing)
+  const gx = wx - x
+  const gy = wy - y
+  return [(-sin * gx + cos * gy) / CELL, h / CELL, (cos * gx + sin * gy) / CELL]
+}
+
+// 몸에 남은 상처 하나 (SHEEP-126). box는 붙은 상자 번호(동작마다 상자 순서가 같음), local은 그 상자 축 기준 자리(블록).
+// 상자를 따라 옮겨 그려 쓰러지거나 팔을 들어도 같은 자리에 남음
+export type Wound = { box: number; local: V }
+// 상처 색과 반 길이(블록). 반쯤 몸에 묻혀 겉면에 붉은 네모로 보임
+const WOUND: RGB = [110, 8, 8]
+const WOUND_HALF: V = [0.55, 0.55, 0.55]
+
+// 모델 좌표 p를 가장 가까운 상자 겉면에 붙인 상처. 판정 원기둥이 상자보다 굵어 맞은 자리는 대개 상자 밖이고, 상자 안의 점은 가장 얕은 면으로 밀어냄
+export function pinWound(boxes: readonly Box[], p: V): Wound {
+  let best: Wound = { box: 0, local: [0, 0, 0] }
+  let bestGap = Infinity
+  boxes.forEach((b, i) => {
+    const l = b.axes.map((a) => dot(sub(p, b.c), a))
+    const gap = Math.hypot(...l.map((v, k) => Math.max(0, Math.abs(v) - b.half[k])))
+    if (gap >= bestGap) return
+    const local = l.map((v, k) => Math.max(-b.half[k], Math.min(b.half[k], v)))
+    if (gap === 0) {
+      const k = [0, 1, 2].reduce((m, j) => (b.half[j] - Math.abs(l[j]) < b.half[m] - Math.abs(l[m]) ? j : m), 0)
+      local[k] = (l[k] < 0 ? -1 : 1) * b.half[k]
+    }
+    best = { box: i, local: [local[0], local[1], local[2]] }
+    bestGap = gap
+  })
+  return best
+}
+
+// 이 동작의 상자들에서 상처 w를 그릴 작은 상자
+export function woundBox(boxes: readonly Box[], w: Wound): Box {
+  const b = boxes[w.box]
+  return { c: add(add(add(b.c, b.axes[0], w.local[0]), b.axes[1], w.local[1]), b.axes[2], w.local[2]), axes: b.axes, half: WOUND_HALF, rgb: WOUND }
+}
+
 // x, y에 facing으로 선 사람의 모델 좌표 p(블록)가 놓이는 [격자 x, 격자 y, 높이(칸)]. drawFigure와 같은 식
 export function inWorld(x: number, y: number, facing: number, p: V): [number, number, number] {
   const cos = Math.cos(facing)
