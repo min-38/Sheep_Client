@@ -1142,6 +1142,45 @@ body {
   outline-offset: 0.3cqw;
 }
 
+/* 총을 든 손 고르기 (SHEEP-162, 시안 B). 못 모양 라디오는 고르지 않은 칸이 짙게 차 고른 것처럼 보여, 라디오는 숨기고 메뉴와 같은
+   못 박은 나무 판 둘을 누름. 고른 판은 놋쇠 테에 눌려 내려앉고, 고르지 않은 판은 어둡고 바램 */
+#settings-panel .row > .hand-choice {
+  position: relative;
+}
+
+.hand-choice input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+}
+
+.hand-plank {
+  padding: 0.5cqw 1.8cqw;
+  border: 0.25cqw solid #3d2412;
+  border-radius: 0.4cqw;
+  background: var(--nails), var(--planks);
+  box-shadow: 0 0.45cqw 0 #3d2412;
+  color: #f7e6bd;
+  font-weight: bold;
+  text-shadow: 0 0.15cqw 0 #3d2412;
+  filter: saturate(0.5) brightness(0.7);
+  opacity: 0.75;
+  transition: filter 0.1s, translate 0.05s, box-shadow 0.05s;
+}
+
+.hand-choice input:checked + .hand-plank {
+  border-color: #e2b23c;
+  box-shadow: 0 0.15cqw 0 #3d2412, 0 0 0 0.15cqw #a07818;
+  filter: none;
+  opacity: 1;
+  translate: 0 0.3cqw;
+}
+
+.hand-choice input:focus-visible + .hand-plank {
+  outline: 0.3cqw solid #8a2b0e;
+  outline-offset: 0.3cqw;
+}
+
 #room-name {
   flex: 1;
 }
