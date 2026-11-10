@@ -43,8 +43,9 @@ export const reloadSoundAt = (clip: number) => RELOAD_AT + (clip / RELOAD_LENGTH
 const RELOAD_LIFT = 0.3
 // 다 내린 총을 GUN_POS에서 내리는 거리(눈 좌표). 지금 모델은 흔들림이 가장 커도 약 0.24면 화면 아래로 다 숨어 여유를 둠
 const LOWER_BY = 0.35
-// 눈 좌표(x 오른쪽, y 위, z 앞)에서 모델 원점(총 가운데)이 놓일 자리. ponytail: 임시 값. 화면을 보며 맞춤
-export const GUN_POS: Vec3 = [0.275, -0.245, 0.75]
+// 눈 좌표(x 오른쪽, y 위, z 앞)에서 모델 원점(총 가운데)이 놓일 자리. 오른쪽 아래 구석([0.275, -0.245, 0.75])은 몰입이 덜해
+// 화면 가운데 쪽으로 옮김 (사용자 플레이테스트 2026-11-11, SHEEP-161). ponytail: 임시 값. 화면을 보며 맞춤
+export const GUN_POS: Vec3 = [0.17, -0.2, 0.75]
 // 모델 1m의 눈 좌표 길이. 리볼버 모델은 길이가 약 0.35m임
 const SCALE = 1.3
 // 반동 때 총구를 드는 각도(라디안)와 뒤로 빼는 거리
