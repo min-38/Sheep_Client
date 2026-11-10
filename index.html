@@ -9,6 +9,8 @@
   <body>
     <div id="game">
       <canvas id="screen" data-i18n-label="hud.screen"></canvas>
+      <!-- 걷는 동안 화면 가장자리 어둠 (SHEEP-141). 짙기와 좁혀 들어오는 정도는 main.ts가 박동에 맞춰 바꿈 -->
+      <div id="tension" hidden></div>
       <div id="blood" aria-hidden="true" hidden></div>
       <div id="crosshair" class="reticle" aria-hidden="true" hidden></div>
       <div id="flash" aria-hidden="true" hidden></div>

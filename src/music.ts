@@ -1,7 +1,7 @@
 import dustySaloonUrl from './assets/audio/dusty-saloon.mp3'
 import highNoonStandoffUrl from './assets/audio/high-noon-standoff.mp3'
 import lastOneStandingUrl from './assets/audio/last-one-standing.mp3'
-import type { Schedule } from './round.ts'
+import { STEPS_FROM, WALK_DURATION, type Schedule } from './round.ts'
 
 // 배경음악 (시스템 기획서 사운드 배경음악). 사용자가 Suno로 만든 곡이고 출처는 CREDITS.md.
 // ponytail: 화면마다 곡은 임시로 고름. 들어 보고 사용자가 정함
@@ -10,14 +10,18 @@ export type Track = keyof typeof TRACKS
 // 지금 보이는 화면. 첫 화면, 술집 대기실, 결투장
 export type Screen = 'title' | 'saloon' | 'arena'
 
-// ms. 곡을 줄이거나 키우는 시간. "시작!"에는 이만큼 앞서 줄이기 시작해 그때 다 줄어듦. ponytail: 임시 값(시스템 기획서 사운드)
+// ms. 곡을 바꿀 때 줄이거나 키우는 시간. ponytail: 임시 값(시스템 기획서 사운드)
 export const MUSIC_FADE = 300
 
-// now(서버 시계)에 틀 곡. 결투장에서는 카운트다운부터 "시작!" 전까지만 틀고, 결투와 판 결과 동안은 총소리와 발소리만 남게 조용함(null).
-// ponytail: 걷는 동안에도 음악이 돌아 발소리가 묻힐 수 있음. 묻히면 걷기 동안 음악을 줄임 (시스템 기획서 사운드)
+// ms. 10걸음을 다 걸은 뒤 결투 전 곡을 천천히 줄여 끄는 시간 (사용자 결정 2026-11-10, SHEEP-141).
+// "시작!"까지 기다리는 시간(1~3초)보다 길 수 있어 결투 첫머리에 작게 남기도 함. ponytail: 임시 값. 들어 보고 정함
+export const MUSIC_STOP_FADE = 3000
+
+// now(서버 시계)에 틀 곡. 결투장에서는 카운트다운부터 10걸음을 다 걸을 때까지만 틀고, 그 뒤로 결투와 판 결과 동안은
+// 총소리와 발소리만 남게 조용함(null) (사용자 결정 2026-11-10, SHEEP-141)
 export function trackAt(screen: Screen, s: Schedule, now: number): Track | null {
   if (screen !== 'arena') return screen
-  return s.duel !== undefined && now >= s.duel ? null : 'standoff'
+  return s.walk !== undefined && now >= s.walk + STEPS_FROM + WALK_DURATION ? null : 'standoff'
 }
 
 // 모든 곡이 지나는 크기 조절 하나. 설정의 배경음악 크기를 여기에만 걸고, 효과음과 따로라 음악을 꺼도 총소리는 들림
@@ -34,11 +38,13 @@ export function setMusicVolume(v: number) {
 }
 
 // 곡을 바꿈. 앞 곡은 MUSIC_FADE 동안 줄인 뒤 멈추고, 새 곡은 처음부터 키움. 같은 곡이면 그대로 둠.
+// 끄기(null)는 결투장에서 다 걸은 뒤뿐이라 MUSIC_STOP_FADE 동안 천천히 줄임.
 // ponytail: mp3는 앞뒤에 짧은 무음이 붙어 되풀이할 때 틈이 날 수 있음. 거슬리면 끝에서 다음 곡 처음으로 겹쳐 넘김
 export function playMusic(audio: AudioContext, track: Track | null) {
   if (track === playing) return
   const now = audio.currentTime
-  const fade = MUSIC_FADE / 1000
+  const fadeMs = track === null ? MUSIC_STOP_FADE : MUSIC_FADE
+  const fade = fadeMs / 1000
   const old = playing === null ? undefined : players.get(playing)
   if (old) {
     const stopping = playing
@@ -46,7 +52,7 @@ export function playMusic(audio: AudioContext, track: Track | null) {
     old.gain.gain.setValueAtTime(old.gain.gain.value, now)
     old.gain.gain.linearRampToValueAtTime(0, now + fade)
     // 그사이 같은 곡으로 돌아왔으면 멈추지 않음
-    setTimeout(() => playing !== stopping && old.element.pause(), MUSIC_FADE)
+    setTimeout(() => playing !== stopping && old.element.pause(), fadeMs)
   }
   playing = track
   if (track === null) return

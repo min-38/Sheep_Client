@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest'
 import { toServerTime } from './clock.ts'
 import { en } from './i18n/en.ts'
-import { banner, DUEL_LIMIT, dueling, formatTime, GO_SHOWN, joins, locked, resultText, standingCount, STEP_MS, STEPS, stepIndex, timeLeft, TURN_MS, WALK_DURATION, walking, type Schedule } from './round.ts'
+import { banner, DUEL_LIMIT, dueling, formatTime, GO_SHOWN, joins, locked, resultText, standingCount, STEP_MS, STEPS, STEPS_FROM, stepIndex, timeLeft, TURN_MS, TURN_PAUSE, WALK_DURATION, walking, type Schedule } from './round.ts'
 
 // 서버가 알리는 순서: 카운트다운 시각, 카운트다운이 시작할 때 걷기 시각, 걷기가 시작할 때 결투 시각 (기술 설계서 메시지 phase)
 const full: Schedule = { countdown: 10000, walk: 13000, duel: 16000 }
@@ -136,25 +136,31 @@ describe('walking', () => {
     expect(walking(full, 13000 + TURN_MS - 1)).toBe(false)
   })
 
-  test('다 돌고 나서 걷는 시간 동안 걸음', () => {
-    expect(walking(full, 13000 + TURN_MS)).toBe(true)
-    expect(walking(full, 13000 + TURN_MS + WALK_DURATION - 1)).toBe(true)
+  test('다 돈 뒤 뜸을 들이는 동안은 걷지 않음 (사용자 결정 2026-11-10, SHEEP-141)', () => {
+    expect(STEPS_FROM).toBe(TURN_MS + TURN_PAUSE)
+    expect(walking(full, 13000 + TURN_MS)).toBe(false)
+    expect(walking(full, 13000 + STEPS_FROM - 1)).toBe(false)
+  })
+
+  test('뜸을 들인 뒤 걷는 시간 동안 걸음', () => {
+    expect(walking(full, 13000 + STEPS_FROM)).toBe(true)
+    expect(walking(full, 13000 + STEPS_FROM + WALK_DURATION - 1)).toBe(true)
   })
 
   test('걷는 시간이 지나면 걷지 않음. 결투 시각을 기다리는 동안도', () => {
-    expect(walking(full, 13000 + TURN_MS + WALK_DURATION)).toBe(false)
-    expect(walking({ countdown: 10000, walk: 13000 }, 13000 + TURN_MS + WALK_DURATION + 500)).toBe(false)
+    expect(walking(full, 13000 + STEPS_FROM + WALK_DURATION)).toBe(false)
+    expect(walking({ countdown: 10000, walk: 13000 }, 13000 + STEPS_FROM + WALK_DURATION + 500)).toBe(false)
   })
 })
 
 describe('stepIndex', () => {
-  test('다 돈 뒤부터 STEP_MS마다 한 걸음, 모두 10걸음 (사용자 결정 2026-11-10, SHEEP-120)', () => {
+  test('뜸을 들인 뒤부터 STEP_MS마다 한 걸음, 모두 10걸음 (사용자 결정 2026-11-10, SHEEP-120, SHEEP-141)', () => {
     expect(STEPS).toBe(10)
     expect(WALK_DURATION).toBe(STEPS * STEP_MS)
-    expect(stepIndex(1000, 1000 + TURN_MS)).toBe(0)
-    expect(stepIndex(1000, 1000 + TURN_MS + STEP_MS - 1)).toBe(0)
-    expect(stepIndex(1000, 1000 + TURN_MS + STEP_MS)).toBe(1)
-    expect(stepIndex(1000, 1000 + TURN_MS + WALK_DURATION - 1)).toBe(STEPS - 1)
+    expect(stepIndex(1000, 1000 + STEPS_FROM)).toBe(0)
+    expect(stepIndex(1000, 1000 + STEPS_FROM + STEP_MS - 1)).toBe(0)
+    expect(stepIndex(1000, 1000 + STEPS_FROM + STEP_MS)).toBe(1)
+    expect(stepIndex(1000, 1000 + STEPS_FROM + WALK_DURATION - 1)).toBe(STEPS - 1)
   })
 })
 

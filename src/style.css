@@ -108,6 +108,7 @@ body {
 
 /* HUD는 클릭을 캔버스로 넘겨야 포인터 잠금과 쏘기가 됨 */
 #blood,
+#tension,
 #crosshair,
 #flash,
 #hit-card,
@@ -205,6 +206,12 @@ body {
   text-align: center;
   border-top: 0.15cqw solid #f4efe255;
   padding-top: 0.5cqw;
+}
+
+/* 걷는 동안 화면 가장자리 어둠 (SHEEP-141). 가운데는 비우고 가장자리로 갈수록 검게. 짙기(opacity)와 크기(scale)는 main.ts가 정함 */
+#tension {
+  inset: 0;
+  background: radial-gradient(ellipse at 50% 50%, #0000 35%, #000 100%);
 }
 
 /* 반샷 혈흔. 가운데는 투명하고 가장자리로 갈수록 진해짐. 핏방울 그림은 없음 (시스템 기획서 HUD) */
