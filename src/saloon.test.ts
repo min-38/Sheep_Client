@@ -16,6 +16,7 @@ const player = (id: string, seat: number, extra: Partial<PlayerState> = {}): Pla
   pitch: 0,
   character: 0,
   seat,
+  hand: 'right',
   ...extra,
 })
 
@@ -39,9 +40,9 @@ describe('seatSlots', () => {
   })
 
   test('내 좌석, 준비, 이긴 횟수, 고른 캐릭터와 색을 그 사람 것으로 적음', () => {
-    const slots = seatSlots([player('a', 0, { ready: true, wins: 2 }), player('b', 1, { character: 3, color: 6 })], 'b', 2)
-    expect(slots[0]).toEqual({ nickname: '총잡이0', character: 0, color: 0, ready: true, mine: false, wins: 2 })
-    expect(slots[1]).toEqual({ nickname: '총잡이1', character: 3, color: 6, ready: false, mine: true, wins: 0 })
+    const slots = seatSlots([player('a', 0, { ready: true, wins: 2 }), player('b', 1, { character: 3, color: 6, hand: 'left' })], 'b', 2)
+    expect(slots[0]).toEqual({ nickname: '총잡이0', character: 0, color: 0, hand: 'right', ready: true, mine: false, wins: 2 })
+    expect(slots[1]).toEqual({ nickname: '총잡이1', character: 3, color: 6, hand: 'left', ready: false, mine: true, wins: 0 })
   })
 
   test('색을 바꿔도 좌석은 그대로이고, 좌석 수보다 큰 색 번호도 앉음 (SHEEP-118)', () => {

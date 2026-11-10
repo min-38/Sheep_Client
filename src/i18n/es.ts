@@ -111,6 +111,7 @@ export const es: Copy = {
       maxPlayers: 'Debe haber de 2 a 8 jugadores',
       character: 'Ese personaje no existe',
       color: 'Ese color no existe',
+      hand: 'Esa no es mano de pistolero, compadre',
     },
   },
   create: {

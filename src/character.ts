@@ -14,6 +14,7 @@ import { horizonY, pack, tint, type Camera } from './render.ts'
 import { slerp, type Rig } from './rig.ts'
 import { BANDANA } from './roomlist.ts'
 import { STEP_MS } from './round.ts'
+import type { Hand } from './settings.ts'
 
 // 블록 캐릭터 (컨셉 기획서 아트 캐릭터 그림). 캐릭터마다 상자 목록 JSON(src/assets/characters/) 하나를 읽고, 관절을 돌려 동작을 만들어
 // 매 프레임 그 자리와 각도에서 3D로 그림. 모든 캐릭터가 같은 7.5등신 틀을 씀 (시스템 기획서 캐릭터).
@@ -104,6 +105,13 @@ const MUZZLE: V = [0.1723, 0.0664, 0]
 const HOLSTER_GRIP: V = [3.125, 13.1, -1.1]
 // 자살할 때 총구를 대는 오른쪽 관자놀이. 머리 오른쪽 면(x 1.5)의 눈 위 앞쪽
 const TEMPLE: V = [1.55, 28.6, 0.8]
+// 오른 허벅지 바깥의 권총집 상자. 모든 캐릭터가 같은 자리에 하나씩 둠
+const isHolster = (b: CharacterData['boxes'][number]) => b.part === 'rightLeg' && `${b.from}` === '2.75,8.5,-1' && `${b.to}` === '3.5,12,1'
+// 왼손잡이(총을 든 손이 왼손)의 캐릭터. 권총집 상자만 왼 허벅지로 거울처럼 옮기고 옷 장식은 그대로 둠 (SHEEP-133)
+const leftHolstered = (data: CharacterData): CharacterData => ({
+  ...data,
+  boxes: data.boxes.map((b) => (isHolster(b) ? { ...b, part: 'leftLeg', from: [-b.to[0], b.from[1], b.from[2]], to: [-b.from[0], b.to[1], b.to[2]] } : b)),
+})
 
 const X: V = [1, 0, 0]
 const Y: V = [0, 1, 0]
@@ -282,48 +290,55 @@ function ground(p: Pose): Pose {
   return { boxes: p.boxes.map((b) => moveBox(b, lift)), gun: p.gun.map((q) => movePoint(q, lift)) }
 }
 
-function build(data: CharacterData, key?: string): Body {
-  const shape = parts(data, key)
+// hand는 총을 든 손. 왼손이면 권총집과 총 쥔 팔을 왼쪽으로 옮김. 서기, 걷기, 쓰러짐 동작 데이터는 좌우를 바꾸지 않음 (SHEEP-133)
+function build(data: CharacterData, key: string | undefined, hand: Hand): Body {
+  const left = hand === 'left'
+  // 총을 든 쪽의 x 부호와 그쪽 위팔(관절 이름), 아래팔, 허벅지. 아래 주석의 오른쪽은 왼손잡이면 왼쪽임
+  const side = left ? -1 : 1
+  const gunArm = left ? 'leftArm' : 'rightArm'
+  const forearm = left ? 'leftArm1' : 'rightArm1'
+  const mirrored = (v: V): V => [v[0] * side, v[1], v[2]]
+  const shape = parts(left ? leftHolstered(data) : data, key)
   const posed = (m: Record<Seg, Move>) => ({
     boxes: shape.map(({ box, seg }) => moveBox(box, m[seg])),
-    fist: movePoint([4, FIST, 0], m.rightArm1),
-    thigh: m.rightLeg0,
+    fist: movePoint([4 * side, FIST, 0], m[forearm]),
+    thigh: m[left ? 'leftLeg0' : 'rightLeg0'],
   })
   // 총을 권총집에 꽂은 채. 총은 오른쪽 허벅지를 따라 움직임
-  const holster = holdGun(HOLSTER_GRIP, DOWN, Z).gun
+  const holster = holdGun(mirrored(HOLSTER_GRIP), DOWN, Z).gun
   const holstered = (m: Record<Seg, Move>): Pose => {
     const p = posed(m)
     return { boxes: p.boxes, gun: holster.map((q) => movePoint(q, p.thigh)) }
   }
   // 총을 오른손에 쥔 채. 팔을 내린 자세에서 총열은 팔을 따라 아래, 총 위는 앞이라 앞으로 뻗으면 겨눈 모습과 같음.
   // 총은 오른 아래팔을 따라 움직임 (SHEEP-119)
-  const inHand = holdGun([4, FIST, 0], DOWN, Z).gun
-  const held = (m: Record<Seg, Move>): Pose => ({ boxes: posed(m).boxes, gun: inHand.map((q) => movePoint(q, m.rightArm1)) })
+  const inHand = holdGun([4 * side, FIST, 0], DOWN, Z).gun
+  const held = (m: Record<Seg, Move>): Pose => ({ boxes: posed(m).boxes, gun: inHand.map((q) => movePoint(q, m[forearm])) })
   // 동작 데이터 m의 f번째 프레임. 가장 낮은 곳이 바닥에 닿게 둠
   const play = (m: Motion, f: number, pose = holstered) => ground(pose(motionMoves(m, f)))
   const frames = (ms: number) => (ms * MOTIONS.fps) / 1000
   // 위아래 시선(pitch)만큼 머리를 들고 오른팔과 총을 d쪽으로 뻗음. flash면 총구 앞에 불꽃
   const aimed = (pitch: number, d: V, flash: boolean): Pose => {
-    const p = posed(moves({ ...rest, look: pitch, rightArm: [d, d] }))
+    const p = posed(moves({ ...rest, look: pitch, [gunArm]: [d, d] }))
     const { gun, muzzle } = holdGun(p.fist, d, across(Y, d))
     return { boxes: flash ? [...p.boxes, rod(muzzle, d, 0, 5, 4, FLASH)] : p.boxes, gun }
   }
   // 오른손을 들어 총구를 관자놀이에 댐. 총열은 머리 쪽(-x), 팔꿈치는 옆으로 굽힘
   const temple = (flash: boolean): Pose => {
-    const grip = sub(TEMPLE, holdGun([0, 0, 0], [-1, 0, 0], Y).muzzle)
-    const shoulder: V = [4, SHOULDER, 0]
-    const elbow = elbowFor(shoulder, grip, SHOULDER - ELBOW, ELBOW - FIST, [1, -0.3, 0.3])
-    const p = posed(moves({ ...rest, rightArm: [unit(sub(elbow, shoulder)), unit(sub(grip, elbow))] }))
-    const { gun, muzzle } = holdGun(p.fist, [-1, 0, 0], Y)
-    return { boxes: flash ? [...p.boxes, rod(muzzle, X, -0.5, 4, 4, FLASH)] : p.boxes, gun }
+    const grip = sub(mirrored(TEMPLE), holdGun([0, 0, 0], [-side, 0, 0], Y).muzzle)
+    const shoulder: V = [4 * side, SHOULDER, 0]
+    const elbow = elbowFor(shoulder, grip, SHOULDER - ELBOW, ELBOW - FIST, [side, -0.3, 0.3])
+    const p = posed(moves({ ...rest, [gunArm]: [unit(sub(elbow, shoulder)), unit(sub(grip, elbow))] }))
+    const { gun, muzzle } = holdGun(p.fist, [-side, 0, 0], Y)
+    return { boxes: flash ? [...p.boxes, rod(muzzle, mirrored(X), -0.5, 4, 4, FLASH)] : p.boxes, gun }
   }
   const { stand, walk, fall } = MOTIONS.clips
   // 맞아 쓰러져 바닥에 닿을 때 놓친 총. 그때 주먹 아래 모래 위에, 총열은 아래팔을 바닥에 눕힌 쪽으로 두고 옆으로 눕힘.
   // 그 뒤로 몸이 조금 더 움직여도 총은 그 자리에 있음
   const dropped = (() => {
     const m = motionMoves(fall, frames(FALL_LAND_MS))
-    const fist = movePoint([4, FIST, 0], m.rightArm1)
-    const arm = m.rightArm1.turn(DOWN)
+    const fist = movePoint([4 * side, FIST, 0], m[forearm])
+    const arm = m[forearm].turn(DOWN)
     const barrel: V = Math.hypot(arm[0], arm[2]) > 0.2 ? unit([arm[0], 0, arm[2]]) : Z
     const gun = holdGun([fist[0], 0, fist[2]], barrel, cross(Y, barrel)).gun
     const bottom = lowest(gun)
@@ -348,11 +363,11 @@ function build(data: CharacterData, key?: string): Body {
 const cache = new Map<string, Body>()
 
 // 캐릭터 번호(CHARACTERS 순서)의 모든 동작. color는 그 사람의 사람 색 번호이고 핵심 파츠를 그 색으로 칠함. 없으면 JSON 색 그대로(첫 화면 배경).
-// 캐릭터와 색마다 처음 부를 때 한 번 만듦
-export function characterBody(character: number, color?: number): Body {
-  const id = `${character}/${color}`
+// hand는 그 사람이 총을 든 손(state hand). 캐릭터, 색, 손마다 처음 부를 때 한 번 만듦
+export function characterBody(character: number, color?: number, hand: Hand = 'right'): Body {
+  const id = `${character}/${color}/${hand}`
   let body = cache.get(id)
-  if (!body) cache.set(id, (body = build(CHARACTERS[character], color === undefined ? undefined : keyColor(character, color))))
+  if (!body) cache.set(id, (body = build(CHARACTERS[character], color === undefined ? undefined : keyColor(character, color), hand)))
   return body
 }
 

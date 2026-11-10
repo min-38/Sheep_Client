@@ -347,6 +347,69 @@ describe('characterBody', () => {
 
 })
 
+describe('characterBody 왼손 (SHEEP-133)', () => {
+  const right = characterBody(0)
+  const left = characterBody(0, undefined, 'left')
+  const mirror = (p: V): V => [-p[0], p[1], p[2]]
+  // 총 꼭짓점의 가운데(블록)
+  const middle = (pose: Pose): V => {
+    const sum = (i: number) => pose.gun.reduce((s, p) => s + p[i], 0) / pose.gun.length
+    return [sum(0), sum(1), sum(2)]
+  }
+  const close = (got: V, want: V, tolerance: number) => got.forEach((v, i) => expect(Math.abs(v - want[i]), `축 ${i}`).toBeLessThan(tolerance))
+  // 오른 허벅지 바깥의 권총집 상자 (x 2.75~3.5, y 8.5~12)
+  const isHolster = (b: (typeof CHARACTERS)[number]['boxes'][number]) => b.part === 'rightLeg' && `${b.from}` === '2.75,8.5,-1' && `${b.to}` === '3.5,12,1'
+  const holster = CHARACTERS[0].boxes.findIndex(isHolster)
+  // 찰스 상자 중 part인 것. 동작마다 상자 순서는 JSON 그대로이고, 불꽃 상자는 맨 뒤에 더해짐
+  const part = (pose: Pose, name: string) => pose.boxes.filter((_, i) => CHARACTERS[0].boxes[i]?.part === name)
+
+  test('모든 캐릭터에 권총집 상자가 오른 허벅지에 하나씩 있음', () => {
+    for (const ch of CHARACTERS) expect(ch.boxes.filter(isHolster).length, ch.name).toBe(1)
+  })
+
+  test('캐릭터, 색, 손마다 한 번만 만듦', () => {
+    expect(characterBody(0, undefined, 'left')).toBe(left)
+    expect(left).not.toBe(right)
+    expect(characterBody(0, undefined, 'right')).toBe(right)
+  })
+
+  test('서거나 앉으면 권총집 상자와 꽂힌 총이 왼쪽 허벅지로 거울처럼 옮겨지고, 다른 상자는 그대로', () => {
+    for (const [r, l] of [[right.rest, left.rest], [right.sit, left.sit]]) {
+      close(l.boxes[holster].c, mirror(r.boxes[holster].c), 1e-9)
+      l.boxes.forEach((b, i) => i === holster || expect(b.c).toEqual(r.boxes[i].c))
+      close(middle(l), mirror(middle(r)), 0.3)
+    }
+  })
+
+  test('겨누기, 쏘기, 자살은 왼팔로 해 총과 왼팔이 오른손 몸의 좌우 거울 자리', () => {
+    const pairs: [Pose, Pose][] = [[right.aim(0.3), left.aim(0.3)], [right.fire(-0.2), left.fire(-0.2)], [right.suicide[0], left.suicide[0]], [right.suicide[1], left.suicide[1]]]
+    for (const [r, l] of pairs) {
+      close(middle(l), mirror(middle(r)), 0.3)
+      part(l, 'leftArm').forEach((b, i) => close(b.c, mirror(part(r, 'rightArm')[i].c), 1e-9))
+      // 총을 들지 않은 팔은 내린 그대로
+      expect(part(l, 'rightArm').map((b) => b.c)).toEqual(part(left.rest, 'rightArm').map((b) => b.c))
+    }
+    // 불꽃 상자도 거울 자리
+    for (const [r, l] of [[right.fire(0), left.fire(0)], [right.suicide[1], left.suicide[1]]]) close(l.boxes.at(-1)!.c, mirror(r.boxes.at(-1)!.c), 1e-9)
+  })
+
+  test('자살 모습은 총구를 왼쪽 관자놀이에 댐', () => {
+    const tip = left.suicide[0].gun.reduce((a, b) => (b[0] > a[0] ? b : a))
+    expect(tip[0]).toBeLessThan(-1.3)
+    expect(tip[0]).toBeGreaterThan(-2)
+  })
+
+  test('쓰러지는 동안 총은 왼손에 쥠. 맞으면 바닥에 닿을 때 왼손 옆에 놓침', () => {
+    const gap = (pose: Pose, p: V) => Math.min(...pose.gun.map((q) => Math.hypot(q[0] - p[0], q[1] - p[1], q[2] - p[2])))
+    // 왼팔에서 팔꿈치 아래 끝(손)
+    const fist = (pose: Pose) => part(pose, 'leftArm').find((b) => b.half[1] === 0.75)!.c
+    for (const t of [0, 300, 600, FALL_LAND_MS, 2000, 5000]) expect(gap(left.fall(t), fist(left.fall(t))), `t=${t}`).toBeLessThan(0.8)
+    // 놓친 총은 바닥에 닿기 직전 왼 주먹 아래 모래 위에 있음
+    const before = fist(left.fall(FALL_LAND_MS - 1, true))
+    expect(gap(left.fall(FALL_LAND_MS + 50, true), [before[0], 0, before[2]])).toBeLessThan(1.5)
+  })
+})
+
 describe('drawFigure', () => {
   const W = 400
   const H = 200

@@ -131,6 +131,7 @@ export const en = {
       maxPlayers: 'Players must be 2–8',
       character: 'No such character',
       color: 'No such color',
+      hand: "That ain't a gun hand, partner",
     },
   },
   // 방 만들기 창

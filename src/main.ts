@@ -90,8 +90,8 @@ let sentPitch = 0
 let sentAt = -Infinity
 // 플레이어마다 받은 상태. 나도 넣어 서버가 나를 걷게 할 때 다른 사람과 같이 보간해 그림
 const history = new Map<string, Sample[]>()
-// 사람마다 고른 캐릭터 번호와 사람 색 번호. state마다 새로 받아 그 사람의 모델과 핵심 파츠 색을 고름
-type Look = { character: number; color: number }
+// 사람마다 고른 캐릭터 번호, 사람 색 번호, 총을 든 손. state마다 새로 받아 그 사람의 모델, 핵심 파츠 색, 권총집과 총 쥔 팔을 고름
+type Look = { character: number; color: number; hand: Hand }
 let characters = new Map<string, Look>()
 // 마지막으로 받은 state의 사람들. 판 끝 포스터에 이긴 사람의 닉네임, 색, 이긴 횟수를 적는 데 씀
 let roster: readonly PlayerState[] = []
@@ -143,7 +143,7 @@ function applyState(players: readonly PlayerState[]) {
   }
   placed = true
   record(history, players, now)
-  characters = new Map(players.map((p) => [p.id, { character: p.character, color: p.color }]))
+  characters = new Map(players.map((p) => [p.id, { character: p.character, color: p.color, hand: p.hand }]))
   roster = players
   pickWatch(now)
   // 창이 숨어 그리기가 멈춰도 state는 오므로 여기서 떠 둠
@@ -274,7 +274,7 @@ function othersAt(t: number, viewer: string, scene: Scene): Thing[] {
       const shot = scene.shots.get(id)
       const flashing = shot !== undefined && t >= shot.at && t < shot.at + FLASH_SHOWN
       const look = scene.characters.get(id)!
-      const body = characterBody(look.character, look.color)
+      const body = characterBody(look.character, look.color, look.hand)
       // "시작!"부터 서 있는 사람은 총을 겨눈 모습. 머리와 팔은 그 사람의 위아래 시선대로
       const upright = duel ? body.aim(s.pitch) : s.pose === 'walk' ? body.walk(walked) : body.stand(t)
       // 불꽃 동안은 쏜 각도로 그림. 돌고 바로 쏘면 돌아간 각도는 다음 state로 늦게 옴
@@ -493,7 +493,7 @@ function frame(now: number) {
     // 내 앞 위에서 내 몸을 내려다보며 넘어지는 동작만 늦춤. 늘 카메라를 보는 소품 그림은 위에서 보면 납작해 빼고, 하늘은 화면 밖임 (SHEEP-119)
     const me = sampleAt(history.get(myId!)!, now - INTERP_DELAY)
     const look = characters.get(myId!)!
-    const body = characterBody(look.character, look.color)
+    const body = characterBody(look.character, look.color, look.hand)
     const self = { x: me.x, y: me.y, facing: me.angle, ...poseAt(body, { at: 0, reason: mine.reason }, motionMs(sceneT), body.rest) }
     const things = [self, ...othersAt(now - INTERP_DELAY, myId!, scene)]
     renderFrame(pixels, W, H, grid, sceneCamera(me.x, me.y, me.angle, sceneT, FOV), things, SKIES[timeOfDay(standing ?? history.size)])
@@ -515,12 +515,14 @@ function frame(now: number) {
     // ponytail: 총에는 시간대 빛 색조를 곱하지 않음. 석양에 총만 밝아 보여 거슬리면 drawGun에 빛 색조를 넘겨 면 색에 곱함
     // 들어 올리기는 보이기만 함. 조준점과 발사는 총을 다 들기 전에도 그대로임
     // 부품 움직임도 서버 시계로 재어 AudioContext로 예약한 장전·공이치기 소리와 맞음
-    // 관전하는 사람은 서 있어 카운트다운이면 이번 라운드에 끼어 장전함. 총을 든 손은 그 사람 설정을 몰라 내 설정으로 그림
+    // 관전하는 사람은 서 있어 카운트다운이면 이번 라운드에 끼어 장전함. 총은 그 사람이 총을 든 손에 그림 (SHEEP-133).
+    // 내 총은 설정의 손을 바로 따름. 다른 사람에게는 다음에 방에 들어갈 때 반영됨
     const loading = r || watch ? true : reloading
+    const hand = (r || watch ? scene.characters.get(view.id)?.hand : undefined) ?? settings.hand
     const hold = clock ? lift(scene.schedule, toServerTime(t, clock.offset), loading) : { lower: 1, kick: 0 }
     const plays = clock ? gunClips(scene.schedule, toServerTime(t, clock.offset), loading, toServerTime(fired, clock.offset)) : []
     const kick = Math.max(hold.kick, 1 - (t - fired) / RECOIL_MS)
-    const muzzle = drawGun(ctx, revolverMesh(revolver, plays, rounds ?? 0), { ...s, kick, lower: hold.lower }, W, H, PROJ, settings.hand === 'left' ? -1 : 1)
+    const muzzle = drawGun(ctx, revolverMesh(revolver, plays, rounds ?? 0), { ...s, kick, lower: hold.lower }, W, H, PROJ, hand === 'left' ? -1 : 1)
     flash.style.transform = `translate(${(muzzle.x * 100) / W}cqw, ${(muzzle.y * 100) / W}cqw)`
     // 마우스 이벤트가 아니라 여기서 보내야 마지막으로 멈춘 각도도 빠지지 않고 감
     if ((angle !== sentAngle || pitch !== sentPitch) && now - sentAt >= TURN_INTERVAL && ws?.readyState === WebSocket.OPEN) {
@@ -727,7 +729,7 @@ function showSeats(players: readonly PlayerState[]) {
   const middle = (seatCount - 1) / 2
   const order = slots.map((_, i) => i).sort((a, b) => Math.abs(b - middle) - Math.abs(a - middle))
   for (const i of order) {
-    const pose = slots[i] && characterBody(slots[i].character, slots[i].color).sit
+    const pose = slots[i] && characterBody(slots[i].character, slots[i].color, slots[i].hand).sit
     drawFigure(guestPixels, W, H, NO_WALLS, SALOON_CAMERA, { ...seatSpot(i, seatCount), boxes: pose ? [...STOOL, ...pose.boxes] : [...STOOL], gun: pose ? pose.gun : [] }, SALOON_LIGHT)
   }
   guestsCtx.putImageData(guestImage, 0, 0)
@@ -931,7 +933,7 @@ codeInput.addEventListener('keydown', (e) => {
 
 // 들어갈 수 있는 줄은 초점을 받으면(누르거나 Tab) 고르고, 두 번 누르거나 Enter로 들어감
 const rowCode = (e: Event) => (e.target as HTMLElement).closest<HTMLElement>('li[data-code]')?.dataset.code
-const joinCode = (code: string) => enterWith((nickname) => ({ type: 'joinRoom', code, nickname, character, color: color ?? undefined }))
+const joinCode = (code: string) => enterWith((nickname) => ({ type: 'joinRoom', code, nickname, character, color: color ?? undefined, hand: settings.hand }))
 roomList.addEventListener('focusin', (e) => {
   const code = rowCode(e)
   if (code === undefined) return
@@ -1275,7 +1277,7 @@ document.querySelector('#create-form')!.addEventListener('submit', (e) => {
   const name = checkRoomName()
   if (name === null) return
   createPanel.hidden = true
-  enterWith((nickname) => ({ type: 'createRoom', nickname, name, maxPlayers: Number(maxPlayersSelect.value), private: privateBox.checked, character, color: color ?? undefined }))
+  enterWith((nickname) => ({ type: 'createRoom', nickname, name, maxPlayers: Number(maxPlayersSelect.value), private: privateBox.checked, character, color: color ?? undefined, hand: settings.hand }))
 })
 // 술집의 나가기. 답(left)이 오면 첫 화면으로 돌아감
 document.querySelector('#leave')!.addEventListener('click', () => send({ type: 'leaveRoom' }))
@@ -1294,7 +1296,7 @@ lobby.addEventListener('submit', (e) => {
     showStep()
     return
   }
-  enterWith((nickname) => ({ type: 'joinRoom', code: codeInput.value, nickname, character, color: color ?? undefined }))
+  enterWith((nickname) => ({ type: 'joinRoom', code: codeInput.value, nickname, character, color: color ?? undefined, hand: settings.hand }))
 })
 
 // 설정 창 (시스템 기획서 방 화면 설정). 첫 화면과 대기실의 설정 버튼이 같은 창을 엶. 값을 움직이는 대로 적용하고 기억함
