@@ -1,7 +1,7 @@
 import './style.css'
 import revolverData from './assets/revolver-rig.json'
 import { orbit } from './backdrop.ts'
-import { CHARACTERS, characterBody, drawFigure, inWorld, keyColor, pinWound, portraitUrl, savedCharacter, savedColor, SUICIDE_AIM, SUICIDE_FLASH, suicideStage, toModel, woundBox, type Body, type Figure, type Pose, type Wound } from './character.ts'
+import { bartenderBody, brimOf, CHARACTERS, characterBody, drawFigure, inWorld, keyColor, pinWound, portraitUrl, savedCharacter, savedColor, SUICIDE_AIM, SUICIDE_FLASH, suicideStage, toModel, woundBox, type Body, type Figure, type Pose, type Wound } from './character.ts'
 import { best, measure, toLocalTime, toServerTime, type ClockSample } from './clock.ts'
 import { CYLINDER_TURN, cylinderSvg } from './cylinder.ts'
 import { makeProps, SKIES, timeOfDay } from './desert.ts'
@@ -20,9 +20,9 @@ import { makeCamera, renderFrame } from './render.ts'
 import { loaded, pull, ROUNDS } from './revolver.ts'
 import type { Rig } from './rig.ts'
 import { banner, DUEL_LIMIT, dueling, formatTime, joins, locked, resultText, standingCount, stepIndex, STEPS_FROM, timeLeft, TURN_MS, walking, type Schedule } from './round.ts'
-import { bountyRise, bubbleX, COPIED_MS, copyKeys, drawSaloon, SALOON_CAMERA, seatSlots, seatSpot, seatTag, startBartender, startChatter, stepBartender, stepChatter, STOOL } from './saloon.ts'
+import { bartenderFigure, bountyRise, bountyText, bubbleX, COPIED_MS, copyKeys, drawSaloon, SALOON_CAMERA, seatSlots, seatSpot, seatTag, startBartender, startChatter, stepBartender, stepChatter, STOOL } from './saloon.ts'
 import { cut, replayWindow } from './replay.ts'
-import { irisOpen, walkerAt, walkoffAt, walkoffCamera } from './ceremony.ts'
+import { irisOpen, paidShown, walkerAt, walkoffAt, walkoffCamera } from './ceremony.ts'
 import { filming, motionMs, SCENE_MS, sceneCamera, SLOW } from './downscene.ts'
 import { DOOR_PUSH_AT, drawEntrance, ENTER_FADE, ENTER_MS, entranceAt, entranceTrack, WHOOSH_AT, WHOOSH_MS } from './entrance.ts'
 // 지금 언어의 문구. 이 파일은 t를 시각 변수로 많이 써 문구는 copy로 부름
@@ -475,7 +475,7 @@ function fillKillCard() {
   killOld.setAttribute('cy', `${OLD_WOUND[1]}`)
   killOld.style.display = by && downedBy!.zone === 'body' ? '' : 'none'
 }
-const hitHole = document.querySelector<SVGCircleElement>('#hit-hole')!
+const hitHole = document.querySelector<SVGGElement>('#hit-hole')!
 const hitStamp = document.querySelector<HTMLOutputElement>('#hit-stamp')!
 const bloodView = document.querySelector<HTMLDivElement>('#blood')!
 // 반샷 혈흔. 판이 끝날 때까지 남아 한 발만 더 맞으면 쓰러진다는 표시를 겸함 (컨셉 기획서 화면 혈흔)
@@ -488,8 +488,7 @@ function showHitCard(r: ShotResult) {
   hitHole.style.visibility = r.zone === null ? 'hidden' : 'visible'
   if (r.zone === null) return
   const dot = dotPosition(r.offset, r.height)
-  hitHole.setAttribute('cx', String(dot.x))
-  hitHole.setAttribute('cy', String(dot.y))
+  hitHole.setAttribute('transform', `translate(${dot.x} ${dot.y})`)
 }
 
 // 사람마다 마지막으로 발소리를 낸 걸음 번호. 걷기 시각을 받을 때 비움
@@ -613,11 +612,19 @@ function frame(now: number) {
   saloon.classList.toggle('leaving', leaving !== null)
   // 내가 이번 라운드를 걷고 있어 긴장 연출을 보는지 (SHEEP-141). 다시 보기, 관전, 앞 라운드에 쓰러져 끼지 못한 때는 아님
   const tense = !r && !watch && reloading && myId !== null && !downs.has(myId)
+  // 1인칭 결투장을 그릴 때만 그 시점 주인의 모자 챙을 화면 위에 보임 (SHEEP-159)
+  let brim: ReturnType<typeof brimOf> = null
   if (!saloon.hidden) {
     // 판 사이에는 결투장 대신 술집 한 장면을 그림 (시스템 기획서 방 화면 M8 대기실 짜임)
     bartender = stepBartender(bartender, now, dt, Math.random)
     const drawBar = () => {
-      drawSaloon(ctx, bartender, now)
+      // 술집 주인은 손님처럼 3D 블록 사람. 걷고 닦느라 프레임마다 다시 그림 (SHEEP-139)
+      drawSaloon(ctx, () => {
+        barkeepPixels.fill(0)
+        drawFigure(barkeepPixels, W, H, NO_WALLS, SALOON_CAMERA, bartenderFigure(bartender, now, bartenderBody()), SALOON_LIGHT)
+        barkeepCtx.putImageData(barkeepImage, 0, 0)
+        ctx.drawImage(barkeep, 0, 0)
+      })
       ctx.drawImage(guests, 0, 0)
     }
     // 나서는 장면 끝에는 하얀 화면 뒤로 내 눈에 보이는 결투장을 그림. 아직 카운트다운 전이라 모두 시작 자리에 서 있음 (SHEEP-145)
@@ -672,6 +679,8 @@ function frame(now: number) {
     const things = [...othersAt(r ? t : now - INTERP_DELAY, view.id, scene), ...bulletsAt(r ? t : now - INTERP_DELAY, view.id, scene, grid), ...bloodAt(r ? t : now - INTERP_DELAY, scene), ...props]
     // 이번 라운드를 걷는 내 눈은 걸음마다 무겁게 내려앉고 디딘 발 쪽으로 살짝 기욺. 발소리처럼 INTERP_DELAY 전 걸음에 맞춤 (SHEEP-141)
     const bump = tense && clock && schedule.walk !== undefined ? stepDip(schedule.walk, toServerTime(now - INTERP_DELAY, clock.offset)) : { dip: 0, tilt: 0 }
+    const viewLook = scene.characters.get(view.id)
+    brim = viewLook ? brimOf(viewLook.character, viewLook.color) : null
     // 눈은 캐릭터 눈 자리 높이라 마주 선 사람과 눈높이가 같음 (SHEEP-158)
     const eye = { ...makeCamera(view.x, view.y, view.angle + bump.tilt * STEP_SWAY, FOV, view.pitch - bump.dip * STEP_DIP), z: EYE_HEIGHT }
     renderFrame(pixels, W, H, grid, eye, things, SKIES[timeOfDay(standing ?? history.size)])
@@ -717,8 +726,16 @@ function frame(now: number) {
   if (walkoff !== null && result?.end !== undefined && clock) iris.style.setProperty('--iris', String(irisOpen(result.end, toServerTime(now, clock.offset))))
   // 포스터를 닫은 뒤에도 누가 이겼는지 보이게 세레모니 내내 이긴 사람 이름을 띄움. 그사이 나갔으면 띄우지 않음 (SHEEP-142)
   const winnerName = walkoff !== null && result ? (roster.find((p) => p.id === result!.playerIds[0])?.nickname ?? '') : ''
-  winCard.hidden = winnerName === ''
+  // 화면이 다 닫히면 이름 자막 대신 검은 화면에 받은 돈 자막. 한 판 이기면 현상금 한 몫(BOUNTY)을 받음 (SHEEP-150)
+  const paid = paidShown(walkoff) && winnerName !== ''
+  winCard.hidden = winnerName === '' || paid
   if (winCardName.textContent !== winnerName) winCardName.textContent = winnerName
+  paidCard.hidden = !paid
+  if (paid) {
+    paidAmount.textContent = bountyText(1)
+    const to = copy.hud.paidTo(winnerName)
+    if (paidTo.textContent !== to) paidTo.textContent = to
+  }
   killCard.hidden = !inScene
   bloodView.hidden = r !== null || !(watch ? watch.wounded : blood.shown)
   // 다시 보기 버튼은 잠시 숨김 (사용자 결정 2026-11-10, SHEEP-143). 다시 보기 코드는 그대로 두어, 다시 켤 때는 `replay === null`일 때만 숨기게 되돌림
@@ -757,6 +774,11 @@ function frame(now: number) {
   if (bannerText.value !== text) bannerText.value = text
   // 뽑을 수 있는 동안 "시작!" 아래에 D 키 안내를 띄움. 뽑으면 바로 사라짐 (SHEEP-138)
   drawHint.hidden = !canDraw(now)
+  brimView.hidden = brim === null
+  if (brim) {
+    brimView.style.setProperty('--hat', brim.color)
+    brimView.style.setProperty('--brim', String(brim.overhang))
+  }
   // 판 도중인데 포인터가 잠기지 않았으면 화면을 누르라고 알림 (SHEEP-152)
   lockHint.hidden = !wantsLock()
   // 관전과 다시 보기에서는 그 사람 화면 그대로라 누구의 눈인지 적어 둠
@@ -787,7 +809,7 @@ function frame(now: number) {
   const screen = !lobby.hidden ? 'title' : !saloon.hidden ? 'saloon' : 'arena'
   // 술집을 나서는 동안은 문을 밀 때부터 술집 곡을 천천히 줄이고, 결투장이 드러날 때 결투 전 곡을 천천히 키움 (SHEEP-145)
   if (audio && leaving) playMusic(audio, entranceTrack(leaving), ENTER_FADE)
-  else if (audio) playMusic(audio, trackAt(screen, schedule, clock ? toServerTime(now, clock.offset) : -Infinity))
+  else if (audio) playMusic(audio, trackAt(screen, schedule, clock ? toServerTime(now, clock.offset) : -Infinity, result?.outcome === 'win'))
   requestAnimationFrame(frame)
 }
 requestAnimationFrame(frame)
@@ -879,6 +901,13 @@ const guestsCtx = guests.getContext('2d')!
 const guestImage = guestsCtx.createImageData(W, H)
 const guestPixels = new Uint32Array(guestImage.data.buffer)
 const NO_WALLS = new Float64Array(W).fill(Infinity)
+// 술집 주인의 3D 그림. 술집 그림의 선반과 카운터 사이에 얹음 (SHEEP-139)
+const barkeep = document.createElement('canvas')
+barkeep.width = W
+barkeep.height = H
+const barkeepCtx = barkeep.getContext('2d')!
+const barkeepImage = barkeepCtx.createImageData(W, H)
+const barkeepPixels = new Uint32Array(barkeepImage.data.buffer)
 const SALOON_LIGHT = [255, 255, 255] as const
 // 판 끝 포스터 (시스템 기획서 방 화면 M8 판 끝). HUD의 승리·패배 글자 대신 띄우고 결과 시간이 끝나면(endResult) 닫음
 const winView = document.querySelector<HTMLDivElement>('#win')!
@@ -886,6 +915,9 @@ const winView = document.querySelector<HTMLDivElement>('#win')!
 const iris = document.querySelector<HTMLDivElement>('#iris')!
 const winCard = document.querySelector<HTMLParagraphElement>('#win-card')!
 const winCardName = document.querySelector<HTMLElement>('#win-card-name')!
+const paidCard = document.querySelector<HTMLDivElement>('#paid-card')!
+const paidAmount = document.querySelector<HTMLElement>('#paid-amount')!
+const paidTo = document.querySelector<HTMLSpanElement>('#paid-to')!
 const winFace = document.querySelector<HTMLImageElement>('#win-face')!
 
 // 바랜 종이 질감 (paper.ts). 결과 카드와 포스터는 가장자리까지, 창은 얼룩만. 종이마다 seed가 달라 얼룩과 귀퉁이가 다름
@@ -937,6 +969,7 @@ const bannerText = document.querySelector<HTMLOutputElement>('#banner')!
 let leaveSaloonAt: number | null = null
 const tension = document.querySelector<HTMLDivElement>('#tension')!
 const drawHint = document.querySelector<HTMLParagraphElement>('#draw-hint')!
+const brimView = document.querySelector<HTMLDivElement>('#brim')!
 const lockHint = document.querySelector<HTMLParagraphElement>('#lock-hint')!
 const drawHintKey = drawHint.querySelector('kbd')!
 const timer = document.querySelector<HTMLOutputElement>('#timer')!

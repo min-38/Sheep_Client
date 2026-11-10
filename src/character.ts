@@ -1,3 +1,4 @@
+import bartenderData from './assets/characters/bartender.json'
 import belle from './assets/characters/belle.json'
 import charles from './assets/characters/charles.json'
 import clayton from './assets/characters/clayton.json'
@@ -49,6 +50,8 @@ export type Body = {
   fall: (ms: number, drop?: boolean) => Pose
   // 술집 바 의자에 앉은 모습. 엉덩이가 서 있을 때 높이(16블록) 그대로이고, 허벅지는 앞으로 눕고 아래팔은 카운터 위에 얹음 (SHEEP-115)
   sit: Pose
+  // 술집 주인이 잔을 닦는 모습 (SHEEP-139). 왼손에 잔을 가슴 앞에 들고 오른손 행주로 원을 그리며 문지름. 총은 없음
+  wipe: (ms: number) => Pose
 }
 
 // 캐릭터 JSON. part는 head, body, rightArm, leftArm, rightLeg, leftLeg 중 하나. 색은 상자마다 단색 하나이고 명암은 그릴 때 넣음.
@@ -77,6 +80,22 @@ const torsoKey = (data: CharacterData) => data.boxes.some((b) => b.key && b.part
 
 // 사람 색 번호 color를 그 캐릭터의 핵심 파츠에 칠할 색 (시스템 기획서 캐릭터 핵심 파츠)
 export const keyColor = (character: number, color: number) => (color === SKY && torsoKey(CHARACTERS[character]) ? SKY_ON_BODY : BANDANA[color])
+
+// 블록. 머리 상자 가운데 이 높이부터 위는 모자임 (7.5등신 틀의 머리 위 30블록 바로 아래)
+const HAT_FROM = 29.3
+
+// 1인칭 화면 위에 보이는 내 모자 챙 (SHEEP-159). 모자 상자 가운데 얼굴(머리 앞면)보다 가장 멀리 앞으로 나온 것의 색과 나온 길이(블록).
+// 챙이 앞으로 많이 나올수록 눈 위로 크게 보임. 핵심 파츠면 사람 색으로 칠함. 모자가 없거나 얼굴보다 거의 나오지 않으면 null
+export function brimOf(character: number, color?: number): { color: string; overhang: number } | null {
+  const head = CHARACTERS[character].boxes.filter((b) => b.part === 'head')
+  const face = Math.max(...head.filter((b) => b.from[1] <= NECK[1]).map((b) => b.to[2]))
+  const hat = head.filter((b) => b.from[1] >= HAT_FROM)
+  if (hat.length === 0) return null
+  const front = hat.reduce((a, b) => (b.to[2] > a.to[2] ? b : a))
+  const overhang = front.to[2] - face
+  if (overhang < 0.2) return null
+  return { color: front.key && color !== undefined ? keyColor(character, color) : front.color, overhang }
+}
 
 // ms. 시간 초과로 쓰러진 사람이 총을 머리에 대고 있는 시간과 그 뒤 불꽃 시간. 그다음엔 쓰러진 그림.
 // ponytail: 임시 값(시스템 기획서 판 흐름 시간). 플레이해 보며 정함
@@ -122,6 +141,12 @@ const leftHolstered = (data: CharacterData): CharacterData => ({
   boxes: data.boxes.map((b) => (isHolster(b) ? { ...b, part: 'leftLeg', from: [-b.to[0], b.from[1], b.from[2]], to: [-b.from[0], b.to[1], b.to[2]] } : b)),
 })
 
+// ms. 잔을 닦는 행주가 한 바퀴 도는 시간. 행주를 쥔 아래팔 방향이 이만큼(단위 벡터 몫) 원을 그림. ponytail: 화면을 보며 정한 값
+const WIPE_MS = 900
+const WIPE_CIRCLE = 0.25
+const GLASS: RGB = [207, 227, 232]
+const RAG: RGB = [244, 240, 228]
+
 const X: V = [1, 0, 0]
 const Y: V = [0, 1, 0]
 const Z: V = [0, 0, 1]
@@ -136,6 +161,9 @@ const across = (a: V, d: V) => unit(add(a, d, -dot(a, d)))
 
 // 앞을 보다 위(+)아래로 a만큼 든 방향
 const ahead = (a: number): V => [0, Math.sin(a), Math.cos(a)]
+// 잔 닦는 팔 [위팔, 아래팔] (SHEEP-139). 잔을 든 왼팔은 주먹이 가슴 앞 가운데로 오고, 행주를 쥔 오른팔은 그 잔 쪽으로 모음
+const WIPE_GLASS_ARM: readonly [V, V] = [unit([0.1, -1, 0.45]), unit([0.5, 0.2, 1])]
+const WIPE_RAG_ARM: readonly [V, V] = [unit([0, -1, 0.4]), unit([-0.75, 0.3, 1])]
 
 type Turn = (v: V) => V
 // 아래(-y)를 d로 돌리는 가장 작은 회전. 팔다리를 그쪽으로 뻗음
@@ -424,10 +452,23 @@ function build(data: CharacterData, key: string | undefined, hand: Hand): Body {
     fall: (ms, drop = false) =>
       drop && ms >= FALL_LAND_MS ? { ...ground({ boxes: posed(motionMoves(fall, frames(ms))).boxes, gun: [] }), gun: dropped } : play(fall, frames(ms), held),
     sit: holstered(moves(seated)),
+    wipe: (ms) => {
+      const a = (2 * Math.PI * ms) / WIPE_MS
+      const m = moves({ ...rest, leftArm: WIPE_GLASS_ARM, rightArm: [WIPE_RAG_ARM[0], unit(add(WIPE_RAG_ARM[1], [Math.cos(a), Math.sin(a), 0], WIPE_CIRCLE))] })
+      const glass = movePoint([-4, FIST, 0], m.leftArm1)
+      const rag = movePoint([4, FIST, 0], m.rightArm1)
+      const lump = (c: V, half: V, color: RGB): Box => ({ c, axes: [X, Y, Z], half, rgb: color })
+      return ground({ boxes: [...posed(m).boxes, lump(add(glass, Y, 1.2), [0.6, 1, 0.6], GLASS), lump(rag, [0.9, 0.5, 0.9], RAG)], gun: [] })
+    },
   }
 }
 
 const cache = new Map<string, Body>()
+
+// 술집 주인 (SHEEP-139). 손님 8명과 같은 7.5등신 블록 틀에 기름 바른 머리, 손잡이 콧수염, 흰 셔츠, 조끼, 나비넥타이, 붉은 소매 밴드
+// (시스템 기획서 방 화면 술집 주인). 고를 수 있는 캐릭터가 아니라 CHARACTERS에 넣지 않음. 처음 부를 때 한 번 만듦
+let bartender: Body | undefined
+export const bartenderBody = (): Body => (bartender ??= build(bartenderData as CharacterData, undefined, 'right'))
 
 // 캐릭터 번호(CHARACTERS 순서)의 모든 동작. color는 그 사람의 사람 색 번호이고 핵심 파츠를 그 색으로 칠함. 없으면 JSON 색 그대로(첫 화면 배경).
 // hand는 그 사람이 총을 든 손(state hand). 캐릭터, 색, 손마다 처음 부를 때 한 번 만듦

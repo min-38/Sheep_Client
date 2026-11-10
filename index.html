@@ -9,6 +9,8 @@
   <body>
     <div id="game">
       <canvas id="screen" data-i18n-label="hud.screen"></canvas>
+      <!-- 1인칭 화면 맨 위에 보이는 내 모자 챙 (SHEEP-159). 색과 크기는 main.ts가 그 시점 주인의 모자로 정함 -->
+      <div id="brim" aria-hidden="true" hidden></div>
       <!-- 걷는 동안 화면 가장자리 어둠 (SHEEP-141). 짙기와 좁혀 들어오는 정도는 main.ts가 박동에 맞춰 바꿈 -->
       <div id="tension" hidden></div>
       <div id="blood" aria-hidden="true" hidden></div>
@@ -26,7 +28,13 @@
             <rect x="40.833" y="46.667" width="8.333" height="53.333" />
             <rect x="50.833" y="46.667" width="8.333" height="53.333" />
           </g>
-          <circle id="hit-hole" r="2.5" />
+          <!-- 총알에 뚫린 구멍 (SHEEP-154, 시안 A). 그을린 둘레, 찢긴 구멍, 바깥으로 젖혀진 종이 두 쪽. 자리는 main.ts가 transform으로 옮김 -->
+          <g id="hit-hole">
+            <circle class="scorch" r="5" />
+            <polygon class="hole" points="-3,-1 -1,-3.4 1.6,-2.6 3.2,-0.4 2.4,2.6 -0.4,3.2 -2.8,2" />
+            <polygon class="flap" points="-3,-1 -5,-2.4 -2.4,-2.2" />
+            <polygon class="flap" points="2.4,2.6 4.6,3.8 3.4,1.4" />
+          </g>
         </svg>
         <output id="hit-stamp"></output>
       </figure>
@@ -68,6 +76,10 @@
       <output id="room" data-i18n-label="hud.roomCode"></output>
       <!-- 승리 세레모니 끝에 화면을 동그랗게 닫는 검은 막 (SHEEP-136). 구멍 크기는 main.ts가 --iris로 줄임 -->
       <div id="iris" hidden></div>
+      <!-- 받은 돈 자막 (SHEEP-150, 시안 C). 세레모니 끝에 화면이 다 닫힌 뒤 검은 화면에 무성 영화 자막으로 띄움 -->
+      <div id="paid-card" hidden>
+        <p><span data-i18n="hud.paidLine"></span><b id="paid-amount"></b><span id="paid-to"></span></p>
+      </div>
       <!-- 세레모니 동안 이긴 사람 이름을 무성 영화 자막처럼 띄움. 포스터가 닫힌 뒤에도 누가 이겼는지 보임 (SHEEP-142) -->
       <p id="win-card" hidden><b id="win-card-name"></b><span data-i18n="hud.lastStanding"></span></p>
       <!-- 술집 대기실. 방에 들어가 판이 시작되기 전과 판이 끝난 뒤에 보임. 벽, 선반, 카운터, 술집 주인, 바 의자와 앉은 사람은 캔버스에 그리고
@@ -201,8 +213,9 @@
           </label>
           <div class="row" role="radiogroup" data-i18n-label="settings.hand">
             <span data-i18n="settings.hand"></span>
-            <label><input type="radio" name="hand" value="right" /> <span data-i18n="settings.right"></span></label>
-            <label><input type="radio" name="hand" value="left" /> <span data-i18n="settings.left"></span></label>
+            <!-- 라디오는 숨기고 나무 판 둘을 누름. 고른 판은 놋쇠 테에 눌려 내려앉음 (SHEEP-162, 시안 B) -->
+            <label class="hand-choice"><input type="radio" name="hand" value="right" /><span class="hand-plank" data-i18n="settings.right"></span></label>
+            <label class="hand-choice"><input type="radio" name="hand" value="left" /><span class="hand-plank" data-i18n="settings.left"></span></label>
           </div>
           <!-- 조준점 모양. 칸마다 결투 화면의 조준점과 같은 그림과 이름 (시스템 기획서 HUD 조준점) -->
           <div class="row" role="radiogroup" aria-labelledby="crosshair-label">

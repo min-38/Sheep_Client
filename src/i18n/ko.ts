@@ -25,6 +25,8 @@ export const ko: Copy = {
     lockHint: '화면을 눌러야 겨눌 수 있수, 친구',
     win: '끝까지 서 있었구먼!',
     lastStanding: '끝까지 서 있었구먼',
+    paidLine: '현상금 다 치렀수',
+    paidTo: (name) => `${name} 몫이여, 떳떳하게 번 돈이구먼`,
     lose: '오늘은 날이 아니구먼, 친구',
     rematch: (n) => `${n}명이 한 판 더 붙는구먼`,
     head: '머리에 한 방',

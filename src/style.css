@@ -130,6 +130,20 @@ body {
 }
 
 /* 쓰러지는 장면 (시스템 기획서 HUD 쓰러짐, SHEEP-119). 바닥에 닿을 때까지 바랜 색으로 옛 영화처럼 보임. 위아래 검은 띠는 main.ts가 캔버스에 그림 */
+/* 내 모자 챙 (SHEEP-159). 머리에 붙어 위아래로 봐도 화면 맨 위 같은 자리에 있음. 눈 바로 위라 초점이 맞지 않아 흐리고,
+   그늘진 밑면이 보여 모자 색보다 어둡고 끝만 모래에 비친 빛으로 밝음. 챙 양옆이 올라가 가운데가 가장 내려옴.
+   --brim은 챙이 얼굴보다 앞으로 나온 길이(블록)이고 길수록 크게 보임 */
+#brim {
+  position: absolute;
+  left: -10%;
+  right: -10%;
+  top: 0;
+  height: calc(var(--brim, 1) * 4.8cqw);
+  background: radial-gradient(50% 50% at 50% 0%, color-mix(in srgb, var(--hat, #5a3a22) 40%, #120a05) 0 90%, color-mix(in srgb, var(--hat, #5a3a22) 65%, #d9a46a) 96%, #0000 100%);
+  filter: blur(0.3cqw);
+  pointer-events: none;
+}
+
 #game.filming #screen {
   filter: sepia(0.7) contrast(1.08) brightness(0.95);
 }
@@ -262,6 +276,39 @@ body {
   background: radial-gradient(circle at 50% 58%, #0000 calc(var(--iris, 1) * 60cqw), #000 calc(var(--iris, 1) * 60cqw + 0.3cqw));
 }
 
+/* 받은 돈 자막 (SHEEP-150, 시안 C). 다 닫힌 검은 화면 가운데에 무성 영화 자막처럼 흰 겹테 카드. 돈은 놋쇠 빛으로 크게 */
+#paid-card {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: #000;
+  pointer-events: none;
+}
+
+#paid-card[hidden] {
+  display: none;
+}
+
+#paid-card p {
+  margin: 0;
+  display: grid;
+  justify-items: center;
+  gap: 1cqw;
+  padding: 3cqw 8cqw;
+  border: 0.3cqw double #f3ead5;
+  outline: 0.6cqw solid #000;
+  outline-offset: -1.4cqw;
+  color: #f3ead5;
+  font: 2.4cqw / 1.3 var(--text);
+  text-align: center;
+}
+
+#paid-card b {
+  color: #f6dc8f;
+  font: 6cqw / 1 var(--display);
+}
+
 /* 걷는 동안 화면 가장자리 어둠 (SHEEP-141). 가운데는 비우고 가장자리로 갈수록 검게. 짙기(opacity)와 크기(scale)는 main.ts가 정함 */
 #tension {
   inset: 0;
@@ -275,14 +322,29 @@ body {
 }
 
 /* 내 사격 결과 카드. 총이 오른쪽 아래라 왼쪽 아래 탄 수 위에 낡은 종이로 띄움 (시스템 기획서 HUD) */
+/* 왼쪽 가장자리 가운데쯤에 크게 (SHEEP-154, 시안 A). 실린더(왼쪽 아래)보다 위, 나가기 버튼(왼쪽 위)보다 아래라 겹치지 않음 */
 #hit-card {
   left: 2cqw;
-  bottom: 8cqw;
-  width: 8cqw;
+  top: 22%;
+  width: 14cqw;
   margin: 0;
-  padding: 0.8cqw 0.8cqw 3cqw;
+  padding: 1.4cqw 1.4cqw 5cqw;
   filter: drop-shadow(0 0 0.5cqw #0009);
   rotate: -2deg;
+}
+
+/* 종이를 벽에 박은 못 머리 하나 */
+#hit-card::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 0.4cqw;
+  translate: -50% 0;
+  width: 0.9cqw;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #e6d4a8, #6b5a3c 60%, #2a1a0e);
+  box-shadow: 0 0.1cqw 0.15cqw #0008;
 }
 
 #hit-card svg {
@@ -297,25 +359,32 @@ body {
   stroke-width: 1;
 }
 
-/* 갈색 몸 위에서도 보이게 검은 구멍에 밝게 그을린 테두리 */
-#hit-hole {
+/* 종이가 총알에 뚫린 구멍: 둘레가 그을리고, 가운데가 찢겨 뚫리고, 종이 두 쪽이 바깥으로 젖혀짐 */
+#hit-hole .scorch {
+  fill: #3a2410;
+  opacity: 0.35;
+}
+
+#hit-hole .hole {
   fill: #140c06;
-  stroke: #fff1c9;
-  stroke-width: 1.2;
+}
+
+#hit-hole .flap {
+  fill: #f3e2b6;
 }
 
 /* 빨간 도장. 구멍을 가리지 않게 다리 아래쪽에 비스듬히 찍음 */
 #hit-stamp {
   position: absolute;
   left: 50%;
-  bottom: 0.6cqw;
+  bottom: 1cqw;
   translate: -50% 0;
   rotate: -8deg;
-  padding: 0.15cqw 0.5cqw;
-  border: 0.25cqw solid #c0262d;
-  border-radius: 0.3cqw;
+  padding: 0.25cqw 0.8cqw;
+  border: 0.35cqw solid #c0262d;
+  border-radius: 0.4cqw;
   color: #c0262d;
-  font: 1cqw / 1.1 var(--display);
+  font: 1.7cqw / 1.1 var(--display);
   white-space: nowrap;
   opacity: 0.9;
 }
@@ -1138,6 +1207,45 @@ body {
 }
 
 .reticle-choice input:focus-visible + .reticle-tile {
+  outline: 0.3cqw solid #8a2b0e;
+  outline-offset: 0.3cqw;
+}
+
+/* 총을 든 손 고르기 (SHEEP-162, 시안 B). 못 모양 라디오는 고르지 않은 칸이 짙게 차 고른 것처럼 보여, 라디오는 숨기고 메뉴와 같은
+   못 박은 나무 판 둘을 누름. 고른 판은 놋쇠 테에 눌려 내려앉고, 고르지 않은 판은 어둡고 바램 */
+#settings-panel .row > .hand-choice {
+  position: relative;
+}
+
+.hand-choice input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+}
+
+.hand-plank {
+  padding: 0.5cqw 1.8cqw;
+  border: 0.25cqw solid #3d2412;
+  border-radius: 0.4cqw;
+  background: var(--nails), var(--planks);
+  box-shadow: 0 0.45cqw 0 #3d2412;
+  color: #f7e6bd;
+  font-weight: bold;
+  text-shadow: 0 0.15cqw 0 #3d2412;
+  filter: saturate(0.5) brightness(0.7);
+  opacity: 0.75;
+  transition: filter 0.1s, translate 0.05s, box-shadow 0.05s;
+}
+
+.hand-choice input:checked + .hand-plank {
+  border-color: #e2b23c;
+  box-shadow: 0 0.15cqw 0 #3d2412, 0 0 0 0.15cqw #a07818;
+  filter: none;
+  opacity: 1;
+  translate: 0 0.3cqw;
+}
+
+.hand-choice input:focus-visible + .hand-plank {
   outline: 0.3cqw solid #8a2b0e;
   outline-offset: 0.3cqw;
 }

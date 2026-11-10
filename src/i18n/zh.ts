@@ -25,6 +25,8 @@ export const zh: Copy = {
     lockHint: '点一下画面，端稳家伙，伙计',
     win: '站到最后的是你！',
     lastStanding: '站到了最后',
+    paidLine: '赏金结清了',
+    paidTo: (name) => `归 ${name}，堂堂正正`,
     lose: '今儿不走运啊，伙计',
     rematch: (n) => `${n}个人再来一场`,
     head: '脑袋一枪',

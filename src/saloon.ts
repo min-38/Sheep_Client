@@ -1,4 +1,4 @@
-import { CELL, type Box } from './character.ts'
+import { CELL, type Body, type Box, type Figure } from './character.ts'
 import type { PlayerState } from './net.ts'
 import type { Hand } from './settings.ts'
 import { makeCamera, type Camera } from './render.ts'
@@ -148,14 +148,16 @@ const COUNTER_FRONT_Y = Math.round(rowAt(COUNTER_HEIGHT, COUNTER_DEPTH))
 const SLAB_BOTTOM = Math.round(rowAt(17.4, COUNTER_DEPTH))
 const PANEL_BOTTOM = Math.round(rowAt(0, PANEL_DEPTH))
 const RAIL_Y = Math.round(rowAt(2, PANEL_DEPTH))
-// 술집 주인 머리 위(깊이 108블록, 키 30블록)
-export const BARTENDER_TOP = Math.round(rowAt(30, 108))
+// 블록. 술집 주인이 서는 깊이. 카운터 안쪽 끝(103) 너머, 선반(118) 앞
+const BARTENDER_DEPTH = 108
+// 술집 주인 머리 위(키 30블록)
+export const BARTENDER_TOP = Math.round(rowAt(30, BARTENDER_DEPTH))
 const PLANK = 20
 // 칠판(나무 테두리 포함)과 선반의 자리(px). 칠판 글씨는 style.css의 #chalkboard가 같은 자리에 얹음. 선반은 뒷벽 앞(깊이 118블록) 옆으로 ±30블록,
 // 선반 판은 높이 22, 30, 38블록
 const BOARD = { x: 352, y: 16, w: 110, h: 62 }
 const SHELF = { x: Math.round(columnAt(-30, 118)), w: Math.round(columnAt(30, 118) - columnAt(-30, 118)), top: Math.round(rowAt(46, 118)), rows: [38, 30, 22].map((y) => Math.round(rowAt(y, 118))) }
-const BOTTLE_COLORS = ['#2f6b3a', '#a8641c', '#b8d0c8', '#7a1e1e', '#3a4a7a', '#c8a040']
+const BOTTLE_COLORS = ['#2f6b3a', '#a8641c', '#b8d0c8', '#7a1e1e', '#3a4a7a', '#c8a040', '#5a3a14', '#8a9a3a']
 
 // px. 왼쪽 벽 현상금 게시판(캐릭터·색 바꾸기, SHEEP-118)의 오른쪽 끝. style.css #wardrobe가 x 8부터 폭 108로 얹음.
 // 아래 끝(75)은 8명 방의 왼쪽 좌석 꼬리표와 앉은 손님 모자 위라 둘을 가리지 않음
@@ -165,28 +167,66 @@ const BUBBLE_HALF = 75
 // 말풍선 가운데(px). 술집 주인 머리 위를 따르되 오른쪽 칠판과 왼쪽 현상금 게시판에 걸리지 않게 안쪽으로 당김
 export const bubbleX = (x: number) => Math.min(Math.max(x, WARDROBE_RIGHT + 4 + BUBBLE_HALF), BOARD.x - 4 - BUBBLE_HALF)
 
-// 선반마다 늘어선 술병 [x, 너비, 높이, 색]. 늘 같은 모습이 되게 고정한 의사 난수로 한 번만 만듦
+// 술병 모양 (SHEEP-139). 목이 긴 포도주병, 어깨가 각지고 상표를 붙인 위스키병, 손잡이 달린 낮은 항아리
+type BottleKind = 'wine' | 'whiskey' | 'jug'
+// 선반마다 늘어선 술병 [x, 선반 높이, 너비, 높이, 색, 모양]. 늘 같은 모습이 되게 고정한 의사 난수로 한 번만 만듦
 const BOTTLES = (() => {
   let seed = 11
   const rand = () => (seed = (seed * 16807) % 2147483647) / 2147483647
-  const bottles: [number, number, number, number, string][] = []
+  const bottles: [number, number, number, number, string, BottleKind][] = []
   for (const shelfY of SHELF.rows) {
-    for (let x = SHELF.x + 6; x < SHELF.x + SHELF.w - 12; ) {
-      const w = 5 + Math.floor(rand() * 3)
-      bottles.push([x, shelfY, w, 12 + Math.floor(rand() * 8), BOTTLE_COLORS[Math.floor(rand() * BOTTLE_COLORS.length)]])
-      x += w + 3 + Math.floor(rand() * 5)
+    for (let x = SHELF.x + 6; x < SHELF.x + SHELF.w - 14; ) {
+      const pick = rand()
+      const kind: BottleKind = pick < 0.45 ? 'wine' : pick < 0.85 ? 'whiskey' : 'jug'
+      const w = kind === 'jug' ? 8 : kind === 'whiskey' ? 6 + Math.floor(rand() * 2) : 5
+      const h = kind === 'jug' ? 10 + Math.floor(rand() * 3) : kind === 'wine' ? 16 + Math.floor(rand() * 4) : 12 + Math.floor(rand() * 4)
+      bottles.push([x, shelfY, w, h, BOTTLE_COLORS[Math.floor(rand() * BOTTLE_COLORS.length)], kind])
+      x += w + (kind === 'jug' ? 5 : 3) + Math.floor(rand() * 4)
     }
   }
   return bottles
 })()
+
+// 술병 하나. 바닥이 선반 높이 shelfY에 닿음. 몸통, 좁아지는 어깨, 목, 코르크나 놋쇠 마개, 상표, 유리에 비친 빛과 그늘
+function drawBottle(ctx: CanvasRenderingContext2D, x: number, shelfY: number, w: number, h: number, color: string, kind: BottleKind) {
+  const neck = kind === 'wine' ? 6 : kind === 'whiskey' ? 3 : 2
+  const top = shelfY - h
+  const body = h - neck
+  rect(ctx, color, x, top + neck, w, body)
+  rect(ctx, color, x + 1, top + neck - 1, w - 2, 1)
+  rect(ctx, color, x + Math.floor(w / 2) - 1, top, 2, neck)
+  rect(ctx, kind === 'whiskey' ? '#c9a227' : '#8a5a32', x + Math.floor(w / 2) - 1, top - 1, 2, 2)
+  if (kind === 'jug') {
+    // 옆에 붙은 손잡이 고리
+    rect(ctx, color, x + w, top + neck + 1, 1, 4)
+    rect(ctx, '#00000030', x, top + neck, w, 2)
+  } else {
+    // 누런 상표와 그 위의 짙은 글씨 줄
+    const labelY = top + neck + Math.round(body * 0.35)
+    rect(ctx, '#e8dcb8', x, labelY, w, Math.max(3, Math.round(body * 0.3)))
+    rect(ctx, '#5a3a20', x + 1, labelY + 1, w - 2, 1)
+  }
+  rect(ctx, '#ffffff50', x + 1, top + neck + 1, 1, body - 3)
+  rect(ctx, '#00000040', x + w - 1, top + neck, 1, body)
+}
+
+// 술집 주인을 3D 블록 사람으로 그릴 자리와 모습 (SHEEP-139). x(px)를 카운터 뒤 깊이의 옆 자리(블록)로 바꿈. 화면 오른쪽이 +y.
+// 서 있거나 잔을 닦을 땐 손님(카메라) 쪽을, 걸을 땐 가는 쪽을 봄. 허리 아래는 카운터에 가려 권총집 총은 빼고 그림
+export function bartenderFigure(b: Bartender, now: number, body: Pick<Body, 'stand' | 'walk' | 'wipe'>): Figure {
+  const side = ((b.x - 240) * BARTENDER_DEPTH) / PROJ
+  const pose = b.action === 'walk' ? body.walk(now) : b.action === 'wipe' ? body.wipe(now) : body.stand(now)
+  const facing = b.action === 'walk' ? (b.target >= b.x ? Math.PI / 2 : -Math.PI / 2) : Math.PI
+  return { x: BARTENDER_DEPTH * CELL, y: side * CELL, facing, boxes: pose.boxes, gun: [] }
+}
 
 function rect(ctx: CanvasRenderingContext2D, color: string, x: number, y: number, w: number, h: number) {
   ctx.fillStyle = color
   ctx.fillRect(Math.round(x), Math.round(y), w, h)
 }
 
-// 술집 한 장면을 480×270 캔버스에 그림. 뒤에서 앞으로: 벽, 칠판, 선반과 술병, 술집 주인, 카운터, 바닥. 의자와 손님은 이 위에 3D로 그림
-export function drawSaloon(ctx: CanvasRenderingContext2D, b: Bartender, now: number) {
+// 술집 한 장면을 480×270 캔버스에 그림. 뒤에서 앞으로: 벽, 칠판, 선반과 술병, 술집 주인, 카운터, 바닥. 의자와 손님은 이 위에 3D로 그림.
+// 술집 주인은 3D 블록 사람이라 main.ts가 그려 넣음(drawBartender). 카운터가 그 허리 아래를 가림 (SHEEP-139)
+export function drawSaloon(ctx: CanvasRenderingContext2D, drawBartender: () => void) {
   for (let x = 0; x < 480; x += PLANK) {
     rect(ctx, (x / PLANK) % 2 ? '#5e3a21' : '#6b4226', x, 0, PLANK, WALL_BOTTOM)
     rect(ctx, '#3d2412', x, 0, 1, WALL_BOTTOM)
@@ -197,15 +237,20 @@ export function drawSaloon(ctx: CanvasRenderingContext2D, b: Bartender, now: num
   rect(ctx, '#8a5a32', BOARD.x, BOARD.y, BOARD.w, BOARD.h)
   rect(ctx, '#23302a', BOARD.x + 4, BOARD.y + 4, BOARD.w - 8, BOARD.h - 8)
 
+  // 술장 (SHEEP-139): 세로 판자를 댄 뒤판, 위에 얹은 장식 띠, 판마다 밝은 윗면과 아래 그늘
   rect(ctx, '#3f2614', SHELF.x, SHELF.top, SHELF.w, COUNTER_BACK_Y - SHELF.top)
-  for (const [x, shelfY, w, h, color] of BOTTLES) {
-    rect(ctx, color, x, shelfY - h, w, h - 4)
-    rect(ctx, color, x + w / 2 - 1, shelfY - h - 3, 2, 4)
-    rect(ctx, '#ffffff40', x + 1, shelfY - h + 2, 1, h - 8)
+  for (let x = SHELF.x + 9; x < SHELF.x + SHELF.w; x += 9) rect(ctx, '#33200f', x, SHELF.top, 1, COUNTER_BACK_Y - SHELF.top)
+  rect(ctx, '#5e3a21', SHELF.x - 3, SHELF.top - 5, SHELF.w + 6, 5)
+  rect(ctx, '#8a5a32', SHELF.x - 3, SHELF.top - 5, SHELF.w + 6, 1)
+  rect(ctx, '#2a180c', SHELF.x - 3, SHELF.top, SHELF.w + 6, 1)
+  for (const [x, shelfY, w, h, color, kind] of BOTTLES) drawBottle(ctx, x, shelfY, w, h, color, kind)
+  for (const y of SHELF.rows) {
+    rect(ctx, '#b07a44', SHELF.x, y, SHELF.w, 1)
+    rect(ctx, '#9a6a3c', SHELF.x, y + 1, SHELF.w, 2)
+    rect(ctx, '#2a180c80', SHELF.x, y + 3, SHELF.w, 2)
   }
-  for (const y of SHELF.rows) rect(ctx, '#9a6a3c', SHELF.x, y, SHELF.w, 3)
 
-  drawBartender(ctx, b, now)
+  drawBartender()
 
   // 카운터 윗면은 위에서 내려다봐 판이 보이고, 손님 쪽 끝에 밝은 모서리
   rect(ctx, '#9a6a3c', 0, COUNTER_BACK_Y, 480, COUNTER_FRONT_Y - COUNTER_BACK_Y)
@@ -226,40 +271,4 @@ export function drawSaloon(ctx: CanvasRenderingContext2D, b: Bartender, now: num
     ctx.lineTo(columnAt(x, near), 270)
   }
   ctx.stroke()
-}
-
-// 모자 없이 기름 바른 머리와 콧수염, 흰 셔츠, 나비넥타이, 붉은 소매 밴드 (시스템 기획서 방 화면 술집 주인). 카운터에 허리 아래가 가림.
-// 손님보다 멀어 0.8배로 그림
-const BARTENDER_SCALE = 0.8
-function drawBartender(ctx: CanvasRenderingContext2D, b: Bartender, now: number) {
-  const bob = b.action === 'walk' ? Math.floor(now / 200) % 2 : 0
-  const x = b.x
-  const y = BARTENDER_TOP + bob
-  const k = BARTENDER_SCALE
-  // 술집 주인 그림의 한 칸. dx, dy, w, h는 0.8배 하기 전 px
-  const part = (color: string, dx: number, dy: number, w: number, h: number) => rect(ctx, color, x + dx * k, y + dy * k, Math.max(1, Math.round(w * k)), Math.max(1, Math.round(h * k)))
-  const shirt = '#ece6d6'
-  part('#e0ac7e', -7, 0, 14, 15)
-  part('#20140c', -7, -2, 14, 5)
-  part('#3a2818', -1, -2, 1, 4)
-  part('#1a1a1a', -4, 6, 2, 2)
-  part('#1a1a1a', 2, 6, 2, 2)
-  part('#3a2414', -5, 10, 10, 2)
-  part(shirt, -9, 16, 18, (COUNTER_BACK_Y - y) / k - 16)
-  part('#1a1a1a', -4, 16, 8, 3)
-  part('#3a3a3a', -1, 16, 2, 3)
-  // 왼팔은 늘 내리고, 잔을 닦을 때만 오른팔을 들어 잔을 원을 그리며 문지름
-  part(shirt, -14, 17, 5, 30)
-  part('#b02a2a', -14, 27, 5, 3)
-  if (b.action === 'wipe') {
-    const dx = Math.round(Math.sin(now / 150) * 2)
-    const dy = Math.round(Math.cos(now / 150) * 2)
-    part(shirt, 9, 8, 5, 22)
-    part('#b02a2a', 9, 14, 5, 3)
-    part('#cfe3e8', 6, -2, 7, 10)
-    part('#f4f0e4', 8 + dx, 2 + dy, 6, 5)
-  } else {
-    part(shirt, 9, 17, 5, 30)
-    part('#b02a2a', 9, 27, 5, 3)
-  }
 }

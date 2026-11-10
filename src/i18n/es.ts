@@ -25,6 +25,8 @@ export const es: Copy = {
     lockHint: "Haz clic en la pantalla pa' apuntar, compadre",
     win: '¡Nomás tú en pie!',
     lastStanding: 'El último en pie',
+    paidLine: 'La recompensa ya se pagó',
+    paidTo: (name) => `pa' ${name}, bien ganada`,
     lose: 'No es tu día, compadre',
     rematch: (n) => `${n} van otra vez`,
     head: 'A la cabeza',
