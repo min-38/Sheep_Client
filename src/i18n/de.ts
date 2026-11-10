@@ -21,6 +21,7 @@ export const de: Copy = {
     roomCode: 'Raumcode',
     down: 'Ins Gras gebissen',
     go: 'Zieh!',
+    drawHint: (key) => `Drück ${key} zum Ziehen`,
     win: 'Nur du stehst noch!',
     lose: 'Nicht dein Tag, Partner',
     rematch: (n) => `${n} geh'n nochmal ran`,
