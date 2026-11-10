@@ -13,7 +13,7 @@ import { HEAD } from './hitcard.ts'
 import { horizonY, pack, tint, type Camera } from './render.ts'
 import { slerp, type Rig } from './rig.ts'
 import { BANDANA } from './roomlist.ts'
-import { STEP_MS } from './round.ts'
+import { STEP_MS, TURN_MS } from './round.ts'
 import type { Hand } from './settings.ts'
 
 // 블록 캐릭터 (컨셉 기획서 아트 캐릭터 그림). 캐릭터마다 상자 목록 JSON(src/assets/characters/) 하나를 읽고, 관절을 돌려 동작을 만들어
@@ -34,6 +34,8 @@ export type Body = {
   rest: Pose
   stand: (ms: number) => Pose
   walk: (ms: number) => Pose
+  // 걷기 시각에 제자리에서 뒤도는 동안(round.ts TURN_MS) 발을 번갈아 조금 떼었다 놓는 모습. 몸 방향은 서버 각도대로 돌고 이건 팔다리만 (SHEEP-120)
+  turn: (ms: number) => Pose
   aim: (pitch: number) => Pose
   fire: (pitch: number) => Pose
   suicide: Pose[]
@@ -209,22 +211,42 @@ const CHAIN: readonly [Seg, V, Seg | null][] = [
 ]
 const slot = (seg: Seg) => MOTIONS.segments.indexOf(seg) * 4
 
-// 동작 m의 f번째 프레임(소수면 앞뒤 프레임 사이를 보간) 모습. 되풀이 동작은 끝에서 처음으로 이어짐
-function motionMoves(m: Motion, f: number): Record<Seg, Move> {
+// 동작 한 프레임. 엉덩이 이동과 덩어리 회전 사원수 (Motion의 한 줄)
+type Frame = { hip: number[]; rot: number[] }
+
+// 두 프레임을 u만큼 섞음. 엉덩이는 곧게, 덩어리 회전은 사원수 구면 보간
+const mixFrames = (a: Frame, b: Frame, u: number): Frame => ({
+  hip: a.hip.map((h, k) => h + (b.hip[k] - h) * u),
+  rot: MOTIONS.segments.flatMap((_, s) => slerp(a.rot.slice(4 * s, 4 * s + 4), b.rot.slice(4 * s, 4 * s + 4), u)),
+})
+
+// 동작 m의 f번째 프레임. 소수면 앞뒤 프레임 사이를 보간하고, 되풀이 동작은 끝에서 처음으로 이어짐
+function frameAt(m: Motion, f: number): Frame {
   const n = m.rot.length
   const at = m.loop ? ((f % n) + n) % n : Math.min(Math.max(f, 0), n - 1)
   const i = Math.floor(at)
   const j = m.loop ? (i + 1) % n : Math.min(i + 1, n - 1)
-  const u = at - i
-  const hip = m.hip[i].map((h, k) => h + (m.hip[j][k] - h) * u)
+  return mixFrames({ hip: m.hip[i], rot: m.rot[i] }, { hip: m.hip[j], rot: m.rot[j] }, at - i)
+}
+
+// 한 프레임의 덩어리별 움직임
+function frameMoves({ hip, rot }: Frame): Record<Seg, Move> {
   const out = {} as Record<Seg, Move>
   for (const [seg, joint, parent] of CHAIN) {
     const s = slot(seg)
-    const turn = rotation(slerp(m.rot[i].slice(s, s + 4), m.rot[j].slice(s, s + 4), u))
-    out[seg] = { from: joint, to: parent === null ? add(joint, [hip[0], hip[1], hip[2]]) : movePoint(joint, out[parent]), turn }
+    out[seg] = { from: joint, to: parent === null ? add(joint, [hip[0], hip[1], hip[2]]) : movePoint(joint, out[parent]), turn: rotation(rot.slice(s, s + 4)) }
   }
   return out
 }
+
+// 동작 m의 f번째 프레임(소수면 앞뒤 프레임 사이를 보간) 모습
+const motionMoves = (m: Motion, f: number) => frameMoves(frameAt(m, f))
+
+// 뒤돌 때 쓰는 걷기 한 바퀴를 WALK_START에서 이만큼(바퀴 몫) 뒤에서 시작함. 왼발과 오른발이 가장 높이 뜨는 때가 도는 시간의 1/4, 3/4쯤에 와 두 발을 다 뗌.
+// ponytail: 임시 값. 화면을 보며 맞춤
+const TURN_PHASE = 0.25
+// 덩어리가 모두 돌지 않은 프레임. 팔다리를 곧게 내린 틀 그대로(rest) 모습이고 좌우가 같음
+const STILL: Frame = { hip: [0, 0, 0], rot: MOTIONS.segments.flatMap(() => [0, 0, 0, 1]) }
 
 // 걷기에서 오른 허벅지가 가장 앞으로 나온 프레임. 걷기 시각에 여기서 시작해 걸음(발소리)마다 한쪽 다리가 가장 앞에 옴
 const WALK_START = (() => {
@@ -350,6 +372,12 @@ function build(data: CharacterData, key: string | undefined, hand: Hand): Body {
     stand: (ms) => play(stand, frames(ms)),
     // 걸음 두 번(발소리 두 번)에 한 바퀴
     walk: (ms) => play(walk, WALK_START + (ms / (2 * STEP_MS)) * walk.rot.length),
+    // 곧게 선 틀 모습과 걷기 한 바퀴(두 걸음)를 섞음. 섞는 몫이 처음과 끝은 0, 가운데는 1이라 선 채로 시작해 발을 번갈아 떼었다 놓고 선 채로 끝남.
+    // 좌우가 같은 틀 모습과 섞어 두 발을 비슷하게 뗌 (서기 동작은 한쪽 발에 기대 섞으면 한 발만 뜸)
+    turn: (ms) => {
+      const p = Math.min(Math.max(ms / TURN_MS, 0), 1)
+      return ground(holstered(frameMoves(mixFrames(STILL, frameAt(walk, WALK_START + (p + TURN_PHASE) * walk.rot.length), Math.sin(Math.PI * p)))))
+    },
     // 쏠 때는 반동으로 팔만 더 들림
     aim: (pitch) => aimed(pitch, ahead(pitch), false),
     fire: (pitch) => aimed(pitch, ahead(pitch + RECOIL), true),

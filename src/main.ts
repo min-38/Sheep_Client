@@ -9,7 +9,7 @@ import { enhanceSelect } from './dropdown.ts'
 import { drawGun, gunClips, lift, RAISE_MS, RECOIL_MS, RELOAD_AT, RELOAD_SEATED, RELOAD_SHUT, revolverMesh } from './gun.ts'
 import { dotPosition, noBlood, onGameEnd, onRevived, onWalk, onWounded, resultLabel } from './hitcard.ts'
 import { record, sampleAt, type Sample } from './interpolate.ts'
-import { fireMessage, parseServerMessage, stopMessage, type ClientMessage, type HitPoint, type PlayerState, type RoundResult, type ShotResult } from './net.ts'
+import { fireMessage, parseServerMessage, type ClientMessage, type HitPoint, type PlayerState, type RoundResult, type ShotResult } from './net.ts'
 import { normalizeNickname } from './nickname.ts'
 import { dressPaper, PAPER_GRAIN, PAPER_INK } from './paper.ts'
 import { BANDANA, joinable, memberText, roomStatus, type RoomInfo } from './roomlist.ts'
@@ -19,7 +19,7 @@ import { MUSIC_FADE, playMusic, setMusicVolume, trackAt } from './music.ts'
 import { makeCamera, renderFrame } from './render.ts'
 import { loaded, pull, ROUNDS } from './revolver.ts'
 import type { Rig } from './rig.ts'
-import { banner, DUEL_LIMIT, dueling, formatTime, joins, locked, resultText, standingCount, stepIndex, timeLeft, walking, type Schedule } from './round.ts'
+import { banner, DUEL_LIMIT, dueling, formatTime, joins, locked, resultText, standingCount, stepIndex, timeLeft, TURN_MS, walking, type Schedule } from './round.ts'
 import { bountyRise, bubbleX, COPIED_MS, copyKeys, drawSaloon, SALOON_CAMERA, seatSlots, seatSpot, seatTag, startBartender, startChatter, stepBartender, stepChatter, STOOL, tally } from './saloon.ts'
 import { cut, replayWindow } from './replay.ts'
 import { filming, motionMs, SCENE_MS, sceneCamera, SLOW } from './downscene.ts'
@@ -278,8 +278,9 @@ function playFallOf(id: string, reason: 'shot' | 'timeout') {
 // viewer는 눈이 되는 사람이라 그리지 않음. 관전이나 다시 보기면 쓰러진 나도 보임
 function othersAt(t: number, viewer: string, scene: Scene): Thing[] {
   const duel = clock !== null && dueling(scene.schedule, toServerTime(t, clock.offset))
-  // 걷기 시각부터 지난 시간(ms). 걷는 동작이 발소리를 내는 걸음마다 한쪽 다리를 가장 앞에 둠
+  // 걷기 시각부터 지난 시간(ms). 먼저 TURN_MS 동안 제자리에서 뒤돌며 발을 떼고(SHEEP-120), 그다음 걷는 동작이 발소리를 내는 걸음마다 한쪽 다리를 가장 앞에 둠
   const walked = clock !== null && scene.schedule.walk !== undefined ? toServerTime(t, clock.offset) - scene.schedule.walk : 0
+  const stepping = (body: Body) => (walked < TURN_MS ? body.turn(walked) : body.walk(walked - TURN_MS))
   return [...scene.history]
     .filter(([id]) => id !== viewer)
     .flatMap(([id, samples]): Thing[] => {
@@ -289,7 +290,7 @@ function othersAt(t: number, viewer: string, scene: Scene): Thing[] {
       const look = scene.characters.get(id)!
       const body = characterBody(look.character, look.color, look.hand)
       // "시작!"부터 서 있는 사람은 총을 겨눈 모습. 머리와 팔은 그 사람의 위아래 시선대로
-      const upright = duel ? body.aim(s.pitch) : s.pose === 'walk' ? body.walk(walked) : body.stand(t)
+      const upright = duel ? body.aim(s.pitch) : s.pose === 'walk' ? stepping(body) : body.stand(t)
       // 불꽃 동안은 쏜 각도로 그림. 돌고 바로 쏘면 돌아간 각도는 다음 state로 늦게 옴
       const down = scene.downs.get(id)
       const fallen = down && { landed: t - down.at - fallDelay(down.reason), reason: down.reason }
@@ -458,21 +459,11 @@ function showHitCard(r: ShotResult) {
   hitHole.setAttribute('cy', String(dot.y))
 }
 
-// 이번 라운드에 내가 걷다 멈춘 시각(ms, 내 시계). 안 멈췄으면 null. 한 라운드에 한 번만 멈추고, 멈춘 뒤로는 내 발소리를 내지 않음
-let stoppedAt: number | null = null
 // 사람마다 마지막으로 발소리를 낸 걸음 번호. 걷기 시각을 받을 때 비움
 const lastStep = new Map<string, number>()
 
-// 걷는 동안 왼쪽 클릭은 멈추기 (시스템 기획서 조작). 도는 것과 상관없어 포인터 잠금이 없어도 받음. 그래야 잠그는 첫 클릭으로도 멈춤
-canvas.addEventListener('mousedown', (e) => {
-  if (!clock || e.button !== 0 || stoppedAt !== null || myId === null || downs.has(myId)) return
-  if (!walking(schedule, toServerTime(e.timeStamp, clock.offset))) return
-  stoppedAt = e.timeStamp
-  send(stopMessage(e.timeStamp, clock.offset))
-})
-
-// 걷는 사람마다 걸음 번호가 늘면 그 사람 쪽에서 발소리를 냄. 그래서 누가 멈췄는지 귀로 앎 (컨셉 기획서 아트와 사운드 효과음).
-// 다른 사람은 그림처럼 INTERP_DELAY 전의 동작으로 가르고, 나는 서버 동작을 기다리지 않고 내가 멈춘 시각으로 가름
+// 걷는 사람마다 걸음 번호가 늘면 그 사람 쪽에서 발소리를 냄 (컨셉 기획서 아트와 사운드 효과음).
+// 다른 사람은 그림처럼 INTERP_DELAY 전의 동작으로 가름. 뒤도는 동안은 발소리를 내지 않음 (SHEEP-120)
 function playSteps(now: number) {
   if (!audio || !clock || schedule.walk === undefined) return
   const t = now - INTERP_DELAY
@@ -483,7 +474,7 @@ function playSteps(now: number) {
   for (const [id, samples] of history) {
     const s = sampleAt(samples, t)
     // 다음 라운드에 끼지 못해 쓰러진 채인 나는 걷지 않음
-    const going = id === myId ? !downs.has(id) && (stoppedAt === null || t < stoppedAt) : s.pose === 'walk'
+    const going = id === myId ? !downs.has(id) : s.pose === 'walk'
     if (!going || step <= (lastStep.get(id) ?? -1)) continue
     lastStep.set(id, step)
     playStep(audio, audio.currentTime, id === myId ? undefined : heardFrom(view.x, view.y, view.angle, s.x, s.y))
@@ -1244,7 +1235,6 @@ function receive(data: string) {
         }
         blood = onWalk(blood)
         roundStartAt = performance.now()
-        stoppedAt = null
         lastStep.clear()
       }
       schedule[m.phase] = m.at

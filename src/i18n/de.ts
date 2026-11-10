@@ -65,7 +65,7 @@ export const de: Copy = {
         "Eine Kugel pro Runde. Die solltest du besser nich' vergeuden.",
         'Kopftreffer, und er ist erledigt. Einmal in den Bauch, und er steht noch. Zweimal, und er liegt.',
         'Fünf Sekunden nach dem „Zieh!“, Partner. Wartest du länger, machst du die Arbeit vom Totengräber selbst.',
-        'Klick beim Laufen, und du bleibst stehen. Aber nur einmal, merk dir das.',
+        "Alle drehen sich langsam um und gehen zehn Schritte. Stehenbleiben gibt's nich', Partner.",
         "Fallen zwei Kerle gleichzeitig? Dann stehen sie wieder auf und machen's nochmal.",
         "Erwischt's dich, kannst du noch durch die Augen der anderen gucken. Klick zum Wechseln.",
       ],

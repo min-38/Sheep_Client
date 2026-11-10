@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest'
 import { CELL, CHARACTERS, characterBody, corners, drawFigure, FALL_LAND_MS, inWorld, pinWound, toModel, woundBox, keyColor, PORTRAIT_SIZE, portraitPixels, savedCharacter, savedColor, SUICIDE_AIM, SUICIDE_FLASH, suicideStage, type Box, type Pose } from './character.ts'
 import { makeCamera, type RGB } from './render.ts'
-import { STEP_MS } from './round.ts'
+import { STEP_MS, TURN_MS } from './round.ts'
 
 type V = readonly [number, number, number]
 type Range = readonly [V, V]
@@ -250,6 +250,18 @@ describe('characterBody', () => {
     expect(front(pick(body.walk(STEP_MS), 'leftLeg', 3))).toBeGreaterThan(front(pick(body.walk(STEP_MS), 'rightLeg', 3)) + 2)
     same(body.walk(2 * STEP_MS), body.walk(0))
     same(body.walk(5 * STEP_MS + 120), body.walk(STEP_MS + 120))
+  })
+
+  test('뒤도는 동안 제자리에서 두 발을 번갈아 떼었다 놓고, 처음과 끝은 곧게 섬 (SHEEP-120)', () => {
+    const lowest = (boxes: readonly Box[]) => Math.min(...boxes.flatMap((b) => corners(b).map((p) => p[1])))
+    const lifted = (t: number) => [lowest(pick(body.turn(t), 'rightLeg', 3)), lowest(pick(body.turn(t), 'leftLeg', 3))]
+    for (const t of [0, TURN_MS]) same(body.turn(t), body.turn(0))
+    for (const t of [0, TURN_MS]) for (const y of lifted(t)) near(y * CELL, 0)
+    // 왼발은 앞 절반, 오른발은 뒤 절반에 1블록 넘게 뜸
+    const times = Array.from({ length: 17 }, (_, i) => (i * TURN_MS) / 16)
+    expect(Math.max(...times.filter((t) => t < TURN_MS / 2).map((t) => lifted(t)[1]))).toBeGreaterThan(1)
+    expect(Math.max(...times.filter((t) => t >= TURN_MS / 2).map((t) => lifted(t)[0]))).toBeGreaterThan(1)
+    for (const t of times) near(span(body.turn(t).boxes, 1)[0], 0)
   })
 
   test('걸으면 발이 바닥에 닿고 권총집의 총이 허벅지를 따라 움직임', () => {
