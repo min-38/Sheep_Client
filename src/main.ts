@@ -33,8 +33,8 @@ import { nextTarget } from './spectate.ts'
 import { drawSmoke, smoke, SMOKE_MS, SMOKE_PX } from './smoke.ts'
 import { along, bulletDots, bulletRange, EYE_HEIGHT, FLIGHT_MS } from './bullet.ts'
 import { burst, BURST_MS, pool } from './blood.ts'
-import { fallDelay, heardFrom, loadEffects, play, playFall, playHeartbeat, playSignal, playStep, setEffectsVolume, stampOf, toAudioTime } from './sound.ts'
-import { darkness, heartbeats, stepDip } from './tension.ts'
+import { fallDelay, heardFrom, loadEffects, play, playFall, playSignal, playStep, setEffectsVolume, stampOf, toAudioTime } from './sound.ts'
+import { darkness, stepDip } from './tension.ts'
 import type { Thing } from './sprite.ts'
 import { afterTurn, aimAt, crosshairOffset, scaleAt, steady, sway, type Unsteady } from './sway.ts'
 import { tilt, turn } from './turn.ts'
@@ -744,7 +744,7 @@ function frame(now: number) {
   alive.hidden = left === null
   const aliveText = left === null ? '' : copy.hud.aliveCount(standingCount(scene.history.keys(), scene.downs, r ? t : now - INTERP_DELAY))
   if (alive.value !== aliveText) alive.value = aliveText
-  // 화면 가장자리 어둠. 다 돈 때부터 박동마다 뛰며 짙어지고 가운데로 좁혀 들어와 "시작!"에 걷힘 (SHEEP-141)
+  // 화면 가장자리 어둠. 다 돈 때부터 고르게 짙어지며 가운데로 좁혀 들어와 "시작!"에 걷힘 (SHEEP-141, SHEEP-147)
   const dark = tense && clock ? darkness(schedule, toServerTime(now, clock.offset)) : 0
   tension.hidden = dark === 0
   if (dark > 0) {
@@ -1354,11 +1354,6 @@ function receive(data: string) {
         }
         // 공이치기 소리는 "시작!"이 아니라 D 키로 뽑은 때에 냄 (SHEEP-123)
         if (m.phase === 'duel') playSignal(audio, when)
-        // 심장 소리는 이번 라운드를 걷는 나만 들음. 다 돈 때부터 마지막 걸음 전까지 점점 빨리 뜀 (SHEEP-141).
-        // ponytail: 걷는 중에 방을 나가도 예약한 박동은 마지막 걸음 시각까지 들림. 거슬리면 노드를 모아 두고 나갈 때 멈춤
-        if (m.phase === 'walk' && reloading && !downs.has(myId)) {
-          for (const beat of heartbeats(m.at)) playHeartbeat(audio, toAudioTime(toLocalTime(beat, clock.offset), stampOf(audio)))
-        }
       }
       break
     case 'shot':

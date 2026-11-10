@@ -118,27 +118,6 @@ export function playStep(audio: AudioContext, when: number, from?: { right: numb
   thump.stop(when + 0.1)
 }
 
-// 심장 박동 한 번(쿵-쿵)을 when(AudioContext 시각, 초)에 냄. 내 몸 소리라 가운데서 들림 (사용자 결정 2026-11-10, SHEEP-141).
-// 작은 스피커에서도 들리게 배음이 있는 삼각파를 낮게 떨어뜨림. ponytail: 합성한 임시음. 들어 보고 CC0 효과음으로 바꿀지 정함
-export function playHeartbeat(audio: AudioContext, when: number) {
-  for (const [at, gain] of [
-    [0, 0.5],
-    [0.15, 0.35],
-  ]) {
-    const start = when + at
-    const tone = new OscillatorNode(audio, { type: 'triangle', frequency: 80 })
-    tone.frequency.setValueAtTime(80, start)
-    tone.frequency.exponentialRampToValueAtTime(45, start + 0.12)
-    const volume = new GainNode(audio, { gain: 0 })
-    volume.gain.setValueAtTime(0.0001, start)
-    volume.gain.exponentialRampToValueAtTime(gain, start + 0.012)
-    volume.gain.exponentialRampToValueAtTime(0.001, start + 0.16)
-    tone.connect(volume).connect(effectsOut(audio))
-    tone.start(start)
-    tone.stop(start + 0.17)
-  }
-}
-
 // 탈락을 보여 주기 시작한 때부터 뒤로 넘어지는 동작이 바닥에 닿기까지(ms). 시간 초과는 자살 모습(총을 댐, 불꽃)이 끝난 뒤에 넘어짐
 export const fallDelay = (reason: 'shot' | 'timeout') => (reason === 'timeout' ? SUICIDE_AIM + SUICIDE_FLASH : 0) + FALL_LAND_MS
 
