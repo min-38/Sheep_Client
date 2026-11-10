@@ -78,7 +78,7 @@ export const en = {
         "Spin 'round fast and your aim'll wobble somethin' fierce. Let it settle.",
         "One bullet a round. Reckon you'd best make it count.",
         "Hit a man in the head, he's done. Gut him once, he's still standin'. Twice, he ain't.",
-        `Ten seconds after "Draw!", partner. Dawdle past that and you'll do the undertaker's job yourself.`,
+        `Five seconds after "Draw!", partner. Dawdle past that and you'll do the undertaker's job yourself.`,
         "Click while you're walkin' and you'll stop short. Just the once, mind.",
         'Two fellers drop at once? Reckon they stand up and go again.',
         "Get shot and you can still watch through the eyes of them standin'. Click to switch.",

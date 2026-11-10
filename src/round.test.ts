@@ -103,6 +103,10 @@ describe('resultText', () => {
 })
 
 describe('timeLeft', () => {
+  test('제한 시간은 5초 (시스템 기획서 판 흐름 시간, SHEEP-127)', () => {
+    expect(DUEL_LIMIT).toBe(5000)
+  })
+
   test('결투 시각 전에는 없음', () => {
     expect(timeLeft({}, 500)).toBeNull()
     expect(timeLeft({ duel: 1000 }, 500)).toBeNull()
