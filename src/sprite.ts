@@ -7,10 +7,11 @@ export type Sprite = { w: number; h: number; pixels: Uint32Array }
 
 // 결투장에 선 소품 하나. facing은 바라보는 각도(라디안), frames는 8방향 그림
 export type Prop = { x: number; y: number; facing: number; frames: readonly Sprite[] }
-// 공중에 뜬 연기 덩이 하나 (SHEEP-124). z는 가운데 높이, size는 한 변(칸), alpha는 불투명도(0~1). 늘 카메라를 보는 네모로 바탕과 섞어 칠함
-export type SmokePuff = { x: number; y: number; z: number; size: number; alpha: number }
+// 공중에 뜬 작은 네모 하나. 연기 덩이(SHEEP-124)와 날아가는 총알·잔상(SHEEP-125)을 그림. z는 가운데 높이, size는 한 변(칸),
+// alpha는 불투명도(0~1), rgb는 색이고 없으면 연기 색. 늘 카메라를 보는 네모로 바탕과 섞어 칠함
+export type Speck = { x: number; y: number; z: number; size: number; alpha: number; rgb?: RGB }
 // 결투장에 선 것 하나. 사람은 상자(boxes)로 매 프레임 3D로 그림
-export type Thing = Prop | Figure | SmokePuff
+export type Thing = Prop | Figure | Speck
 // 연기 색. 빛 색조를 곱해 석양에는 붉게 물듦
 const SMOKE: RGB = [225, 225, 220]
 
@@ -51,7 +52,7 @@ export function drawSprites(pixels: Uint32Array, w: number, h: number, zbuf: Flo
       const half = (proj * t.size) / 2 / depth
       const cx = (w / 2) * (1 + side / depth)
       const cy = horizonY(h, proj, cam.pitch) + (proj * ((cam.z ?? 0.5) - t.z)) / depth
-      const color = SMOKE.map((c, i) => (c * light[i]) / 255)
+      const color = (t.rgb ?? SMOKE).map((c, i) => (c * light[i]) / 255)
       const mix = (c: number, i: number) => Math.round(((c >>> (8 * i)) & 255) * (1 - t.alpha) + color[i] * t.alpha)
       for (let x = Math.max(0, Math.ceil(cx - half - 0.5)); x < Math.min(w, Math.ceil(cx + half - 0.5)); x++) {
         if (depth >= zbuf[x]) continue

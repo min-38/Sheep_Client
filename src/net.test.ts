@@ -187,11 +187,12 @@ describe('parseServerMessage', () => {
     expect(parseServerMessage('{"type":"phase","phase":"walk","at":"4500"}')).toBeNull()
   })
 
-  test('발사 이벤트는 쏜 사람과 쏜 각도를 받음', () => {
-    expect(parseServerMessage('{"type":"shot","playerId":"p2","angle":3.14}')).toEqual({ type: 'shot', playerId: 'p2', angle: 3.14 })
+  test('발사 이벤트는 쏜 사람과 쏜 각도, 위아래 각도를 받음', () => {
+    expect(parseServerMessage('{"type":"shot","playerId":"p2","angle":3.14,"pitch":-0.1}')).toEqual({ type: 'shot', playerId: 'p2', angle: 3.14, pitch: -0.1 })
+    expect(parseServerMessage('{"type":"shot","playerId":"p2","angle":3.14}')).toBeNull()
     expect(parseServerMessage('{"type":"shot","angle":3.14}')).toBeNull()
     expect(parseServerMessage('{"type":"shot","playerId":"p2"}')).toBeNull()
-    expect(parseServerMessage('{"type":"shot","playerId":"p2","angle":"3.14"}')).toBeNull()
+    expect(parseServerMessage('{"type":"shot","playerId":"p2","angle":"3.14","pitch":0}')).toBeNull()
   })
 
   test('탈락은 쓰러진 사람과 사유를 받음', () => {

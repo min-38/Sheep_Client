@@ -77,8 +77,8 @@ export type ServerMessage =
   | { type: 'serverTime'; t0: number; ts: number }
   // at은 그 단계가 시작하는 서버 시각(ms). serverTime의 ts와 같은 시계
   | { type: 'phase'; phase: Phase; at: number }
-  // 서버가 받아들인 발사. angle은 fire의 angle 그대로
-  | { type: 'shot'; playerId: string; angle: number }
+  // 서버가 받아들인 발사. angle과 pitch는 fire의 것 그대로. pitch로 날아가는 총알을 그림 (SHEEP-125)
+  | { type: 'shot'; playerId: string; angle: number; pitch: number }
   // reason은 쓰러진 사유. shot은 머리나 두 번째 반샷을 맞음, timeout은 제한 시간 안에 쏘지 않아 자살함
   | { type: 'eliminated'; playerId: string; reason: 'shot' | 'timeout' }
   // 결과 시간이 끝나는 시각은 바로 뒤의 phase로 옴 (승리면 lobby, 재대결이면 countdown)
@@ -138,7 +138,9 @@ export function parseServerMessage(text: string): ServerMessage | null {
         ? { type: 'phase', phase: m.phase, at: m.at }
         : null
     case 'shot':
-      return typeof m.playerId === 'string' && Number.isFinite(m.angle) ? { type: 'shot', playerId: m.playerId, angle: m.angle } : null
+      return typeof m.playerId === 'string' && Number.isFinite(m.angle) && Number.isFinite(m.pitch)
+        ? { type: 'shot', playerId: m.playerId, angle: m.angle, pitch: m.pitch }
+        : null
     case 'eliminated':
       return typeof m.playerId === 'string' && (m.reason === 'shot' || m.reason === 'timeout')
         ? { type: 'eliminated', playerId: m.playerId, reason: m.reason }
