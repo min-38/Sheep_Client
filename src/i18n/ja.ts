@@ -23,6 +23,7 @@ export const ja: Copy = {
     go: '抜け！',
     drawHint: (key) => `${key} キーで抜け`,
     win: '最後まで立ってたのはあんただ！',
+    lastStanding: '最後まで立ってた',
     lose: '今日はツイてねえな、相棒',
     rematch: (n) => `${n}人でもう一勝負だ`,
     head: '頭に一発',

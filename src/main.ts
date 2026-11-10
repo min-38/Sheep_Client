@@ -690,6 +690,10 @@ function frame(now: number) {
   game.classList.toggle('ceremony', walkoff !== null)
   iris.hidden = walkoff === null
   if (walkoff !== null && result?.end !== undefined && clock) iris.style.setProperty('--iris', String(irisOpen(result.end, toServerTime(now, clock.offset))))
+  // 포스터를 닫은 뒤에도 누가 이겼는지 보이게 세레모니 내내 이긴 사람 이름을 띄움. 그사이 나갔으면 띄우지 않음 (SHEEP-142)
+  const winnerName = walkoff !== null && result ? (roster.find((p) => p.id === result!.playerIds[0])?.nickname ?? '') : ''
+  winCard.hidden = winnerName === ''
+  if (winCardName.textContent !== winnerName) winCardName.textContent = winnerName
   killCard.hidden = !inScene
   bloodView.hidden = r !== null || !(watch ? watch.wounded : blood.shown)
   replayButton.hidden = replay === null
@@ -850,6 +854,8 @@ const SALOON_LIGHT = [255, 255, 255] as const
 const winView = document.querySelector<HTMLDivElement>('#win')!
 // 세레모니 끝에 화면을 동그랗게 닫는 검은 막. 구멍 크기는 --iris(0~1) (SHEEP-136)
 const iris = document.querySelector<HTMLDivElement>('#iris')!
+const winCard = document.querySelector<HTMLParagraphElement>('#win-card')!
+const winCardName = document.querySelector<HTMLElement>('#win-card-name')!
 const winFace = document.querySelector<HTMLImageElement>('#win-face')!
 
 // 바랜 종이 질감 (paper.ts). 결과 카드와 포스터는 가장자리까지, 창은 얼룩만. 종이마다 seed가 달라 얼룩과 귀퉁이가 다름

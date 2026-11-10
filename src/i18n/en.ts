@@ -29,6 +29,8 @@ export const en = {
     // "시작!" 아래 총을 뽑으라는 안내 (SHEEP-138). key 자리에 D 키 모양이 들어감. 규칙 안내라 사투리 없이 바로 읽히게 씀
     drawHint: (key: string) => `Hit ${key} to draw`,
     win: "Last one standin'!",
+    // 세레모니 동안 이긴 사람 이름 아래에 적는 한 줄 (SHEEP-142). 이름은 위에 따로 크게 적음
+    lastStanding: "Last one standin'",
     lose: 'Not your day, partner',
     rematch: (n: number) => `${n} fellers go again`,
     // 내 사격 결과 카드의 도장

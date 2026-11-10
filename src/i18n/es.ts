@@ -23,6 +23,7 @@ export const es: Copy = {
     go: '¡Desenfunda!',
     drawHint: (key) => `Pulsa ${key} para desenfundar`,
     win: '¡Nomás tú en pie!',
+    lastStanding: 'El último en pie',
     lose: 'No es tu día, compadre',
     rematch: (n) => `${n} van otra vez`,
     head: 'A la cabeza',
