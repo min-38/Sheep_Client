@@ -4,8 +4,8 @@ import { record, sampleAt, type Sample } from './interpolate.ts'
 const deg = (d: number) => (d * Math.PI) / 180
 
 describe('sampleAt', () => {
-  const a: Sample = { at: 1000, x: 2, y: 4, angle: deg(10), pitch: 0.1, pose: 'walk' }
-  const b: Sample = { at: 1050, x: 4, y: 8, angle: deg(30), pitch: 0.3, pose: 'stand' }
+  const a: Sample = { at: 1000, x: 2, y: 4, angle: deg(10), pitch: 0.1, pose: 'walk', drawnAt: null }
+  const b: Sample = { at: 1050, x: 4, y: 8, angle: deg(30), pitch: 0.3, pose: 'stand', drawnAt: null }
 
   test('두 상태 사이 중간 시각은 위치와 각도, 위아래 시선도 중간', () => {
     const s = sampleAt([a, b], 1025)
@@ -38,7 +38,7 @@ describe('sampleAt', () => {
   })
 
   test('여러 상태 중 그 시각을 감싸는 두 상태를 씀', () => {
-    const c: Sample = { at: 1100, x: 8, y: 8, angle: deg(30), pitch: 0.3, pose: 'stand' }
+    const c: Sample = { at: 1100, x: 8, y: 8, angle: deg(30), pitch: 0.3, pose: 'stand', drawnAt: null }
     expect(sampleAt([a, b, c], 1075).x).toBeCloseTo(6)
   })
 
@@ -47,16 +47,26 @@ describe('sampleAt', () => {
   })
 })
 
+describe('sampleAt drawnAt (SHEEP-123)', () => {
+  test('뽑은 시각은 보간하지 않고 뒤 상태의 값을 씀', () => {
+    const a: Sample = { at: 1000, x: 0, y: 0, angle: 0, pitch: 0, pose: 'stand', drawnAt: null }
+    const b: Sample = { at: 1050, x: 0, y: 0, angle: 0, pitch: 0, pose: 'stand', drawnAt: 1020 }
+    expect(sampleAt([a, b], 1025).drawnAt).toBe(1020)
+    expect(sampleAt([a, b], 2000).drawnAt).toBe(1020)
+    expect(sampleAt([a, b], 0).drawnAt).toBeNull()
+  })
+})
+
 describe('record', () => {
-  const p = (id: string, x: number) => ({ id, x, y: 0, angle: 0, pitch: -0.2, pose: 'stand' as const, ready: false, nickname: '보안관', color: 0, wins: 0, character: 0, seat: 0, hand: 'right' as const })
+  const p = (id: string, x: number) => ({ id, x, y: 0, angle: 0, pitch: -0.2, pose: 'stand' as const, ready: false, nickname: '보안관', color: 0, wins: 0, character: 0, seat: 0, hand: 'right' as const, drawnAt: null })
 
   test('플레이어마다 받은 시각과 함께 쌓음', () => {
     const history = new Map<string, Sample[]>()
     record(history, [p('a', 1), p('b', 2)], 1000)
     record(history, [p('a', 3), p('b', 4)], 1050)
     expect(history.get('a')).toEqual([
-      { at: 1000, x: 1, y: 0, angle: 0, pitch: -0.2, pose: 'stand' },
-      { at: 1050, x: 3, y: 0, angle: 0, pitch: -0.2, pose: 'stand' },
+      { at: 1000, x: 1, y: 0, angle: 0, pitch: -0.2, pose: 'stand', drawnAt: null },
+      { at: 1050, x: 3, y: 0, angle: 0, pitch: -0.2, pose: 'stand', drawnAt: null },
     ])
     expect(history.get('b')?.map((s) => s.x)).toEqual([2, 4])
   })

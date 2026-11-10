@@ -5,6 +5,7 @@ import { BAR_LEFT, BAR_RIGHT, bountyRise, bountyText, bubbleX, CHATTER_FIRST, CH
 // seat번 좌석에 앉은 사람. 색은 따로 주지 않으면 좌석 번호와 같음
 const player = (id: string, seat: number, extra: Partial<PlayerState> = {}): PlayerState => ({
   id,
+  drawnAt: null,
   x: 0,
   y: 0,
   angle: 0,

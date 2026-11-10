@@ -68,6 +68,7 @@ export const de: Copy = {
         'Klick beim Laufen, und du bleibst stehen. Aber nur einmal, merk dir das.',
         "Fallen zwei Kerle gleichzeitig? Dann stehen sie wieder auf und machen's nochmal.",
         "Erwischt's dich, kannst du noch durch die Augen der anderen gucken. Klick zum Wechseln.",
+        'Das Eisen bleibt im Holster bis zum Wort. Dann drück D zum Ziehen, Partner.',
       ],
       jokes: [
         "Einer hat mal seine Zeche mit 'ner Kugel bezahlt. Ging glatt durch, würd' ich sagen.",

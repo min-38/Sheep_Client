@@ -4,6 +4,7 @@ import { nextTarget } from './spectate.ts'
 
 const p = (id: string, pose: PlayerState['pose'] = 'stand'): PlayerState => ({
   id,
+  drawnAt: null,
   x: 0,
   y: 0,
   angle: 0,

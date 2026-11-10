@@ -68,6 +68,7 @@ export const es: Copy = {
         'Haz clic mientras caminas y te paras en seco. Solo una vez, ojo.',
         '¿Caen dos a la vez? Pues se levantan y vuelta a empezar.',
         'Si te tumban, aún puedes mirar por los ojos de los que siguen en pie. Clic para cambiar.',
+        "El fierro se queda en la funda hasta la señal. Luego dale a la D pa' desenfundar, compadre.",
       ],
       jokes: [
         'Uno pagó la cuenta con una bala. Diría que le salió de lado a lado.',

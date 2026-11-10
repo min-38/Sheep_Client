@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { afterTurn, aimAt, crosshairOffset, SCALE_MAX, SCALE_MIN, SCALE_RISE, SCALE_TAU, scaleAt, steady, sway, SWAY_PITCH, SWAY_YAW } from './sway.ts'
+import { afterTurn, aimAt, crosshairOffset, HELD_RISE, SCALE_MAX, SCALE_MIN, SCALE_RISE, SCALE_TAU, scaleAt, steady, sway, SWAY_PITCH, SWAY_YAW } from './sway.ts'
 
 const TAU = Math.PI * 2
 
@@ -87,6 +87,10 @@ describe('흔들림 배율', () => {
 
   test('돈 각도만큼 오름', () => {
     expect(scaleAt(afterTurn(steady, 0.2, 1000), 1000)).toBeCloseTo(SCALE_MIN + SCALE_RISE * 0.2)
+    // 총을 든 채(뽑는 중 포함) 돌면 더 오르고, 권총집에 넣은 채면 그대로 (사용자 결정 2026-11-10, SHEEP-123)
+    expect(HELD_RISE).toBeGreaterThan(1)
+    expect(scaleAt(afterTurn(steady, 0.2, 1000, true), 1000)).toBeCloseTo(SCALE_MIN + SCALE_RISE * HELD_RISE * 0.2)
+    expect(scaleAt(afterTurn(steady, 0.2, 1000, false), 1000)).toBeCloseTo(SCALE_MIN + SCALE_RISE * 0.2)
   })
 
   test('상한을 넘지 않음', () => {
