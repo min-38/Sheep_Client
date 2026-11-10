@@ -115,6 +115,7 @@ body {
 #timer,
 #alive,
 #banner,
+#draw-hint,
 #watching,
 #room {
   position: absolute;
@@ -381,6 +382,43 @@ body {
   letter-spacing: 0;
   text-align: center;
   text-wrap: balance;
+}
+
+/* 총을 뽑으라는 안내 (SHEEP-138). "시작!" 바로 아래, 조준점 위. 말 순서가 언어마다 달라 키 앞뒤 글 중 빈 쪽은 숨김 */
+#draw-hint {
+  left: 50%;
+  top: 36%;
+  translate: -50% 0;
+  display: flex;
+  align-items: center;
+  gap: 0.8cqw;
+  margin: 0;
+  color: #f2dfa7;
+  font: 2.4cqw / 1 var(--text);
+  text-shadow: 0 0 0.3cqw #000;
+  white-space: nowrap;
+}
+
+/* display: flex가 hidden을 덮어 다시 숨김 */
+#draw-hint[hidden],
+#draw-hint span:empty {
+  display: none;
+}
+
+/* 바랜 종이 같은 키 모양. 아래로 두께를 줘 누르는 키로 보임 */
+#draw-hint kbd {
+  display: grid;
+  place-items: center;
+  width: 3.6cqw;
+  aspect-ratio: 1;
+  border-radius: 0.5cqw;
+  background: linear-gradient(180deg, #f3e2b6, #d6b77a);
+  box-shadow:
+    0 0.4cqw 0 #7a5530,
+    0 0.6cqw 0.8cqw #0008;
+  color: #3d2412;
+  font: 2.2cqw / 1 var(--display);
+  text-shadow: none;
 }
 
 /* 관전 중인 사람. 총과 실린더 사이 아래 가운데 (시스템 기획서 HUD 관전) */

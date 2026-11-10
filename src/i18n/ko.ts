@@ -21,6 +21,7 @@ export const ko: Copy = {
     roomCode: '방 코드',
     down: '흙먼지를 먹었구먼',
     go: '시작!',
+    drawHint: ['', '키로 총을 뽑아'],
     win: '끝까지 서 있었구먼!',
     lose: '오늘은 날이 아니구먼, 친구',
     rematch: (n) => `${n}명이 한 판 더 붙는구먼`,

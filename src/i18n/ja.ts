@@ -21,6 +21,7 @@ export const ja: Copy = {
     roomCode: 'ルームコード',
     down: '土を舐めたな',
     go: '抜け！',
+    drawHint: ['', 'キーで抜け'],
     win: '最後まで立ってたのはあんただ！',
     lose: '今日はツイてねえな、相棒',
     rematch: (n) => `${n}人でもう一勝負だ`,

@@ -21,6 +21,7 @@ export const zh: Copy = {
     roomCode: '房间代码',
     down: '啃了一嘴土',
     go: '拔枪！',
+    drawHint: ['按', '拔枪'],
     win: '站到最后的是你！',
     lose: '今儿不走运啊，伙计',
     rematch: (n) => `${n}个人再来一场`,

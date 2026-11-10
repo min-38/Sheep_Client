@@ -21,6 +21,7 @@ export const es: Copy = {
     roomCode: 'Código de sala',
     down: 'Mordiste el polvo',
     go: '¡Desenfunda!',
+    drawHint: ['Pulsa', 'para desenfundar'],
     win: '¡Nomás tú en pie!',
     lose: 'No es tu día, compadre',
     rematch: (n) => `${n} van otra vez`,
