@@ -64,7 +64,7 @@ export const es: Copy = {
         'Gira deprisa y la puntería te baila como loca. Deja que se asiente.',
         'Una bala por ronda. Más te vale no desperdiciarla.',
         'Un tiro en la cabeza y se acabó. Uno en la panza y sigue en pie. Dos, y ya no.',
-        'Diez segundos tras el «¡Desenfunda!», compadre. Si tardas más, le harás el trabajo al enterrador tú solito.',
+        'Cinco segundos tras el «¡Desenfunda!», compadre. Si tardas más, le harás el trabajo al enterrador tú solito.',
         'Haz clic mientras caminas y te paras en seco. Solo una vez, ojo.',
         '¿Caen dos a la vez? Pues se levantan y vuelta a empezar.',
         'Si te tumban, aún puedes mirar por los ojos de los que siguen en pie. Clic para cambiar.',
