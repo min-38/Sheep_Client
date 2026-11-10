@@ -1,7 +1,7 @@
 import './style.css'
 import revolverData from './assets/revolver-rig.json'
 import { orbit } from './backdrop.ts'
-import { brimOf, CHARACTERS, characterBody, drawFigure, inWorld, keyColor, pinWound, portraitUrl, savedCharacter, savedColor, SUICIDE_AIM, SUICIDE_FLASH, suicideStage, toModel, woundBox, type Body, type Figure, type Pose, type Wound } from './character.ts'
+import { bartenderBody, brimOf, CHARACTERS, characterBody, drawFigure, inWorld, keyColor, pinWound, portraitUrl, savedCharacter, savedColor, SUICIDE_AIM, SUICIDE_FLASH, suicideStage, toModel, woundBox, type Body, type Figure, type Pose, type Wound } from './character.ts'
 import { best, measure, toLocalTime, toServerTime, type ClockSample } from './clock.ts'
 import { CYLINDER_TURN, cylinderSvg } from './cylinder.ts'
 import { makeProps, SKIES, timeOfDay } from './desert.ts'
@@ -20,7 +20,7 @@ import { makeCamera, renderFrame } from './render.ts'
 import { loaded, pull, ROUNDS } from './revolver.ts'
 import type { Rig } from './rig.ts'
 import { banner, DUEL_LIMIT, dueling, formatTime, joins, locked, resultText, standingCount, stepIndex, STEPS_FROM, timeLeft, TURN_MS, walking, type Schedule } from './round.ts'
-import { bountyRise, bountyText, bubbleX, COPIED_MS, copyKeys, drawSaloon, SALOON_CAMERA, seatSlots, seatSpot, seatTag, startBartender, startChatter, stepBartender, stepChatter, STOOL } from './saloon.ts'
+import { bartenderFigure, bountyRise, bountyText, bubbleX, COPIED_MS, copyKeys, drawSaloon, SALOON_CAMERA, seatSlots, seatSpot, seatTag, startBartender, startChatter, stepBartender, stepChatter, STOOL } from './saloon.ts'
 import { cut, replayWindow } from './replay.ts'
 import { irisOpen, paidShown, walkerAt, walkoffAt, walkoffCamera } from './ceremony.ts'
 import { filming, motionMs, SCENE_MS, sceneCamera, SLOW } from './downscene.ts'
@@ -618,7 +618,13 @@ function frame(now: number) {
     // 판 사이에는 결투장 대신 술집 한 장면을 그림 (시스템 기획서 방 화면 M8 대기실 짜임)
     bartender = stepBartender(bartender, now, dt, Math.random)
     const drawBar = () => {
-      drawSaloon(ctx, bartender, now)
+      // 술집 주인은 손님처럼 3D 블록 사람. 걷고 닦느라 프레임마다 다시 그림 (SHEEP-139)
+      drawSaloon(ctx, () => {
+        barkeepPixels.fill(0)
+        drawFigure(barkeepPixels, W, H, NO_WALLS, SALOON_CAMERA, bartenderFigure(bartender, now, bartenderBody()), SALOON_LIGHT)
+        barkeepCtx.putImageData(barkeepImage, 0, 0)
+        ctx.drawImage(barkeep, 0, 0)
+      })
       ctx.drawImage(guests, 0, 0)
     }
     // 나서는 장면 끝에는 하얀 화면 뒤로 내 눈에 보이는 결투장을 그림. 아직 카운트다운 전이라 모두 시작 자리에 서 있음 (SHEEP-145)
@@ -895,6 +901,13 @@ const guestsCtx = guests.getContext('2d')!
 const guestImage = guestsCtx.createImageData(W, H)
 const guestPixels = new Uint32Array(guestImage.data.buffer)
 const NO_WALLS = new Float64Array(W).fill(Infinity)
+// 술집 주인의 3D 그림. 술집 그림의 선반과 카운터 사이에 얹음 (SHEEP-139)
+const barkeep = document.createElement('canvas')
+barkeep.width = W
+barkeep.height = H
+const barkeepCtx = barkeep.getContext('2d')!
+const barkeepImage = barkeepCtx.createImageData(W, H)
+const barkeepPixels = new Uint32Array(barkeepImage.data.buffer)
 const SALOON_LIGHT = [255, 255, 255] as const
 // 판 끝 포스터 (시스템 기획서 방 화면 M8 판 끝). HUD의 승리·패배 글자 대신 띄우고 결과 시간이 끝나면(endResult) 닫음
 const winView = document.querySelector<HTMLDivElement>('#win')!

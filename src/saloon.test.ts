@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest'
 import type { PlayerState } from './net.ts'
-import { BAR_LEFT, BAR_RIGHT, bountyRise, bountyText, bubbleX, CHATTER_FIRST, CHATTER_GAP, CHATTER_SHOW, copyKeys, seatSlots, seatSpot, seatTag, startBartender, startChatter, stepBartender, stepChatter, WARDROBE_RIGHT } from './saloon.ts'
+import { BAR_LEFT, BAR_RIGHT, bartenderFigure, bountyRise, bountyText, bubbleX, CHATTER_FIRST, CHATTER_GAP, CHATTER_SHOW, copyKeys, seatSlots, seatSpot, seatTag, startBartender, startChatter, stepBartender, stepChatter, WARDROBE_RIGHT } from './saloon.ts'
 
 // seat번 좌석에 앉은 사람. 색은 따로 주지 않으면 좌석 번호와 같음
 const player = (id: string, seat: number, extra: Partial<PlayerState> = {}): PlayerState => ({
@@ -90,6 +90,26 @@ describe('bountyRise', () => {
 
   test('첫 승리는 $0에서 오름', () => {
     expect(bountyRise(1)).toBe('$0 → $100')
+  })
+})
+
+describe('bartenderFigure (SHEEP-139)', () => {
+  const pose = { boxes: [], gun: [[0, 0, 0]] as [number, number, number][] }
+  const body = { stand: () => pose, walk: () => pose, wipe: () => pose }
+
+  test('화면 가운데(240px)에 선 술집 주인은 카메라 정면 카운터 뒤에서 손님 쪽(카메라)을 봄', () => {
+    const f = bartenderFigure({ x: 240, action: 'stand', target: 0, until: 0 }, 0, body)
+    expect(f.y).toBeCloseTo(0)
+    expect(f.x).toBeGreaterThan(seatSpot(0, 2).x)
+    expect(f.facing).toBeCloseTo(Math.PI)
+    // 허리 아래는 카운터에 가려 권총집 총은 그리지 않음
+    expect(f.gun).toEqual([])
+  })
+
+  test('걸을 때는 가는 쪽을 봄. 화면 오른쪽이 +y', () => {
+    expect(bartenderFigure({ x: 200, action: 'walk', target: 300, until: 0 }, 0, body).facing).toBeCloseTo(Math.PI / 2)
+    expect(bartenderFigure({ x: 200, action: 'walk', target: 100, until: 0 }, 0, body).facing).toBeCloseTo(-Math.PI / 2)
+    expect(bartenderFigure({ x: 300, action: 'stand', target: 0, until: 0 }, 0, body).y).toBeGreaterThan(0)
   })
 })
 
