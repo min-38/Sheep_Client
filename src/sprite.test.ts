@@ -136,3 +136,21 @@ describe('drawSprites', () => {
     expect(cols[0]).toBe(W / 2)
   })
 })
+
+describe('drawSprites 연기 (SHEEP-124)', () => {
+  const puff = (x: number, alpha: number): Thing => ({ x, y: 0, z: 0.5, size: 0.5, alpha })
+
+  test('연기 덩이는 바탕과 섞어 반투명하게 칠하고, 벽보다 멀면 칠하지 않음', () => {
+    const pixels = new Uint32Array(W * H).fill(BLUE)
+    drawSprites(pixels, W, H, new Float64Array(W).fill(Infinity), cam, [puff(2, 0.5)], WHITE)
+    // 눈높이(0.5)라 화면 가운데
+    const mid = pixels[(H / 2) * W + W / 2]
+    expect(mid).not.toBe(BLUE)
+    expect(mid & 255).toBeGreaterThan(80)
+    expect((mid >>> 16) & 255).toBeGreaterThan(200)
+    const hidden = new Uint32Array(W * H).fill(BLUE)
+    drawSprites(hidden, W, H, new Float64Array(W).fill(1), cam, [puff(2, 0.5)], WHITE)
+    expect(hidden.every((c) => c === BLUE)).toBe(true)
+  })
+})
+

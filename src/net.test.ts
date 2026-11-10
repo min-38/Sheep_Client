@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest'
 import { CHARACTERS } from './character.ts'
-import { fireMessage, parseServerMessage, stopMessage } from './net.ts'
+import { fireMessage, parseServerMessage } from './net.ts'
 
 describe('parseServerMessage', () => {
   test('방 만들기와 입장 응답은 내 플레이어 id를 받음', () => {
@@ -187,16 +187,24 @@ describe('parseServerMessage', () => {
     expect(parseServerMessage('{"type":"phase","phase":"walk","at":"4500"}')).toBeNull()
   })
 
-  test('발사 이벤트는 쏜 사람과 쏜 각도를 받음', () => {
-    expect(parseServerMessage('{"type":"shot","playerId":"p2","angle":3.14}')).toEqual({ type: 'shot', playerId: 'p2', angle: 3.14 })
+  test('발사 이벤트는 쏜 사람과 쏜 각도, 위아래 각도를 받음', () => {
+    expect(parseServerMessage('{"type":"shot","playerId":"p2","angle":3.14,"pitch":-0.1}')).toEqual({ type: 'shot', playerId: 'p2', angle: 3.14, pitch: -0.1 })
+    expect(parseServerMessage('{"type":"shot","playerId":"p2","angle":3.14}')).toBeNull()
     expect(parseServerMessage('{"type":"shot","angle":3.14}')).toBeNull()
     expect(parseServerMessage('{"type":"shot","playerId":"p2"}')).toBeNull()
-    expect(parseServerMessage('{"type":"shot","playerId":"p2","angle":"3.14"}')).toBeNull()
+    expect(parseServerMessage('{"type":"shot","playerId":"p2","angle":"3.14","pitch":0}')).toBeNull()
   })
 
-  test('탈락은 쓰러진 사람과 사유를 받음', () => {
-    expect(parseServerMessage('{"type":"eliminated","playerId":"p2","reason":"shot"}')).toEqual({ type: 'eliminated', playerId: 'p2', reason: 'shot' })
-    expect(parseServerMessage('{"type":"eliminated","playerId":"p2","reason":"timeout"}')).toEqual({ type: 'eliminated', playerId: 'p2', reason: 'timeout' })
+  test('탈락은 쓰러진 사람과 사유를 받고, 맞아 쓰러졌으면 맞은 자리도 받음 (SHEEP-126)', () => {
+    expect(parseServerMessage('{"type":"eliminated","playerId":"p2","reason":"shot","zone":"head","height":0.85,"x":6.45,"y":5.5}')).toEqual({
+      type: 'eliminated',
+      playerId: 'p2',
+      reason: 'shot',
+      hit: { zone: 'head', height: 0.85, x: 6.45, y: 5.5 },
+    })
+    expect(parseServerMessage('{"type":"eliminated","playerId":"p2","reason":"timeout","zone":null,"height":null,"x":null,"y":null}')).toEqual({ type: 'eliminated', playerId: 'p2', reason: 'timeout', hit: null })
+    expect(parseServerMessage('{"type":"eliminated","playerId":"p2","reason":"shot","zone":"leg","height":0.5,"x":1,"y":1}')).toBeNull()
+    expect(parseServerMessage('{"type":"eliminated","playerId":"p2","reason":"shot","zone":"body","height":"0.5","x":1,"y":1}')).toBeNull()
     expect(parseServerMessage('{"type":"eliminated","reason":"shot"}')).toBeNull()
     expect(parseServerMessage('{"type":"eliminated","playerId":2,"reason":"shot"}')).toBeNull()
   })
@@ -241,8 +249,14 @@ describe('parseServerMessage', () => {
     expect(parseServerMessage('{"type":"shotResult","zone":null,"height":0.4,"offset":0,"down":false}')).toBeNull()
   })
 
-  test('반샷 알림은 type만 받음', () => {
-    expect(parseServerMessage('{"type":"wounded"}')).toEqual({ type: 'wounded' })
+  test('반샷 알림은 맞은 사람과 맞은 자리를 받음 (SHEEP-126)', () => {
+    expect(parseServerMessage('{"type":"wounded","playerId":"p2","zone":"body","height":0.5,"x":3.25,"y":4.5}')).toEqual({
+      type: 'wounded',
+      playerId: 'p2',
+      hit: { zone: 'body', height: 0.5, x: 3.25, y: 4.5 },
+    })
+    expect(parseServerMessage('{"type":"wounded"}')).toBeNull()
+    expect(parseServerMessage('{"type":"wounded","playerId":"p2","zone":"body","height":0.5,"x":3.25}')).toBeNull()
   })
 
   test('방 나가기의 답 left를 받음', () => {
@@ -289,13 +303,6 @@ describe('fireMessage', () => {
 
   test('위아래 각도를 함께 보냄', () => {
     expect(fireMessage(1, 0.2, 100, 5)).toEqual({ type: 'fire', angle: 1, pitch: 0.2, at: 105 })
-  })
-})
-
-describe('stopMessage', () => {
-  test('누른 순간 내 시각을 서버 시계로 바꿔 보냄', () => {
-    expect(stopMessage(1000, 4000)).toEqual({ type: 'stop', at: 5000 })
-    expect(stopMessage(1000, -500)).toEqual({ type: 'stop', at: 500 })
   })
 })
 
