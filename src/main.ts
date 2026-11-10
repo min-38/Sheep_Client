@@ -24,7 +24,7 @@ import { bountyRise, bubbleX, COPIED_MS, copyKeys, drawSaloon, SALOON_CAMERA, se
 import { cut, replayWindow } from './replay.ts'
 import { irisOpen, walkerAt, walkoffAt, walkoffCamera } from './ceremony.ts'
 import { filming, motionMs, SCENE_MS, sceneCamera, SLOW } from './downscene.ts'
-import { drawEntrance, entranceAt } from './entrance.ts'
+import { drawEntrance, ENTER_FADE, ENTER_MS, entranceAt, entranceTrack, WHOOSH_AT, WHOOSH_MS } from './entrance.ts'
 // 지금 언어의 문구. 이 파일은 t를 시각 변수로 많이 써 문구는 copy로 부름
 import { copyOf, HTML_LANG, LANGUAGES, setLanguage, t as copy, textAt, type Language } from './i18n/index.ts'
 import { readSettings, radiansPerPixel, type Crosshair, type Hand, type Settings } from './settings.ts'
@@ -33,7 +33,7 @@ import { nextTarget } from './spectate.ts'
 import { drawSmoke, smoke, SMOKE_MS, SMOKE_PX } from './smoke.ts'
 import { along, bulletDots, bulletRange, EYE_HEIGHT, FLIGHT_MS } from './bullet.ts'
 import { burst, BURST_MS, pool } from './blood.ts'
-import { fallDelay, heardFrom, loadEffects, play, playFall, playSignal, playStep, setEffectsVolume, stampOf, toAudioTime } from './sound.ts'
+import { fallDelay, heardFrom, loadEffects, play, playFall, playSignal, playStep, playWhoosh, setEffectsVolume, stampOf, toAudioTime } from './sound.ts'
 import { darkness, stepDip } from './tension.ts'
 import type { Thing } from './sprite.ts'
 import { afterTurn, aimAt, crosshairOffset, scaleAt, steady, sway, type Unsteady } from './sway.ts'
@@ -603,7 +603,13 @@ function frame(now: number) {
       drawSaloon(ctx, bartender, now)
       ctx.drawImage(guests, 0, 0)
     }
-    if (leaving) drawEntrance(ctx, leaving, drawBar)
+    // 나서는 장면 끝에는 하얀 화면 뒤로 내 눈에 보이는 결투장을 그림. 아직 카운트다운 전이라 모두 시작 자리에 서 있음 (SHEEP-145)
+    const drawArena = () => {
+      if (!grid || !view) return
+      renderFrame(pixels, W, H, grid, makeCamera(view.x, view.y, view.angle, FOV, view.pitch), [...othersAt(now - INTERP_DELAY, view.id, scene), ...props], SKIES[timeOfDay(standing ?? history.size)])
+      ctx.putImageData(image, 0, 0)
+    }
+    if (leaving) drawEntrance(ctx, leaving, drawBar, drawArena)
     else drawBar()
     const { tips, jokes } = copy.saloon.bartender
     chatter = stepChatter(chatter, now, { tips: tips.length, jokes: jokes.length }, Math.random)
@@ -758,7 +764,9 @@ function frame(now: number) {
   }
   // 화면과 판 시각으로 배경음악을 고름. 결투장 곡은 10걸음을 다 걸은 때부터 천천히 줄어듦 (시스템 기획서 사운드 배경음악, SHEEP-141)
   const screen = !lobby.hidden ? 'title' : !saloon.hidden ? 'saloon' : 'arena'
-  if (audio) playMusic(audio, trackAt(screen, schedule, clock ? toServerTime(now, clock.offset) : -Infinity))
+  // 술집을 나서는 동안은 문을 밀 때부터 술집 곡을 천천히 줄이고, 결투장이 드러날 때 결투 전 곡을 천천히 키움 (SHEEP-145)
+  if (audio && leaving) playMusic(audio, entranceTrack(leaving), ENTER_FADE)
+  else if (audio) playMusic(audio, trackAt(screen, schedule, clock ? toServerTime(now, clock.offset) : -Infinity))
   requestAnimationFrame(frame)
 }
 requestAnimationFrame(frame)
@@ -1340,6 +1348,9 @@ function receive(data: string) {
       // 장전과 공이치기는 내 것만 들음. 장전은 이번 라운드에 끼는 나만, 공이치기는 "시작!"에 서서 총을 드는 나만
       if (audio && clock && myId !== null) {
         const when = toAudioTime(toLocalTime(m.at, clock.offset), stampOf(audio))
+        // 술집을 나서 하얗게 번질 때 빨려 들어가는 소리. 술집에서 카운트다운을 받은 때에 미리 예약함 (SHEEP-145).
+        // ponytail: 그사이 방을 나가도 예약한 소리는 남. 거슬리면 노드를 두었다 나갈 때 멈춤
+        if (m.phase === 'countdown' && leaveSaloonAt !== null) playWhoosh(audio, when - (ENTER_MS - WHOOSH_AT) / 1000, WHOOSH_MS / 1000)
         // 장전 소리는 느린 Reload 클립에서 총알이 다 들어갈 때, 실린더 닫는 소리는 실린더가 다 닫힐 때 딸깍이 들리게 함 (gun.ts gunClips)
         if (m.phase === 'countdown' && reloading) {
           play(audio, 'load', when + reloadSoundAt(RELOAD_SEATED) / 1000)

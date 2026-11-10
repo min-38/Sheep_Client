@@ -1,14 +1,27 @@
+import type { Track } from './music.ts'
+
 // 술집을 나서는 장면 (사용자 결정 2026-11-10, SHEEP-137, 시안 B를 고침). 모두 준비한 뒤 카운트다운 시각까지 ENTER_MS 동안
 // 바를 보던 카메라가 천천히 뒤돌아 술집 문을 보고(turn), 멈추지 않고 걸어가 스윙 도어를 쾅 밀고(pushed) 문간을 지나(zoom)
-// 한낮 빛에 하얗게 번진 뒤(white) 결투장 카운트다운이 시작함. 술집 그림처럼 게임 캔버스(480×270)에 2D로 칠함.
-// 문짝은 자동문처럼 옆으로 사라지지 않고 경첩을 축으로 바깥으로 튕겨 젖혀졌다 떨며 멈춤 (시안 A, 사용자 결정 2026-11-11, SHEEP-144)
+// 한낮 빛에 하얗게 번진 뒤(white) 하얀 화면이 천천히 걷히며 결투장이 드러나고(arena) 카운트다운이 시작함.
+// 술집 그림처럼 게임 캔버스(480×270)에 2D로 칠함.
+// 문짝은 자동문처럼 옆으로 사라지지 않고 경첩을 축으로 바깥으로 튕겨 젖혀졌다 떨며 멈춤 (시안 A, 사용자 결정 2026-11-11, SHEEP-144).
+// 문이 열리고 너무 빨리 시작한다고 해 3초에서 6초로 늘리고, 음악을 줄이며 빨려 들어가는 소리를 냄 (사용자 결정 2026-11-11, SHEEP-145)
 
-// ms. 서버 RoundFlow.EnterDuration과 같아야 함. ponytail: 임시 값. 플레이해 보며 정함
-export const ENTER_MS = 3000
-// ms. 시작부터 다 돌 때까지, 문간을 다 지날 때까지, 하얗게 번지기 시작할 때까지
+// ms. 서버 RoundFlow.EnterDuration과 같아야 함. ponytail: 구간 시간까지 모두 임시 값. 플레이해 보며 정함
+export const ENTER_MS = 6000
+// ms. 시작부터 다 돌 때까지, 문간을 다 지날 때까지
 const TURN_END = 1400
-const THROUGH_END = 2800
-const WHITE_FROM = 2300
+const THROUGH_END = 3900
+// ms. 하얗게 번지기 시작해 다 하얘질 때까지, 그 뒤 하얀 화면이 걷히기 시작해 다 걷힐 때까지. 다 하얘진 때부터 뒤에 결투장을 그림
+const WHITE_FROM = 3000
+const WHITE_FULL = 3800
+const REVEAL_FROM = 4100
+const REVEAL_END = 5700
+// ms. 빨려 들어가는 소리를 내기 시작하는 때와 길이. 문간을 다 지날 때 뚝 끊김
+export const WHOOSH_AT = 2700
+export const WHOOSH_MS = THROUGH_END - WHOOSH_AT
+// ms. 나서는 동안 곡을 줄이거나 키우는 시간. 문을 밀 때 줄이기 시작한 술집 곡이 다 하얘질 즈음 꺼지고, 결투 전 곡은 결투장과 함께 천천히 커짐
+export const ENTER_FADE = 1600
 // 화면이 커진 배율. 문에 닿아 밀 때와 문간을 다 지났을 때. 같은 빠르기로 걸어가면 가까울수록 빨리 커져 1 / (1 - 걸은 몫)을 따름
 export const DOOR_ZOOM = 1.3
 const FULL_ZOOM = 4.4
@@ -16,8 +29,9 @@ const FULL_ZOOM = 4.4
 const PUSH_SHARE = (1 - 1 / DOOR_ZOOM) / (1 - 1 / FULL_ZOOM)
 const PUSH_AT = TURN_END + PUSH_SHARE * (THROUGH_END - TURN_END)
 
-// turn 0~1 돈 몫, zoom 화면 배율(1부터), pushed 문을 민 뒤 지난 시간(ms, 밀기 전은 음수), white 0~1 하얗게 번진 정도
-export type Entrance = { turn: number; zoom: number; pushed: number; white: number }
+// turn 0~1 돈 몫, zoom 화면 배율(1부터), pushed 문을 민 뒤 지난 시간(ms, 밀기 전은 음수), white 0~1 하얗게 덮은 정도,
+// arena 하얀 화면 뒤에 술집 대신 결투장을 그릴 때인지
+export type Entrance = { turn: number; zoom: number; pushed: number; white: number; arena: boolean }
 
 const clamp01 = (p: number) => Math.min(1, Math.max(0, p))
 
@@ -31,9 +45,13 @@ export function entranceAt(countdownAt: number, now: number): Entrance | null {
     turn: t * t * (3 - 2 * t),
     zoom: 1 / (1 - (1 - 1 / FULL_ZOOM) * walked),
     pushed: ms - PUSH_AT,
-    white: clamp01((ms - WHITE_FROM) / (ENTER_MS - WHITE_FROM)),
+    white: ms < WHITE_FULL ? clamp01((ms - WHITE_FROM) / (WHITE_FULL - WHITE_FROM)) : 1 - clamp01((ms - REVEAL_FROM) / (REVEAL_END - REVEAL_FROM)),
+    arena: ms >= WHITE_FULL,
   }
 }
+
+// 나서는 동안 틀 곡. 문을 밀기 전에는 술집 곡, 밀면 줄여 끄고, 결투장이 드러나기 시작하면 결투 전 곡
+export const entranceTrack = (e: Entrance): Track | null => (e.pushed < 0 ? 'saloon' : e.arena ? 'standoff' : null)
 
 // 도. 문짝이 멈춰 서는 각도 (0은 닫힘, 90은 문틀과 직각으로 바깥을 향함)
 export const SWING_REST = 78
@@ -149,22 +167,26 @@ export function drawDoorWall(ctx: CanvasRenderingContext2D, angle: number) {
   for (const x of [DOOR.x, DOOR.x + DOOR.w]) for (const y of [PANEL.top, PANEL.bottom - 8]) rect(ctx, WOOD.hinge, x - 2, y, 4, 8)
 }
 
-// 나서는 장면 한 프레임. drawBar는 바를 보는 술집 그림(손님 포함)을 그림.
-// 도는 동안은 술집과 문 쪽 벽이 한 줄로 옆으로 흘러가고(카메라가 도는 모습), 다 돌면 눈이 보는 점으로 다가가며 문을 밀고 하얗게 번짐
-export function drawEntrance(ctx: CanvasRenderingContext2D, e: Entrance, drawBar: () => void) {
-  ctx.save()
-  if (e.turn < 1) {
-    ctx.translate(-Math.round(e.turn * 480), 0)
-    drawBar()
-    ctx.translate(480, 0)
-    drawDoorWall(ctx, 0)
-  } else {
-    ctx.translate(EYE.x, EYE.y)
-    ctx.scale(e.zoom, e.zoom)
-    ctx.translate(-EYE.x, -EYE.y)
-    drawDoorWall(ctx, swingAngle(e.pushed))
+// 나서는 장면 한 프레임. drawBar는 바를 보는 술집 그림(손님 포함)을, drawArena는 내 눈으로 본 결투장을 그림.
+// 도는 동안은 술집과 문 쪽 벽이 한 줄로 옆으로 흘러가고(카메라가 도는 모습), 다 돌면 눈이 보는 점으로 다가가며 문을 밀고 하얗게 번짐.
+// 다 하얘지면 그 뒤에 결투장을 그리고 하얀 화면을 천천히 걷음
+export function drawEntrance(ctx: CanvasRenderingContext2D, e: Entrance, drawBar: () => void, drawArena: () => void) {
+  if (e.arena) drawArena()
+  else {
+    ctx.save()
+    if (e.turn < 1) {
+      ctx.translate(-Math.round(e.turn * 480), 0)
+      drawBar()
+      ctx.translate(480, 0)
+      drawDoorWall(ctx, 0)
+    } else {
+      ctx.translate(EYE.x, EYE.y)
+      ctx.scale(e.zoom, e.zoom)
+      ctx.translate(-EYE.x, -EYE.y)
+      drawDoorWall(ctx, swingAngle(e.pushed))
+    }
+    ctx.restore()
   }
-  ctx.restore()
   if (e.white > 0) {
     ctx.fillStyle = `rgba(255, 246, 224, ${e.white})`
     ctx.fillRect(0, 0, 480, 270)
