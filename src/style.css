@@ -1238,11 +1238,11 @@ body {
   text-overflow: ellipsis;
 }
 
-/* 이긴 횟수. 칼자국 눈금 */
+/* 이긴 횟수. "1 Win"처럼 글로 적음 (SHEEP-148) */
 .seat .wins {
   color: #6a3a18;
   font: 1.3cqw / 1 var(--text);
-  letter-spacing: 0.15cqw;
+  white-space: nowrap;
 }
 
 /* 내 꼬리표의 금색 보안관 별 */

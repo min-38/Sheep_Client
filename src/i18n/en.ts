@@ -57,8 +57,8 @@ export const en = {
     readyCount: (ready: number, total: number) => `${ready} of ${total} ready to draw`,
     settings: 'Settings',
     mySeat: 'My seat',
-    // 좌석 꼬리표의 칼자국 눈금이 뜻하는 이긴 횟수
-    wins: (n: number) => `${n} win${n === 1 ? '' : 's'}`,
+    // 좌석 꼬리표에 적는 이긴 횟수. 0승도 "0 Win"으로 적음 (사용자 결정 2026-11-10, SHEEP-148)
+    wins: (n: number) => `${n} Win${n > 1 ? 's' : ''}`,
     // 칠판의 방 코드 복사 (SHEEP-114). 서부 사투리 말투 (CLAUDE.md Language)
     copyCode: 'Copy room code',
     copied: 'Copied, partner',

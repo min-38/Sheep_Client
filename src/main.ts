@@ -20,7 +20,7 @@ import { makeCamera, renderFrame } from './render.ts'
 import { loaded, pull, ROUNDS } from './revolver.ts'
 import type { Rig } from './rig.ts'
 import { banner, DUEL_LIMIT, dueling, formatTime, joins, locked, resultText, standingCount, stepIndex, STEPS_FROM, timeLeft, TURN_MS, walking, type Schedule } from './round.ts'
-import { bountyRise, bubbleX, COPIED_MS, copyKeys, drawSaloon, SALOON_CAMERA, seatSlots, seatSpot, seatTag, startBartender, startChatter, stepBartender, stepChatter, STOOL, tally } from './saloon.ts'
+import { bountyRise, bubbleX, COPIED_MS, copyKeys, drawSaloon, SALOON_CAMERA, seatSlots, seatSpot, seatTag, startBartender, startChatter, stepBartender, stepChatter, STOOL } from './saloon.ts'
 import { cut, replayWindow } from './replay.ts'
 import { irisOpen, walkerAt, walkoffAt, walkoffCamera } from './ceremony.ts'
 import { filming, motionMs, SCENE_MS, sceneCamera, SLOW } from './downscene.ts'
@@ -880,9 +880,7 @@ function showSeats(players: readonly PlayerState[]) {
     const v = seatViews[i]
     v.li.hidden = s === null
     v.nick.textContent = s?.nickname ?? ''
-    v.wins.textContent = tally(s?.wins ?? 0)
-    v.wins.setAttribute('aria-label', copy.saloon.wins(s?.wins ?? 0))
-    v.wins.hidden = !s?.wins
+    v.wins.textContent = copy.saloon.wins(s?.wins ?? 0)
     v.star.hidden = !s?.mine
     v.stamp.hidden = !s?.ready
   })
