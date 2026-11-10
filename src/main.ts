@@ -518,11 +518,15 @@ canvas.addEventListener('mousedown', (e) => {
   shots.set(myId!, { at: e.timeStamp, angle: aim.angle, pitch: aim.pitch })
 })
 
+// t(내 시계)에 D로 총을 뽑을 수 있는지. "시작!" 전, 쓰러진 뒤, 판 결과가 정해진 뒤, 이미 뽑았으면 아님.
+// 뽑기 키와 뽑으라는 안내(SHEEP-138)가 같이 씀
+const canDraw = (t: number) =>
+  grid !== null && clock !== null && result === null && drawnAt === null && myId !== null && !downs.has(myId) && dueling(schedule, toServerTime(t, clock.offset))
+
 // D 키로 총을 뽑음 (사용자 결정 2026-11-09, SHEEP-123). 한글 입력 중에도 되게 글자가 아니라 키 자리(code)로 받음.
-// "시작!" 전, 쓰러진 뒤, 판 결과가 정해진 뒤, 이미 뽑았으면 무시함. 포인터 잠금은 보지 않아 잠그기 전에도 뽑음
+// 포인터 잠금은 보지 않아 잠그기 전에도 뽑음
 document.addEventListener('keydown', (e) => {
-  if (e.code !== 'KeyD' || e.repeat || !grid || !clock || result || drawnAt !== null || myId === null || downs.has(myId)) return
-  if (!dueling(schedule, toServerTime(e.timeStamp, clock.offset))) return
+  if (e.code !== 'KeyD' || e.repeat || !clock || !canDraw(e.timeStamp)) return
   drawnAt = e.timeStamp
   send(drawMessage(e.timeStamp, clock.offset))
   // 공이치기는 총을 다 들어 공이치기가 끝까지 젖혀지고 화면이 튀는 순간에 맞춤 (gun.ts lift, gunClips)
@@ -684,6 +688,8 @@ function frame(now: number) {
             ? banner(schedule, toServerTime(now, clock.offset))
             : ''
   if (bannerText.value !== text) bannerText.value = text
+  // 뽑을 수 있는 동안 "시작!" 아래에 D 키 안내를 띄움. 뽑으면 바로 사라짐 (SHEEP-138)
+  drawHint.hidden = !canDraw(now)
   // 관전과 다시 보기에서는 그 사람 화면 그대로라 누구의 눈인지 적어 둠
   const who = (id: string) => roster.find((p) => p.id === id)?.nickname ?? ''
   const watchText = r ? copy.hud.replayWho(who(r.replay.viewer)) : watch ? copy.hud.watchingWho(who(watch.id)) : ''
@@ -855,6 +861,8 @@ const readyButton = document.querySelector<HTMLButtonElement>('#ready')!
 const readyCount = document.querySelector<HTMLOutputElement>('#ready-count')!
 const bannerText = document.querySelector<HTMLOutputElement>('#banner')!
 const tension = document.querySelector<HTMLDivElement>('#tension')!
+const drawHint = document.querySelector<HTMLParagraphElement>('#draw-hint')!
+const drawHintKey = drawHint.querySelector('kbd')!
 const timer = document.querySelector<HTMLOutputElement>('#timer')!
 const alive = document.querySelector<HTMLOutputElement>('#alive')!
 const watching = document.querySelector<HTMLOutputElement>('#watching')!
@@ -1523,6 +1531,9 @@ function applyCopy() {
   for (const el of document.querySelectorAll<HTMLElement>('[data-i18n]')) el.textContent = textAt(copy, el.dataset.i18n!) ?? ''
   for (const el of document.querySelectorAll<HTMLElement>('[data-i18n-label]')) el.setAttribute('aria-label', textAt(copy, el.dataset.i18nLabel!) ?? '')
   for (const el of document.querySelectorAll<HTMLInputElement>('[data-i18n-placeholder]')) el.placeholder = textAt(copy, el.dataset.i18nPlaceholder!) ?? ''
+  // 키 자리가 언어마다 달라 키 자리에 표시를 넣어 문장을 만든 뒤, 그 앞뒤 글 사이에 D 키 모양을 둠 (SHEEP-138)
+  const [beforeKey, afterKey] = copy.hud.drawHint('\0').split('\0')
+  drawHint.replaceChildren(beforeKey, drawHintKey, afterKey)
   for (const v of seatViews) {
     v.star.setAttribute('aria-label', copy.saloon.mySeat)
     v.stamp.textContent = copy.saloon.readyStamp
