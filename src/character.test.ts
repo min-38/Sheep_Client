@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { CELL, CHARACTERS, characterBody, corners, drawFigure, FALL_LAND_MS, inWorld, pinWound, toModel, woundBox, keyColor, PORTRAIT_SIZE, portraitPixels, savedCharacter, savedColor, SUICIDE_AIM, SUICIDE_FLASH, suicideStage, type Box, type Pose } from './character.ts'
+import { brimOf, CELL, CHARACTERS, characterBody, corners, drawFigure, FALL_LAND_MS, inWorld, pinWound, toModel, woundBox, keyColor, PORTRAIT_SIZE, portraitPixels, savedCharacter, savedColor, SUICIDE_AIM, SUICIDE_FLASH, suicideStage, type Box, type Pose } from './character.ts'
 import revolverData from './assets/revolver-rig.json'
 import { DRAW_MS, RELOAD_AT, RELOAD_END, RELOAD_MS, revolverMesh } from './gun.ts'
 import { makeCamera, type RGB } from './render.ts'
@@ -104,6 +104,25 @@ const RED = 0
 const SKY = 1
 const GREEN = 2
 const hexRgb = (hex: string) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16))
+
+describe('brimOf (SHEEP-159)', () => {
+  test('모자 상자 가운데 얼굴보다 가장 앞으로 나온 것의 색과 나온 길이(블록)', () => {
+    // 찰스(0번)의 챙은 얼굴(머리 앞면 1.75)보다 1.25블록 앞으로 나온 갈색
+    expect(brimOf(0)).toEqual({ color: '#8b5a2b', overhang: 1.25 })
+    // 벨(3번)의 챙은 0.35블록만 나옴
+    expect(brimOf(3)?.overhang).toBeCloseTo(0.35)
+  })
+
+  test('모자가 핵심 파츠면 사람 색, 사람 색을 모르면 모자 색', () => {
+    // 케이트(6번)의 모자는 핵심 파츠
+    expect(brimOf(6, 2)?.color).toBe(keyColor(6, 2))
+    expect(brimOf(6)?.color).toBe('#efe6d2')
+  })
+
+  test('캐릭터 8명 모두 모자 챙이 있음', () => {
+    for (let i = 0; i < CHARACTERS.length; i++) expect(brimOf(i)).not.toBeNull()
+  })
+})
 
 describe('keyColor', () => {
   test('핵심 파츠는 사람 색으로 칠하고, 하늘은 몸통일 때만 짙은 파랑 (SHEEP-118)', () => {
