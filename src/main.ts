@@ -1,7 +1,7 @@
 import './style.css'
 import revolverData from './assets/revolver-rig.json'
 import { orbit } from './backdrop.ts'
-import { CHARACTERS, characterBody, drawFigure, keyColor, portraitUrl, savedCharacter, savedColor, SUICIDE_AIM, SUICIDE_FLASH, suicideStage, type Body, type Pose } from './character.ts'
+import { CHARACTERS, characterBody, drawFigure, inWorld, keyColor, portraitUrl, savedCharacter, savedColor, SUICIDE_AIM, SUICIDE_FLASH, suicideStage, type Body, type Pose } from './character.ts'
 import { best, measure, toLocalTime, toServerTime, type ClockSample } from './clock.ts'
 import { CYLINDER_TURN, cylinderSvg } from './cylinder.ts'
 import { makeProps, SKIES, timeOfDay } from './desert.ts'
@@ -28,6 +28,7 @@ import { copyOf, HTML_LANG, LANGUAGES, setLanguage, t as copy, textAt, type Lang
 import { readSettings, radiansPerPixel, type Crosshair, type Hand, type Settings } from './settings.ts'
 import { oneTab } from './tablock.ts'
 import { nextTarget } from './spectate.ts'
+import { drawSmoke, smoke, SMOKE_MS, SMOKE_PX } from './smoke.ts'
 import { fallDelay, heardFrom, loadEffects, play, playFall, playSignal, playStep, setEffectsVolume, stampOf, toAudioTime } from './sound.ts'
 import type { Thing } from './sprite.ts'
 import { afterTurn, aimAt, crosshairOffset, scaleAt, steady, sway, type Unsteady } from './sway.ts'
@@ -269,7 +270,7 @@ function othersAt(t: number, viewer: string, scene: Scene): Thing[] {
   const walked = clock !== null && scene.schedule.walk !== undefined ? toServerTime(t, clock.offset) - scene.schedule.walk : 0
   return [...scene.history]
     .filter(([id]) => id !== viewer)
-    .map(([id, samples]) => {
+    .flatMap(([id, samples]): Thing[] => {
       const s = sampleAt(samples, t)
       const shot = scene.shots.get(id)
       const flashing = shot !== undefined && t >= shot.at && t < shot.at + FLASH_SHOWN
@@ -278,7 +279,13 @@ function othersAt(t: number, viewer: string, scene: Scene): Thing[] {
       // "시작!"부터 서 있는 사람은 총을 겨눈 모습. 머리와 팔은 그 사람의 위아래 시선대로
       const upright = duel ? body.aim(s.pitch) : s.pose === 'walk' ? body.walk(walked) : body.stand(t)
       // 불꽃 동안은 쏜 각도로 그림. 돌고 바로 쏘면 돌아간 각도는 다음 state로 늦게 옴
-      return { x: s.x, y: s.y, facing: flashing ? shot.angle : s.angle, ...(flashing ? body.fire(s.pitch) : poseAt(body, scene.downs.get(id), t, upright)) }
+      const figure = { x: s.x, y: s.y, facing: flashing ? shot.angle : s.angle, ...(flashing ? body.fire(s.pitch) : poseAt(body, scene.downs.get(id), t, upright)) }
+      if (shot === undefined || t < shot.at || t >= shot.at + SMOKE_MS) return [figure]
+      // 연기는 쏜 쪽으로 겨눈 총구에서 나와 공중에 남음. 그 뒤 돌거나 쓰러져도 따라가지 않음 (SHEEP-124).
+      // 반동으로 들린 총구(fire)가 아니라 겨눈 총구(aim)라야 0.1초 뒤 팔이 내려와도 연기가 총 위에 떠 보이지 않음
+      const [mx, my, mz] = inWorld(s.x, s.y, shot.angle, body.aim(s.pitch).muzzle!)
+      const right = [-Math.sin(shot.angle), Math.cos(shot.angle)]
+      return [figure, ...smoke(t - shot.at).map((p) => ({ x: mx + right[0] * p.drift, y: my + right[1] * p.drift, z: mz + p.rise, size: p.size, alpha: p.alpha }))]
     })
 }
 
@@ -524,6 +531,7 @@ function frame(now: number) {
     const kick = Math.max(hold.kick, 1 - (t - fired) / RECOIL_MS)
     const muzzle = drawGun(ctx, revolverMesh(revolver, plays, rounds ?? 0), { ...s, kick, lower: hold.lower }, W, H, PROJ, hand === 'left' ? -1 : 1)
     flash.style.transform = `translate(${(muzzle.x * 100) / W}cqw, ${(muzzle.y * 100) / W}cqw)`
+    drawSmoke(ctx, muzzle, t - fired, SMOKE_PX)
     // 마우스 이벤트가 아니라 여기서 보내야 마지막으로 멈춘 각도도 빠지지 않고 감
     if ((angle !== sentAngle || pitch !== sentPitch) && now - sentAt >= TURN_INTERVAL && ws?.readyState === WebSocket.OPEN) {
       send({ type: 'turn', angle, pitch })
