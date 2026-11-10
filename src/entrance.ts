@@ -59,32 +59,54 @@ function rect(ctx: CanvasRenderingContext2D, color: string, x: number, y: number
   ctx.fillRect(x, y, w, h)
 }
 
+// 문짝 (px, 문짝 면 위의 자리). u는 경첩에서 잰 가로 거리, 세로는 화면 y 그대로.
+// 술집 스윙 도어 모양(사용자가 준 참고 그림, 2026-11-11): 붉은 갈색 나무 틀 안에 비늘살을 끼우고, 위에 가운데 쪽으로 솟는 물결 머리판을 얹음
+const LEAF_W = DOOR.w / 2
+const STILE = 7
+const PANEL = { top: LEAF.top + 8, bottom: LEAF.bottom - 12 }
+const CREST = { low: 3, high: 16 }
+const WOOD = { frame: '#9a4a2c', seam: '#6e2f1c', recess: '#3f1b10', slat: '#b05e3a', hinge: '#2e2a30' }
+
+// 머리판 윗선의 y. 경첩 쪽은 낮고 가운데(문짝 끝) 쪽으로 S자를 그리며 솟음
+function crestTop(u: number) {
+  const p = u / LEAF_W
+  return LEAF.top - CREST.low - (CREST.high - CREST.low) * p * p * (3 - 2 * p)
+}
+
 // 스윙 도어 한 짝. hinge는 경첩(문틀 쪽) x, dir은 문짝이 뻗는 쪽(+1 오른쪽, -1 왼쪽). angle(도)만큼 경첩을 축으로 바깥(화면 안쪽)으로 돎.
-// 문짝 끝은 멀어진 만큼 눈이 보는 점 쪽으로 줄어 사다리꼴로 보임. 90도를 넘으면 끝이 벽 뒤로 가 문간 밖은 잘림(부르는 쪽이 자름)
+// 문짝 위의 점은 멀어진 만큼 눈이 보는 점 쪽으로 줄어 문짝이 사다리꼴로 보임. 90도를 넘으면 끝이 벽 뒤로 가 문간 밖은 잘림(부르는 쪽이 자름)
 function drawLeaf(ctx: CanvasRenderingContext2D, hinge: number, dir: number, angle: number) {
   const rad = (angle * Math.PI) / 180
-  const w = DOOR.w / 2
-  const shrink = EYE_DIST / (EYE_DIST + w * Math.sin(rad))
-  const endX = EYE.x + (hinge + dir * w * Math.cos(rad) - EYE.x) * shrink
-  const endY = (y: number) => EYE.y + (y - EYE.y) * shrink
-  const h = LEAF.bottom - LEAF.top
-  // 문짝 높이의 from~to(px) 띠를 사다리꼴로 칠함
-  const band = (color: string, from: number, to: number) => {
+  // 문짝 위의 점 (u, y)가 화면에 보이는 자리
+  const at = (u: number, y: number): [number, number] => {
+    const shrink = EYE_DIST / (EYE_DIST + u * Math.sin(rad))
+    return [EYE.x + (hinge + dir * u * Math.cos(rad) - EYE.x) * shrink, EYE.y + (y - EYE.y) * shrink]
+  }
+  const poly = (color: string, points: [number, number][]) => {
     ctx.fillStyle = color
     ctx.beginPath()
-    ctx.moveTo(hinge, LEAF.top + from)
-    ctx.lineTo(endX, endY(LEAF.top + from))
-    ctx.lineTo(endX, endY(LEAF.top + to))
-    ctx.lineTo(hinge, LEAF.top + to)
+    for (const [u, y] of points) ctx.lineTo(...at(u, y))
     ctx.fill()
   }
-  band('#8a5a32', 0, h)
-  // 위아래 가로대와 사이 살
-  band('#4a2c16', 0, 6)
-  band('#4a2c16', h - 6, h)
-  for (let y = 12; y < h - 8; y += 8) band('#5a3418', y, y + 3)
+  const box = (color: string, u0: number, y0: number, u1: number, y1: number) =>
+    poly(color, [
+      [u0, y0],
+      [u1, y0],
+      [u1, y1],
+      [u0, y1],
+    ])
+  // 머리판까지 한 덩어리인 바깥 모양
+  const crest: [number, number][] = []
+  for (let u = 0; u <= LEAF_W; u += 5) crest.push([u, crestTop(u)])
+  const outline: [number, number][] = [...crest, [LEAF_W, LEAF.bottom], [0, LEAF.bottom]]
+  poly(WOOD.frame, outline)
+  // 머리판과 틀이 맞닿은 이음매
+  box(WOOD.seam, 0, LEAF.top - 1, LEAF_W, LEAF.top)
+  // 틀 안쪽 우묵한 칸과 비늘살. 살마다 위쪽이 빛을 받아 밝고 살 사이는 어두움
+  box(WOOD.recess, STILE, PANEL.top, LEAF_W - STILE, PANEL.bottom)
+  for (let y = PANEL.top + 1; y + 4 <= PANEL.bottom; y += 7) box(WOOD.slat, STILE + 1, y, LEAF_W - STILE - 1, y + 4)
   // 젖혀질수록 빛을 비껴 받아 어두워짐
-  band(`rgba(0, 0, 0, ${0.3 * Math.sin(rad)})`, 0, h)
+  poly(`rgba(0, 0, 0, ${0.3 * Math.sin(rad)})`, outline)
 }
 
 // 술집 문 쪽 벽. 벽 판자, 문틀, 바깥 빛, 스윙 도어. angle은 문짝 각도(도, 0은 닫힘)
@@ -123,6 +145,8 @@ export function drawDoorWall(ctx: CanvasRenderingContext2D, angle: number) {
   drawLeaf(ctx, DOOR.x, 1, angle)
   drawLeaf(ctx, DOOR.x + DOOR.w, -1, angle)
   ctx.restore()
+  // 문짝마다 문틀에 박은 쇠 경첩 둘
+  for (const x of [DOOR.x, DOOR.x + DOOR.w]) for (const y of [PANEL.top, PANEL.bottom - 8]) rect(ctx, WOOD.hinge, x - 2, y, 4, 8)
 }
 
 // 나서는 장면 한 프레임. drawBar는 바를 보는 술집 그림(손님 포함)을 그림.
