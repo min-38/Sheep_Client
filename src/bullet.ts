@@ -14,8 +14,9 @@ const TRAIL = 10
 // ms. 쏜 뒤 총알이 가장 멀리 날아가 잔상까지 사라지는 시간. 이 뒤로는 그릴 것이 없음
 export const FLIGHT_MS = (MAX_RANGE + TRAIL * TRAIL_GAP) / BULLET_SPEED
 
-// 칸. 쏜 사람 눈높이. 서버 HitScan.EyeHeight와 같아야 함
-export const EYE_HEIGHT = 0.5
+// 칸. 쏜 사람 눈높이. 캐릭터 눈 자리라 머리 높이임 (SHEEP-158). 서버 HitScan.EyeHeight와 같아야 함.
+// 결투장 1인칭 카메라도 이 높이에서 봄
+export const EYE_HEIGHT = 0.84
 
 // 격자 좌표와 높이(칸)
 export type Point = { x: number; y: number; z: number }

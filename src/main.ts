@@ -606,7 +606,7 @@ function frame(now: number) {
     // 나서는 장면 끝에는 하얀 화면 뒤로 내 눈에 보이는 결투장을 그림. 아직 카운트다운 전이라 모두 시작 자리에 서 있음 (SHEEP-145)
     const drawArena = () => {
       if (!grid || !view) return
-      renderFrame(pixels, W, H, grid, makeCamera(view.x, view.y, view.angle, FOV, view.pitch), [...othersAt(now - INTERP_DELAY, view.id, scene), ...props], SKIES[timeOfDay(standing ?? history.size)])
+      renderFrame(pixels, W, H, grid, { ...makeCamera(view.x, view.y, view.angle, FOV, view.pitch), z: EYE_HEIGHT }, [...othersAt(now - INTERP_DELAY, view.id, scene), ...props], SKIES[timeOfDay(standing ?? history.size)])
       ctx.putImageData(image, 0, 0)
     }
     if (leaving) drawEntrance(ctx, leaving, drawBar, drawArena)
@@ -655,7 +655,9 @@ function frame(now: number) {
     const things = [...othersAt(r ? t : now - INTERP_DELAY, view.id, scene), ...bulletsAt(r ? t : now - INTERP_DELAY, view.id, scene, grid), ...bloodAt(r ? t : now - INTERP_DELAY, scene), ...props]
     // 이번 라운드를 걷는 내 눈은 걸음마다 무겁게 내려앉고 디딘 발 쪽으로 살짝 기욺. 발소리처럼 INTERP_DELAY 전 걸음에 맞춤 (SHEEP-141)
     const bump = tense && clock && schedule.walk !== undefined ? stepDip(schedule.walk, toServerTime(now - INTERP_DELAY, clock.offset)) : { dip: 0, tilt: 0 }
-    renderFrame(pixels, W, H, grid, makeCamera(view.x, view.y, view.angle + bump.tilt * STEP_SWAY, FOV, view.pitch - bump.dip * STEP_DIP), things, SKIES[timeOfDay(standing ?? history.size)])
+    // 눈은 캐릭터 눈 자리 높이라 마주 선 사람과 눈높이가 같음 (SHEEP-158)
+    const eye = { ...makeCamera(view.x, view.y, view.angle + bump.tilt * STEP_SWAY, FOV, view.pitch - bump.dip * STEP_DIP), z: EYE_HEIGHT }
+    renderFrame(pixels, W, H, grid, eye, things, SKIES[timeOfDay(standing ?? history.size)])
     ctx.putImageData(image, 0, 0)
     playSteps(now)
     // 총은 시점에 붙어 있어 위아래 시선과 상관없이 같은 자리에 있고, 조준점과 같은 흔들림으로 돎.

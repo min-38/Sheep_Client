@@ -66,8 +66,8 @@ export function drawSprites(pixels: Uint32Array, w: number, h: number, zbuf: Flo
     const tex = t.frames[frameIndex(cam.x, cam.y, t.x, t.y, t.facing)]
     const height = (proj * tex.h) / PX_PER_CELL / depth
     const width = (proj * tex.w) / PX_PER_CELL / depth
-    // 발은 벽 아래 끝과 같은 높이 (눈높이는 벽의 절반). 위아래를 보면 지평선을 따라 밀림
-    const bottom = horizonY(h, proj, cam.pitch) + (proj * 0.5) / depth
+    // 발은 바닥(높이 0)이라 지평선에서 눈높이만큼 아래. 위아래를 보면 지평선을 따라 밀림
+    const bottom = horizonY(h, proj, cam.pitch) + (proj * (cam.z ?? 0.5)) / depth
     const top = bottom - height
     const left = (w / 2) * (1 + side / depth) - width / 2
     // 픽셀 중심이 그림 안에 드는 픽셀만 칠함
