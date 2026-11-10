@@ -12,17 +12,11 @@ describe('banner', () => {
     expect(banner({ countdown: 10000 }, 9999)).toBe('')
   })
 
-  test('카운트다운부터 걷기 시각까지 남은 초를 1초마다 띄움. 카운트다운 4초면 4, 3, 2, 1 (SHEEP-121)', () => {
+  test('카운트다운(장전) 동안에는 숫자를 띄우지 않음 (사용자 결정 2026-11-10, SHEEP-146)', () => {
     const s = { countdown: 10000, walk: 14000 }
-    expect(banner(s, 10000)).toBe('4')
-    expect(banner(s, 10999)).toBe('4')
-    expect(banner(s, 11000)).toBe('3')
-    expect(banner(s, 13000)).toBe('1')
-    expect(banner(s, 13999)).toBe('1')
-    expect(banner(full, 10000)).toBe('3')
-  })
-
-  test('걷기 시각을 받기 전에는 띄우지 않음', () => {
+    expect(banner(s, 10000)).toBe('')
+    expect(banner(s, 11000)).toBe('')
+    expect(banner(s, 13999)).toBe('')
     expect(banner({ countdown: 10000 }, 10500)).toBe('')
   })
 

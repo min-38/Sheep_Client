@@ -7,12 +7,9 @@ export type Schedule = Partial<Record<Phase, number>>
 // ms. "시작!"을 띄워 두는 시간. ponytail: 임시 값. 시스템 기획서 HUD에서 정하면 그 값으로 바꿈
 export const GO_SHOWN = 1000
 
-// now(서버 시계)에 화면에 띄울 글자. 없으면 ''. 카운트다운은 걷기 시각까지 남은 초를 1초마다 셈. 카운트다운 4초면 4, 3, 2, 1 (기술 설계서 메시지 phase, SHEEP-121)
+// now(서버 시계)에 화면에 띄울 글자. 없으면 ''. "시작!"만 띄움. 카운트다운(장전) 동안 남은 초를 세던 숫자는 뺌 (사용자 결정 2026-11-10, SHEEP-146)
 export function banner(s: Schedule, now: number): string {
-  if (s.duel !== undefined && now >= s.duel) return now < s.duel + GO_SHOWN ? t.hud.go : ''
-  // 걷기 시각은 카운트다운이 시작할 때 오므로 그 전에는 셀 수 없음
-  if (s.countdown === undefined || s.walk === undefined || now < s.countdown || now >= s.walk) return ''
-  return String(Math.ceil((s.walk - now) / 1000))
+  return s.duel !== undefined && now >= s.duel && now < s.duel + GO_SHOWN ? t.hud.go : ''
 }
 
 // ms. 결투 시각("시작!")부터 쏠 수 있는 시간. 서버 RoundFlow.DuelLimit과 같은 값이어야 남은 시간이 0일 때 서버가 시간 초과를 정함.
