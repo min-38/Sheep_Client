@@ -15,11 +15,11 @@ import { dressPaper, PAPER_GRAIN, PAPER_INK } from './paper.ts'
 import { BANDANA, joinable, memberText, roomStatus, type RoomInfo } from './roomlist.ts'
 import { normalizeRoomName, randomRoomName } from './roomname.ts'
 import { castRay, type Grid } from './raycast.ts'
-import { MUSIC_FADE, playMusic, setMusicVolume, trackAt } from './music.ts'
+import { playMusic, setMusicVolume, trackAt } from './music.ts'
 import { makeCamera, renderFrame } from './render.ts'
 import { loaded, pull, ROUNDS } from './revolver.ts'
 import type { Rig } from './rig.ts'
-import { banner, DUEL_LIMIT, dueling, formatTime, joins, locked, resultText, standingCount, stepIndex, timeLeft, TURN_MS, walking, type Schedule } from './round.ts'
+import { banner, DUEL_LIMIT, dueling, formatTime, joins, locked, resultText, standingCount, stepIndex, STEPS_FROM, timeLeft, TURN_MS, walking, type Schedule } from './round.ts'
 import { bountyRise, bubbleX, COPIED_MS, copyKeys, drawSaloon, SALOON_CAMERA, seatSlots, seatSpot, seatTag, startBartender, startChatter, stepBartender, stepChatter, STOOL, tally } from './saloon.ts'
 import { cut, replayWindow } from './replay.ts'
 import { filming, motionMs, SCENE_MS, sceneCamera, SLOW } from './downscene.ts'
@@ -31,7 +31,8 @@ import { nextTarget } from './spectate.ts'
 import { drawSmoke, smoke, SMOKE_MS, SMOKE_PX } from './smoke.ts'
 import { along, bulletDots, bulletRange, EYE_HEIGHT, FLIGHT_MS } from './bullet.ts'
 import { burst, BURST_MS, pool } from './blood.ts'
-import { fallDelay, heardFrom, loadEffects, play, playFall, playSignal, playStep, setEffectsVolume, stampOf, toAudioTime } from './sound.ts'
+import { fallDelay, heardFrom, loadEffects, play, playFall, playHeartbeat, playSignal, playStep, setEffectsVolume, stampOf, toAudioTime } from './sound.ts'
+import { darkness, heartbeats, stepDip } from './tension.ts'
 import type { Thing } from './sprite.ts'
 import { afterTurn, aimAt, crosshairOffset, scaleAt, steady, sway, type Unsteady } from './sway.ts'
 import { tilt, turn } from './turn.ts'
@@ -40,6 +41,9 @@ import { tilt, turn } from './turn.ts'
 const W = 480
 const H = 270
 const FOV = 66
+// 라디안. 걷는 동안 걸음을 디딜 때 시선이 내려앉는 깊이와 좌우로 기우는 폭 (사용자 결정 2026-11-10, SHEEP-141). ponytail: 임시 값. 플레이해 보며 정함
+const STEP_DIP = 0.035
+const STEP_SWAY = 0.012
 // 투영면까지의 거리(px). renderFrame과 같은 값이라야 조준점이 총알이 갈 곳에 놓임
 const PROJ = W / (2 * Math.tan((FOV * Math.PI) / 360))
 // ms. 시스템 기획서 리볼버 발사 간격. 서버와 같은 값이어야 내가 센 탄 수가 서버와 어긋나지 않음
@@ -282,9 +286,10 @@ function playFallOf(id: string, reason: 'shot' | 'timeout') {
 // viewer는 눈이 되는 사람이라 그리지 않음. 관전이나 다시 보기면 쓰러진 나도 보임
 function othersAt(t: number, viewer: string, scene: Scene): Thing[] {
   const duel = clock !== null && dueling(scene.schedule, toServerTime(t, clock.offset))
-  // 걷기 시각부터 지난 시간(ms). 먼저 TURN_MS 동안 제자리에서 뒤돌며 발을 떼고(SHEEP-120), 그다음 걷는 동작이 발소리를 내는 걸음마다 한쪽 다리를 가장 앞에 둠
+  // 걷기 시각부터 지난 시간(ms). 먼저 TURN_MS 동안 제자리에서 뒤돌며 발을 떼고(SHEEP-120), 뜸을 들이는 동안은 서버가 Stand로 세움(SHEEP-141).
+  // 그다음 걷는 동작이 발소리를 내는 걸음마다 한쪽 다리를 가장 앞에 둠
   const walked = clock !== null && scene.schedule.walk !== undefined ? toServerTime(t, clock.offset) - scene.schedule.walk : 0
-  const stepping = (body: Body) => (walked < TURN_MS ? body.turn(walked) : body.walk(walked - TURN_MS))
+  const stepping = (body: Body) => (walked < TURN_MS ? body.turn(walked) : body.walk(Math.max(0, walked - STEPS_FROM)))
   // 카운트다운부터 지난 시간(ms). 서 있는 사람은 그동안 총을 꺼내 장전하고 권총집에 다시 넣음 (SHEEP-121). 카운트다운 밖이면 null
   const counted = clock !== null && scene.schedule.countdown !== undefined ? toServerTime(t, clock.offset) - scene.schedule.countdown : null
   const reloadingFor = counted !== null && counted >= 0 && !(scene.schedule.walk !== undefined && walked >= 0) ? counted : null
@@ -576,6 +581,8 @@ function frame(now: number) {
   const mine = !r && !watch && myId !== null ? downs.get(myId) : undefined
   const sceneT = mine ? now - INTERP_DELAY - mine.at : -1
   const inScene = mine !== undefined && sceneT >= 0 && sceneT < SCENE_MS
+  // 내가 이번 라운드를 걷고 있어 긴장 연출을 보는지 (SHEEP-141). 다시 보기, 관전, 앞 라운드에 쓰러져 끼지 못한 때는 아님
+  const tense = !r && !watch && reloading && myId !== null && !downs.has(myId)
   if (!saloon.hidden) {
     // 판 사이에는 결투장 대신 술집 한 장면을 그림 (시스템 기획서 방 화면 M8 대기실 짜임)
     bartender = stepBartender(bartender, now, dt, Math.random)
@@ -609,7 +616,9 @@ function frame(now: number) {
   } else if (grid && view) {
     // 내 자리도 다른 사람처럼 INTERP_DELAY 전을 그림. 받은 그대로 그리면 걷는 동안 20Hz로 끊겨 보임
     const things = [...othersAt(r ? t : now - INTERP_DELAY, view.id, scene), ...bulletsAt(r ? t : now - INTERP_DELAY, view.id, scene, grid), ...bloodAt(r ? t : now - INTERP_DELAY, scene), ...props]
-    renderFrame(pixels, W, H, grid, makeCamera(view.x, view.y, view.angle, FOV, view.pitch), things, SKIES[timeOfDay(standing ?? history.size)])
+    // 이번 라운드를 걷는 내 눈은 걸음마다 무겁게 내려앉고 디딘 발 쪽으로 살짝 기욺. 발소리처럼 INTERP_DELAY 전 걸음에 맞춤 (SHEEP-141)
+    const bump = tense && clock && schedule.walk !== undefined ? stepDip(schedule.walk, toServerTime(now - INTERP_DELAY, clock.offset)) : { dip: 0, tilt: 0 }
+    renderFrame(pixels, W, H, grid, makeCamera(view.x, view.y, view.angle + bump.tilt * STEP_SWAY, FOV, view.pitch - bump.dip * STEP_DIP), things, SKIES[timeOfDay(standing ?? history.size)])
     ctx.putImageData(image, 0, 0)
     playSteps(now)
     // 총은 시점에 붙어 있어 위아래 시선과 상관없이 같은 자리에 있고, 조준점과 같은 흔들림으로 돎.
@@ -698,9 +707,16 @@ function frame(now: number) {
   alive.hidden = left === null
   const aliveText = left === null ? '' : copy.hud.aliveCount(standingCount(scene.history.keys(), scene.downs, r ? t : now - INTERP_DELAY))
   if (alive.value !== aliveText) alive.value = aliveText
-  // 화면과 판 시각으로 배경음악을 고름. "시작!"에 다 줄어들게 MUSIC_FADE만큼 앞당겨 봄 (시스템 기획서 사운드 배경음악)
+  // 화면 가장자리 어둠. 다 돈 때부터 박동마다 뛰며 짙어지고 가운데로 좁혀 들어와 "시작!"에 걷힘 (SHEEP-141)
+  const dark = tense && clock ? darkness(schedule, toServerTime(now, clock.offset)) : 0
+  tension.hidden = dark === 0
+  if (dark > 0) {
+    tension.style.opacity = String(dark)
+    tension.style.scale = String(1.5 - 0.5 * dark)
+  }
+  // 화면과 판 시각으로 배경음악을 고름. 결투장 곡은 10걸음을 다 걸은 때부터 천천히 줄어듦 (시스템 기획서 사운드 배경음악, SHEEP-141)
   const screen = !lobby.hidden ? 'title' : !saloon.hidden ? 'saloon' : 'arena'
-  if (audio) playMusic(audio, trackAt(screen, schedule, clock ? toServerTime(now + MUSIC_FADE, clock.offset) : -Infinity))
+  if (audio) playMusic(audio, trackAt(screen, schedule, clock ? toServerTime(now, clock.offset) : -Infinity))
   requestAnimationFrame(frame)
 }
 requestAnimationFrame(frame)
@@ -844,6 +860,7 @@ function showSeats(players: readonly PlayerState[]) {
 const readyButton = document.querySelector<HTMLButtonElement>('#ready')!
 const readyCount = document.querySelector<HTMLOutputElement>('#ready-count')!
 const bannerText = document.querySelector<HTMLOutputElement>('#banner')!
+const tension = document.querySelector<HTMLDivElement>('#tension')!
 const drawHint = document.querySelector<HTMLParagraphElement>('#draw-hint')!
 const drawHintKey = drawHint.querySelector('kbd')!
 const timer = document.querySelector<HTMLOutputElement>('#timer')!
@@ -1295,6 +1312,11 @@ function receive(data: string) {
         }
         // 공이치기 소리는 "시작!"이 아니라 D 키로 뽑은 때에 냄 (SHEEP-123)
         if (m.phase === 'duel') playSignal(audio, when)
+        // 심장 소리는 이번 라운드를 걷는 나만 들음. 다 돈 때부터 마지막 걸음 전까지 점점 빨리 뜀 (SHEEP-141).
+        // ponytail: 걷는 중에 방을 나가도 예약한 박동은 마지막 걸음 시각까지 들림. 거슬리면 노드를 모아 두고 나갈 때 멈춤
+        if (m.phase === 'walk' && reloading && !downs.has(myId)) {
+          for (const beat of heartbeats(m.at)) playHeartbeat(audio, toAudioTime(toLocalTime(beat, clock.offset), stampOf(audio)))
+        }
       }
       break
     case 'shot':
