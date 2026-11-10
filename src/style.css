@@ -108,6 +108,7 @@ body {
 
 /* HUD는 클릭을 캔버스로 넘겨야 포인터 잠금과 쏘기가 됨 */
 #blood,
+#tension,
 #crosshair,
 #flash,
 #hit-card,
@@ -115,6 +116,7 @@ body {
 #timer,
 #alive,
 #banner,
+#draw-hint,
 #watching,
 #room {
   position: absolute;
@@ -218,6 +220,12 @@ body {
   inset: 0;
   pointer-events: none;
   background: radial-gradient(circle at 50% 58%, #0000 calc(var(--iris, 1) * 60cqw), #000 calc(var(--iris, 1) * 60cqw + 0.3cqw));
+}
+
+/* 걷는 동안 화면 가장자리 어둠 (SHEEP-141). 가운데는 비우고 가장자리로 갈수록 검게. 짙기(opacity)와 크기(scale)는 main.ts가 정함 */
+#tension {
+  inset: 0;
+  background: radial-gradient(ellipse at 50% 50%, #0000 35%, #000 100%);
 }
 
 /* 반샷 혈흔. 가운데는 투명하고 가장자리로 갈수록 진해짐. 핏방울 그림은 없음 (시스템 기획서 HUD) */
@@ -394,6 +402,42 @@ body {
   letter-spacing: 0;
   text-align: center;
   text-wrap: balance;
+}
+
+/* 총을 뽑으라는 안내 (SHEEP-138). "시작!" 바로 아래, 조준점 위 */
+#draw-hint {
+  left: 50%;
+  top: 36%;
+  translate: -50% 0;
+  display: flex;
+  align-items: center;
+  gap: 0.8cqw;
+  margin: 0;
+  color: #f2dfa7;
+  font: 2.4cqw / 1 var(--text);
+  text-shadow: 0 0 0.3cqw #000;
+  white-space: nowrap;
+}
+
+/* display: flex가 hidden을 덮어 다시 숨김 */
+#draw-hint[hidden] {
+  display: none;
+}
+
+/* 바랜 종이 같은 키 모양. 아래로 두께를 줘 누르는 키로 보임 */
+#draw-hint kbd {
+  display: grid;
+  place-items: center;
+  width: 3.6cqw;
+  aspect-ratio: 1;
+  border-radius: 0.5cqw;
+  background: linear-gradient(180deg, #f3e2b6, #d6b77a);
+  box-shadow:
+    0 0.4cqw 0 #7a5530,
+    0 0.6cqw 0.8cqw #0008;
+  color: #3d2412;
+  font: 2.2cqw / 1 var(--display);
+  text-shadow: none;
 }
 
 /* 관전 중인 사람. 총과 실린더 사이 아래 가운데 (시스템 기획서 HUD 관전) */
@@ -1387,7 +1431,7 @@ body {
 #wanted {
   display: grid;
   grid-template-columns: repeat(4, auto);
-  gap: calc(3 * 100cqw / 480) calc(4 * 100cqw / 480);
+  gap: calc(2 * 100cqw / 480) calc(4 * 100cqw / 480);
 }
 
 #wardrobe button {
@@ -1439,9 +1483,11 @@ body {
   text-overflow: ellipsis;
 }
 
+/* 위 여백은 고른 칸의 금색 테가 칸 밖으로 캔버스 1.5px 나와도 이름 글자를 덮지 않게 비운 자리 */
 #swatches {
   display: flex;
   gap: calc(2 * 100cqw / 480);
+  margin-top: calc(1.5 * 100cqw / 480);
 }
 
 #swatches button {
@@ -1452,7 +1498,7 @@ body {
 }
 
 #swatches button[aria-pressed='true'] {
-  outline: calc(1.5 * 100cqw / 480) solid #f7d27a;
+  outline: calc(1 * 100cqw / 480) solid #f7d27a;
   outline-offset: calc(0.5 * 100cqw / 480);
 }
 

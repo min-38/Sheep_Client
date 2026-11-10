@@ -91,19 +91,52 @@ export function play(audio: AudioContext, name: Effect, when: number, from?: { r
 }
 
 // 발소리 한 걸음을 when(AudioContext 시각, 초)에 냄. 방향과 거리는 총소리와 같음.
-// ponytail: 낮은 잡음으로 합성한 임시음(약 0.06초). CC0 효과음을 찾으면 소리 부분만 고침 (시스템 기획서 사운드)
+// 모래를 밟는 낮은 잡음에 부츠 굽이 땅을 찍는 낮은 쿵을 더해 무겁게 들림 (사용자 결정 2026-11-10, SHEEP-141).
+// ponytail: 합성한 임시음(약 0.12초). CC0 효과음을 찾으면 소리 부분만 고침 (시스템 기획서 사운드)
 export function playStep(audio: AudioContext, when: number, from?: { right: number; front: number }) {
-  const noise = new AudioBuffer({ length: Math.round(audio.sampleRate * 0.06), sampleRate: audio.sampleRate })
+  const noise = new AudioBuffer({ length: Math.round(audio.sampleRate * 0.12), sampleRate: audio.sampleRate })
   const data = noise.getChannelData(0)
   for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1
   const source = new AudioBufferSourceNode(audio, { buffer: noise })
   // 높은 소리를 걸러 모래를 밟는 둔한 소리로
-  const low = new BiquadFilterNode(audio, { type: 'lowpass', frequency: 500 })
+  const low = new BiquadFilterNode(audio, { type: 'lowpass', frequency: 350 })
   const volume = new GainNode(audio)
-  volume.gain.setValueAtTime(0.3, when)
-  volume.gain.exponentialRampToValueAtTime(0.001, when + 0.06)
-  place(audio, source.connect(low).connect(volume), from)
+  volume.gain.setValueAtTime(0.4, when)
+  volume.gain.exponentialRampToValueAtTime(0.001, when + 0.12)
+  const thump = new OscillatorNode(audio, { frequency: 110 })
+  thump.frequency.setValueAtTime(110, when)
+  thump.frequency.exponentialRampToValueAtTime(50, when + 0.1)
+  const thumpVolume = new GainNode(audio)
+  thumpVolume.gain.setValueAtTime(0.35, when)
+  thumpVolume.gain.exponentialRampToValueAtTime(0.001, when + 0.1)
+  const out = new GainNode(audio)
+  source.connect(low).connect(volume).connect(out)
+  thump.connect(thumpVolume).connect(out)
+  place(audio, out, from)
   source.start(when)
+  thump.start(when)
+  thump.stop(when + 0.1)
+}
+
+// 심장 박동 한 번(쿵-쿵)을 when(AudioContext 시각, 초)에 냄. 내 몸 소리라 가운데서 들림 (사용자 결정 2026-11-10, SHEEP-141).
+// 작은 스피커에서도 들리게 배음이 있는 삼각파를 낮게 떨어뜨림. ponytail: 합성한 임시음. 들어 보고 CC0 효과음으로 바꿀지 정함
+export function playHeartbeat(audio: AudioContext, when: number) {
+  for (const [at, gain] of [
+    [0, 0.5],
+    [0.15, 0.35],
+  ]) {
+    const start = when + at
+    const tone = new OscillatorNode(audio, { type: 'triangle', frequency: 80 })
+    tone.frequency.setValueAtTime(80, start)
+    tone.frequency.exponentialRampToValueAtTime(45, start + 0.12)
+    const volume = new GainNode(audio, { gain: 0 })
+    volume.gain.setValueAtTime(0.0001, start)
+    volume.gain.exponentialRampToValueAtTime(gain, start + 0.012)
+    volume.gain.exponentialRampToValueAtTime(0.001, start + 0.16)
+    tone.connect(volume).connect(effectsOut(audio))
+    tone.start(start)
+    tone.stop(start + 0.17)
+  }
 }
 
 // 탈락을 보여 주기 시작한 때부터 뒤로 넘어지는 동작이 바닥에 닿기까지(ms). 시간 초과는 자살 모습(총을 댐, 불꽃)이 끝난 뒤에 넘어짐
