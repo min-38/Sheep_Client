@@ -24,8 +24,9 @@ type V = readonly [number, number, number]
 type RGB = readonly [number, number, number]
 // 상자 하나. c는 가운데, axes는 세 변의 방향(단위 벡터), half는 그 방향의 반 길이
 export type Box = { c: V; axes: readonly [V, V, V]; half: V; rgb: RGB }
-// 동작 하나의 모습. gun은 리볼버 모델(revolver-rig.json) 꼭짓점을 모델 좌표로 옮긴 것이고, 면은 모델 그대로 (기술 설계서 렌더링 캐릭터)
-export type Pose = { boxes: Box[]; gun: readonly V[] }
+// 동작 하나의 모습. gun은 리볼버 모델(revolver-rig.json) 꼭짓점을 모델 좌표로 옮긴 것이고, 면은 모델 그대로 (기술 설계서 렌더링 캐릭터).
+// muzzle은 겨누거나 쏠 때의 총구 자리(모델 좌표). 연기가 여기서 나옴 (SHEEP-124)
+export type Pose = { boxes: Box[]; gun: readonly V[]; muzzle?: V }
 
 // 동작별 모습. rest는 틀 그대로 선 모습. stand, walk, fall은 사람 동작 데이터(motions.json)로 그 동작을 시작하고 지난 시간(ms)의 모습을
 // 그때그때 만듦(stand는 되풀이라 아무 시각이나 됨). aim과 fire는 위아래 시선(라디안, 위가 +)으로 만들고, suicide는 [총을 머리에 댐, 불꽃] 두 단계
@@ -321,7 +322,7 @@ function build(data: CharacterData, key: string | undefined, hand: Hand): Body {
   const aimed = (pitch: number, d: V, flash: boolean): Pose => {
     const p = posed(moves({ ...rest, look: pitch, [gunArm]: [d, d] }))
     const { gun, muzzle } = holdGun(p.fist, d, across(Y, d))
-    return { boxes: flash ? [...p.boxes, rod(muzzle, d, 0, 5, 4, FLASH)] : p.boxes, gun }
+    return { boxes: flash ? [...p.boxes, rod(muzzle, d, 0, 5, 4, FLASH)] : p.boxes, gun, muzzle }
   }
   // 오른손을 들어 총구를 관자놀이에 댐. 총열은 머리 쪽(-x), 팔꿈치는 옆으로 굽힘
   const temple = (flash: boolean): Pose => {
@@ -472,6 +473,13 @@ export const corners = (b: Box): V[] =>
 
 // 결투장에 선 사람 하나. facing은 바라보는 각도(라디안, 0 = +x)
 export type Figure = { x: number; y: number; facing: number } & Pose
+
+// x, y에 facing으로 선 사람의 모델 좌표 p(블록)가 놓이는 [격자 x, 격자 y, 높이(칸)]. drawFigure와 같은 식
+export function inWorld(x: number, y: number, facing: number, p: V): [number, number, number] {
+  const cos = Math.cos(facing)
+  const sin = Math.sin(facing)
+  return [x + (-sin * p[0] + cos * p[2]) * CELL, y + (cos * p[0] + sin * p[2]) * CELL, p[1] * CELL]
+}
 
 // 사람 하나를 그리는 동안 픽셀마다 가장 가까운 면까지의 깊이(칸). 상자와 총의 삼각형이 서로 가림. 화면 크기가 바뀌면 다시 만듦
 let depth = new Float64Array(0)
