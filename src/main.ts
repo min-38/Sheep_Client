@@ -14,7 +14,7 @@ import { normalizeNickname } from './nickname.ts'
 import { dressPaper, PAPER_GRAIN, PAPER_INK } from './paper.ts'
 import { BANDANA, joinable, memberText, roomStatus, type RoomInfo } from './roomlist.ts'
 import { normalizeRoomName, randomRoomName } from './roomname.ts'
-import type { Grid } from './raycast.ts'
+import { castRay, type Grid } from './raycast.ts'
 import { MUSIC_FADE, playMusic, setMusicVolume, trackAt } from './music.ts'
 import { makeCamera, renderFrame } from './render.ts'
 import { loaded, pull, ROUNDS } from './revolver.ts'
@@ -29,6 +29,7 @@ import { readSettings, radiansPerPixel, type Crosshair, type Hand, type Settings
 import { oneTab } from './tablock.ts'
 import { nextTarget } from './spectate.ts'
 import { drawSmoke, smoke, SMOKE_MS, SMOKE_PX } from './smoke.ts'
+import { along, bulletDots, bulletRange, EYE_HEIGHT, FLIGHT_MS } from './bullet.ts'
 import { fallDelay, heardFrom, loadEffects, play, playFall, playSignal, playStep, setEffectsVolume, stampOf, toAudioTime } from './sound.ts'
 import type { Thing } from './sprite.ts'
 import { afterTurn, aimAt, crosshairOffset, scaleAt, steady, sway, type Unsteady } from './sway.ts'
@@ -102,7 +103,7 @@ const revolver = revolverData as Rig
 let reloading = false
 // 다른 사람이 마지막으로 쏜 것과 쓰러진 것을 받은 시각(ms). state처럼 INTERP_DELAY 뒤에 보여 줘 돌기, 발사, 쓰러짐의 순서를 지킴.
 // ponytail: 사람마다 마지막 발사 하나만 둠. 발사 간격(250ms)이 불꽃(100ms)보다 길어 겹치지 않음. 지연이 크게 흔들려 둘이 붙어 오면 앞 불꽃이 빠짐
-const shots = new Map<string, { at: number; angle: number }>()
+const shots = new Map<string, Shot>()
 // 쓰러진 사람마다 탈락을 받은 시각(ms)과 사유. 시간 초과면 쓰러진 그림 전에 자살 모습을 보여 줌
 const downs = new Map<string, { at: number; reason: 'shot' | 'timeout' }>()
 const isDown = (id: string, t: number) => (downs.get(id)?.at ?? Infinity) <= t
@@ -115,9 +116,11 @@ type Watch = { id: string; wounded: boolean; rounds: number | null; lastShot: nu
 let watch: Watch | null = null
 // 그릴 장면. 지금 판이거나, 다시 보기로 떠 둔 기록
 type Down = { at: number; reason: 'shot' | 'timeout' }
+// 발사 하나. at은 받은 시각(ms, 내 시계, 내 발사는 쏜 시각), angle과 pitch는 쏜 각도와 위아래 각도
+type Shot = { at: number; angle: number; pitch: number }
 type Scene = {
   history: Map<string, Sample[]>
-  shots: Map<string, { at: number; angle: number }>
+  shots: Map<string, Shot>
   downs: Map<string, Down>
   schedule: Schedule
   characters: Map<string, Look>
@@ -234,9 +237,9 @@ function imitate(key: string, view: { angle: number; pitch: number }, t: number)
 
 // 다른 사람의 발사. 불꽃과 총소리 모두 state처럼 INTERP_DELAY 뒤에 내어 돌기, 발사, 쓰러짐의 순서를 지킴.
 // ponytail: 총소리 방향은 받은 순간의 내 시선으로 정함. 소리가 나기까지 0.1초와 나는 동안 돌면 그만큼 어긋남. 거슬리면 프레임마다 AudioListener를 내 시선으로 돌림
-function showShot(id: string, shotAngle: number) {
+function showShot(id: string, shotAngle: number, shotPitch: number) {
   const now = performance.now()
-  shots.set(id, { at: now, angle: shotAngle })
+  shots.set(id, { at: now, angle: shotAngle, pitch: shotPitch })
   // 관전 중인 사람이 쏘면 그 사람 화면의 불꽃, 반동, 실린더도 다른 사람의 불꽃처럼 INTERP_DELAY 뒤에 보임
   if (watch?.id === id) {
     watch.lastShot = now + INTERP_DELAY
@@ -287,6 +290,30 @@ function othersAt(t: number, viewer: string, scene: Scene): Thing[] {
       const right = [-Math.sin(shot.angle), Math.cos(shot.angle)]
       return [figure, ...smoke(t - shot.at).map((p) => ({ x: mx + right[0] * p.drift, y: my + right[1] * p.drift, z: mz + p.rise, size: p.size, alpha: p.alpha }))]
     })
+}
+
+// 총알 색과 크기(칸). 머리는 어두운 납, 잔상은 달군 빛. 실제보다 크게 둬 결투 거리에서도 1~2px로 보임. ponytail: 화면을 보며 맞출 값
+const BULLET_RGB: readonly [number, number, number] = [55, 50, 45]
+const TRAIL_RGB: readonly [number, number, number] = [250, 235, 190]
+
+// 날아가는 총알 (SHEEP-125). viewer를 포함해 쏜 사람마다 겨눈 총구에서, 서버 판정 광선이 벽·바닥·서 있던 사람에 닿는 곳까지 날아감.
+// 쏜 순간의 자리로 길을 정함. 눈이 되는 사람의 총알은 눈앞을 가리지 않게 총구에서 0.8칸 안의 점은 빼고 그림
+function bulletsAt(t: number, viewer: string, scene: Scene, map: Grid): Thing[] {
+  return [...scene.shots].flatMap(([id, shot]): Thing[] => {
+    const samples = scene.history.get(id)
+    const look = scene.characters.get(id)
+    if (t < shot.at || t > shot.at + FLIGHT_MS || !samples || !look) return []
+    const s = sampleAt(samples, shot.at)
+    const ray = { x: s.x, y: s.y, z: EYE_HEIGHT, angle: shot.angle, pitch: shot.pitch }
+    const people = [...scene.history]
+      .filter(([pid]) => pid !== id && (scene.downs.get(pid)?.at ?? Infinity) > shot.at)
+      .map(([, ps]) => sampleAt(ps, shot.at))
+    const wall = castRay(map, s.x, s.y, Math.cos(shot.angle), Math.sin(shot.angle))?.dist ?? Infinity
+    const [x, y, z] = inWorld(s.x, s.y, shot.angle, characterBody(look.character, look.color, look.hand).aim(shot.pitch).muzzle!)
+    return bulletDots({ x, y, z }, along(ray, bulletRange(ray, wall, people)), t - shot.at)
+      .filter((d) => id !== viewer || Math.hypot(d.x - x, d.y - y) > 0.8)
+      .map((d, k) => ({ ...d, size: k === 0 ? 0.045 : 0.035, rgb: k === 0 ? BULLET_RGB : TRAIL_RGB }))
+  })
 }
 
 // 탈락하면 뒤로 넘어짐. 시간 초과는 자살 모습(총을 댐, 불꽃)을 보인 뒤 넘어짐
@@ -433,6 +460,8 @@ canvas.addEventListener('mousedown', (e) => {
   // 총알은 시선이 아니라 흔들린 총이 가리키는 쪽으로 감. 조준점도 같은 식으로 그려 둘이 맞음
   const aim = aimAt(angle, pitch, e.timeStamp, scaleAt(unsteady, e.timeStamp))
   send(fireMessage(aim.angle, aim.pitch, e.timeStamp, clock.offset))
+  // 내 발사도 적어 둠. 내 총알과, 다시 보기에서 쓰러뜨린 사람 눈에 보이는 내 불꽃을 그림 (SHEEP-125)
+  shots.set(myId!, { at: e.timeStamp, angle: aim.angle, pitch: aim.pitch })
 })
 
 // 관전 중 왼쪽 클릭은 다음 서 있는 사람 (컨셉 기획서 규칙 탈락한 뒤). 쓰러져 있어 멈추기와 쏘기는 받지 않음
@@ -502,7 +531,7 @@ function frame(now: number) {
     const look = characters.get(myId!)!
     const body = characterBody(look.character, look.color, look.hand)
     const self = { x: me.x, y: me.y, facing: me.angle, ...poseAt(body, { at: 0, reason: mine.reason }, motionMs(sceneT), body.rest) }
-    const things = [self, ...othersAt(now - INTERP_DELAY, myId!, scene)]
+    const things = [self, ...othersAt(now - INTERP_DELAY, myId!, scene), ...bulletsAt(now - INTERP_DELAY, myId!, scene, grid)]
     renderFrame(pixels, W, H, grid, sceneCamera(me.x, me.y, me.angle, sceneT, FOV), things, SKIES[timeOfDay(standing ?? history.size)])
     ctx.putImageData(image, 0, 0)
     // 바닥에 닿을 때까지 옛 영화처럼 위아래에 검은 띠
@@ -514,7 +543,7 @@ function frame(now: number) {
     playSteps(now)
   } else if (grid && view) {
     // 내 자리도 다른 사람처럼 INTERP_DELAY 전을 그림. 받은 그대로 그리면 걷는 동안 20Hz로 끊겨 보임
-    const things = [...othersAt(r ? t : now - INTERP_DELAY, view.id, scene), ...props]
+    const things = [...othersAt(r ? t : now - INTERP_DELAY, view.id, scene), ...bulletsAt(r ? t : now - INTERP_DELAY, view.id, scene, grid), ...props]
     renderFrame(pixels, W, H, grid, makeCamera(view.x, view.y, view.angle, FOV, view.pitch), things, SKIES[timeOfDay(standing ?? history.size)])
     ctx.putImageData(image, 0, 0)
     playSteps(now)
@@ -1185,7 +1214,7 @@ function receive(data: string) {
       break
     case 'shot':
       // 내 불꽃과 총소리는 쏠 때 이미 냄
-      if (m.playerId !== myId) showShot(m.playerId, m.angle)
+      if (m.playerId !== myId) showShot(m.playerId, m.angle, m.pitch)
       break
     case 'eliminated':
       downs.set(m.playerId, { at: performance.now(), reason: m.reason })
