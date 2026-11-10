@@ -14,16 +14,16 @@ const border = (x: number, y: number) => x === 0 || y === 0 || x === 10 || y ===
 // 가운데 (5.5, 5.5)에서 +x로 4칸 앞에 둘레가 아닌 벽이 있는 방
 const room = grid((x, y) => border(x, y) || x === 9)
 
-function render(g: Grid, angle: number, pitch: number, sky = SKIES.noon) {
+function render(g: Grid, angle: number, pitch: number, sky = SKIES.noon, z?: number) {
   const pixels = new Uint32Array(W * H)
-  renderFrame(pixels, W, H, g, makeCamera(5.5, 5.5, angle, FOV, pitch), [], sky)
+  renderFrame(pixels, W, H, g, { ...makeCamera(5.5, 5.5, angle, FOV, pitch), z }, [], sky)
   return pixels
 }
 
-// 가운데 세로줄에서 벽이 칠해진 맨 위 줄과 맨 아래 줄
-function wallSpan(pitch: number) {
+// 가운데 세로줄에서 벽이 칠해진 맨 위 줄과 맨 아래 줄. z는 눈높이(칸)
+function wallSpan(pitch: number, z?: number) {
   const cam = makeCamera(5.5, 5.5, 0, FOV, pitch)
-  const pixels = render(room, 0, pitch)
+  const pixels = render(room, 0, pitch, SKIES.noon, z)
   const proj = W / (2 * Math.hypot(cam.planeX, cam.planeY))
   const x = W / 2
   // 지평선 줄은 늘 벽 안이라 그 색을 벽 색으로 씀
@@ -55,6 +55,14 @@ describe('renderFrame', () => {
     const shift = horizonY(H, level.proj, 0.2) - horizonY(H, level.proj, 0)
     expect(Math.abs(up.top - level.top - shift)).toBeLessThanOrEqual(1)
     expect(Math.abs(up.bottom - level.bottom - shift)).toBeLessThanOrEqual(1)
+  })
+
+  test('눈높이가 높으면 벽이 지평선 위로 1 - 눈높이, 아래로 눈높이만큼 보임', () => {
+    // 벽은 3.5칸 앞(x 9칸의 앞면)이고 높이 1칸
+    const { top, bottom, proj } = wallSpan(0, 0.84)
+    const horizon = horizonY(H, proj, 0)
+    expect(Math.abs(horizon - top - (proj * 0.16) / 3.5)).toBeLessThanOrEqual(1)
+    expect(Math.abs(bottom - horizon - (proj * 0.84) / 3.5)).toBeLessThanOrEqual(1)
   })
 
   test('둘레 벽은 그리지 않아 둘레가 열린 맵과 같은 그림', () => {
