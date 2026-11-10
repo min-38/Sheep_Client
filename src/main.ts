@@ -692,7 +692,8 @@ function frame(now: number) {
   if (walkoff !== null && result?.end !== undefined && clock) iris.style.setProperty('--iris', String(irisOpen(result.end, toServerTime(now, clock.offset))))
   killCard.hidden = !inScene
   bloodView.hidden = r !== null || !(watch ? watch.wounded : blood.shown)
-  replayButton.hidden = replay === null
+  // 다시 보기 버튼은 잠시 숨김 (사용자 결정 2026-11-10, SHEEP-143). 다시 보기 코드는 그대로 두어, 다시 켤 때는 `replay === null`일 때만 숨기게 되돌림
+  replayButton.hidden = true
   // "쓰러짐"이 뜰 때부터 판 도중에만 보임. 재대결로 다시 서거나 판이 끝나 술집으로 돌아가면 숨음
   leaveDown.hidden = !(myId !== null && saloon.hidden && lobby.hidden && isDown(myId, now - INTERP_DELAY))
   // 내부 px를 cqw로 바꿈. 화면 폭 100cqw가 내부 폭 W px임
