@@ -389,9 +389,18 @@ function poseAt(body: Body, down: Down | undefined, t: number, upright: Pose) {
 }
 
 // 포인터 잠금 중에만 돌림. 잠금 전에는 커서가 화면 밖으로 나가 이동량이 끊김.
-// 쓰러진 뒤에는 잠그지 않음. 돌지도 쏘지도 않고, 커서가 보여야 다시 보기 버튼을 누름
-canvas.addEventListener('click', () => {
-  if (myId === null || !downs.has(myId)) canvas.requestPointerLock()
+// 쓰러진 뒤에는 잠그지 않음. 돌지도 쏘지도 않고, 커서가 보여야 다시 보기 버튼을 누름.
+// 브라우저는 사용자 입력 없이 부른 잠금을 거절할 수 있어 실패는 넘기고, 판 도중이면 화면을 누르라는 안내가 뜸 (SHEEP-152)
+function lockPointer() {
+  if (document.pointerLockElement === canvas || (myId !== null && downs.has(myId))) return
+  Promise.resolve(canvas.requestPointerLock()).catch(() => {})
+}
+canvas.addEventListener('click', lockPointer)
+// 판 도중(술집 밖에서 서 있는 동안)인데 잠기지 않았으면 다시 잠가야 돎
+const wantsLock = () => saloon.hidden && grid !== null && myId !== null && !downs.has(myId) && document.pointerLockElement !== canvas
+// 판 도중에 누른 키(D로 뽑기 등)도 사용자 입력이라 그 김에 잠금을 다시 걺. Esc는 잠금을 푸는 키라 뺌
+document.addEventListener('keydown', (e) => {
+  if (e.code !== 'Escape' && wantsLock()) lockPointer()
 })
 // 팔 흔들림 배율. 돈 만큼 커지고 가만히 있으면 잦아듦. 빨리 돌아 바로 쏘면 부정확함 (시스템 기획서 리볼버 흔들림 배율)
 let unsteady = steady
@@ -740,6 +749,8 @@ function frame(now: number) {
   if (bannerText.value !== text) bannerText.value = text
   // 뽑을 수 있는 동안 "시작!" 아래에 D 키 안내를 띄움. 뽑으면 바로 사라짐 (SHEEP-138)
   drawHint.hidden = !canDraw(now)
+  // 판 도중인데 포인터가 잠기지 않았으면 화면을 누르라고 알림 (SHEEP-152)
+  lockHint.hidden = !wantsLock()
   // 관전과 다시 보기에서는 그 사람 화면 그대로라 누구의 눈인지 적어 둠
   const who = (id: string) => roster.find((p) => p.id === id)?.nickname ?? ''
   const watchText = r ? copy.hud.replayWho(who(r.replay.viewer)) : watch ? copy.hud.watchingWho(who(watch.id)) : ''
@@ -918,6 +929,7 @@ const bannerText = document.querySelector<HTMLOutputElement>('#banner')!
 let leaveSaloonAt: number | null = null
 const tension = document.querySelector<HTMLDivElement>('#tension')!
 const drawHint = document.querySelector<HTMLParagraphElement>('#draw-hint')!
+const lockHint = document.querySelector<HTMLParagraphElement>('#lock-hint')!
 const drawHintKey = drawHint.querySelector('kbd')!
 const timer = document.querySelector<HTMLOutputElement>('#timer')!
 const alive = document.querySelector<HTMLOutputElement>('#alive')!
@@ -1333,6 +1345,9 @@ function receive(data: string) {
         standing = result?.outcome === 'rematch' ? result.playerIds.length : history.size
         reloading = myId !== null && joins(result, myId)
         drawnAt = null
+        // 판이 시작되면 화면을 누르지 않아도 돌 수 있게 바로 잠금 (SHEEP-152). 마지막에 준비를 누른 사람은 그 입력으로,
+        // 판이 끝날 때 코드로 푼 사람은 입력 없이도 잠기는 브라우저가 많음. 안 되면 안내를 보고 화면을 누름
+        if (reloading) lockPointer()
       }
       if (m.phase === 'walk') {
         // 걷기 시각은 다음 라운드 카운트다운이 시작한 뒤에 와 결과 시간은 이미 끝났음. 창이 숨어 그리기가 멈췄으면 결과를 여기서 먼저 끝내야

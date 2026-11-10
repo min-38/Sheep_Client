@@ -122,6 +122,7 @@ body {
 #alive,
 #banner,
 #draw-hint,
+#lock-hint,
 #watching,
 #room {
   position: absolute;
@@ -443,8 +444,9 @@ body {
   text-wrap: balance;
 }
 
-/* 총을 뽑으라는 안내 (SHEEP-138). "시작!" 바로 아래, 조준점 위 */
-#draw-hint {
+/* 총을 뽑으라는 안내 (SHEEP-138). "시작!" 바로 아래, 조준점 위. 화면을 누르라는 안내(SHEEP-152)는 같은 모양으로 조준점 아래 */
+#draw-hint,
+#lock-hint {
   left: 50%;
   top: 36%;
   translate: -50% 0;
@@ -458,8 +460,13 @@ body {
   white-space: nowrap;
 }
 
+#lock-hint {
+  top: 60%;
+}
+
 /* display: flex가 hidden을 덮어 다시 숨김 */
-#draw-hint[hidden] {
+#draw-hint[hidden],
+#lock-hint[hidden] {
   display: none;
 }
 

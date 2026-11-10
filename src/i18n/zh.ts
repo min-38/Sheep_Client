@@ -22,6 +22,7 @@ export const zh: Copy = {
     down: '啃了一嘴土',
     go: '拔枪！',
     drawHint: (key) => `按 ${key} 拔枪`,
+    lockHint: '点一下画面，端稳家伙，伙计',
     win: '站到最后的是你！',
     lastStanding: '站到了最后',
     lose: '今儿不走运啊，伙计',
