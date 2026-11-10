@@ -121,6 +121,92 @@ body {
   pointer-events: none;
 }
 
+/* 쓰러지는 장면 (시스템 기획서 HUD 쓰러짐, SHEEP-119). 바닥에 닿을 때까지 바랜 색으로 옛 영화처럼 보임. 위아래 검은 띠는 main.ts가 캔버스에 그림 */
+#game.filming #screen {
+  filter: sepia(0.7) contrast(1.08) brightness(0.95);
+}
+
+/* 자막 카드. 술집 주인 말풍선과 같은 검은 판에 흰 이중 테. 왼쪽 초상화, 가운데 쓰러뜨린 사람, 오른쪽 맞은 자리, 아래 한 줄 */
+#kill-card {
+  position: absolute;
+  left: 50%;
+  bottom: 4cqw;
+  translate: -50% 0;
+  margin: 0;
+  display: grid;
+  grid-template-columns: auto auto auto;
+  grid-template-areas: 'face who fig' 'line line line';
+  align-items: center;
+  gap: 0.6cqw 1.6cqw;
+  padding: 1.2cqw 2cqw 1cqw;
+  background: #111;
+  color: #f4efe2;
+  border: 0.2cqw solid #f4efe2;
+  outline: 0.35cqw solid #111;
+  box-shadow: inset 0 0 0 0.35cqw #111, inset 0 0 0 0.5cqw #f4efe2aa;
+  pointer-events: none;
+}
+
+/* display: grid가 hidden을 덮어 다시 숨김 */
+#kill-card[hidden] {
+  display: none;
+}
+
+#kill-face {
+  grid-area: face;
+  width: 7cqw;
+  aspect-ratio: 1;
+  image-rendering: pixelated;
+  filter: sepia(0.6);
+  border: 0.25cqw solid #f4efe2;
+}
+
+#kill-card .who {
+  grid-area: who;
+  display: grid;
+  gap: 0.3cqw;
+}
+
+#kill-kicker {
+  font: italic 1.5cqw / 1 Georgia, 'Times New Roman', serif;
+  letter-spacing: 0.1cqw;
+  color: #d8cfb8;
+}
+
+#kill-name {
+  font: 3.6cqw / 1 var(--display);
+}
+
+#kill-card svg {
+  grid-area: fig;
+  width: 5.4cqw;
+  height: 6.8cqw;
+  background: #f4efe2;
+  border-radius: 0.2cqw;
+  padding: 0.3cqw;
+  box-sizing: border-box;
+}
+
+#kill-card .figure {
+  fill: #2a2420;
+}
+
+#kill-hole {
+  fill: #c0262d;
+}
+
+#kill-old {
+  fill: #c0262d66;
+}
+
+#kill-line {
+  grid-area: line;
+  font: italic 1.7cqw / 1.25 Georgia, 'Times New Roman', serif;
+  text-align: center;
+  border-top: 0.15cqw solid #f4efe255;
+  padding-top: 0.5cqw;
+}
+
 /* 반샷 혈흔. 가운데는 투명하고 가장자리로 갈수록 진해짐. 핏방울 그림은 없음 (시스템 기획서 HUD) */
 #blood {
   inset: 0;
@@ -549,42 +635,6 @@ body {
   margin-top: 1.6cqw;
 }
 
-/* 고른 캐릭터의 초상화에 금색 테두리. 라디오 단추는 숨기고 초상화를 누름 */
-#character-pick {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.8cqw;
-  text-shadow: 0 0 0.3cqw #000;
-}
-
-#character-pick label {
-  position: relative;
-  cursor: pointer;
-}
-
-#character-pick input {
-  position: absolute;
-  opacity: 0;
-}
-
-#character-pick img {
-  display: block;
-  width: 4.5cqw;
-  aspect-ratio: 1;
-  border: 0.25cqw solid #3d2412;
-  border-radius: 0.3cqw;
-  image-rendering: pixelated;
-}
-
-#character-pick input:checked + img {
-  border-color: #f7d27a;
-}
-
-#character-pick input:focus-visible + img {
-  outline: 0.2cqw solid #fff;
-}
-
 /* 방 목록. 들어갈 수 있는 방이 위, 그 안에서는 사람이 많은 방부터 (서버가 정렬함) */
 #room-list {
   display: grid;
@@ -739,12 +789,6 @@ body {
 #board-head h2 {
   margin: 0;
   font: 3cqw / 1 var(--display);
-}
-
-/* 밝은 종이 위라 글자 그림자를 지우고 왼쪽에 붙임 */
-#room-step #character-pick {
-  justify-content: start;
-  text-shadow: none;
 }
 
 #room-hint {
@@ -1300,6 +1344,110 @@ body {
   font-size: 1cqw;
   line-height: 1;
   opacity: 0.7;
+}
+
+/* 왼쪽 벽의 현상금 게시판 (SHEEP-118). 자리는 saloon.ts WARDROBE_RIGHT와 같은 캔버스 px(x 8~116, y 8~75)이고,
+   8명 방의 왼쪽 좌석 꼬리표와 앉은 손님 모자 위에서 끝남. 나무 판에 포스터 8장을 압정으로 꽂고 그 아래 색 견본 */
+#wardrobe {
+  position: absolute;
+  left: calc(8 * 100cqw / 480);
+  top: calc(8 * 100cqw / 480);
+  width: calc(108 * 100cqw / 480);
+  height: calc(67 * 100cqw / 480);
+  box-sizing: border-box;
+  display: grid;
+  align-content: space-between;
+  justify-items: center;
+  padding: calc(4 * 100cqw / 480) calc(3 * 100cqw / 480) calc(3 * 100cqw / 480);
+  border: calc(2 * 100cqw / 480) solid #4a2c16;
+  background: #8a6a42;
+  box-shadow:
+    inset 0 0 calc(6 * 100cqw / 480) #0008,
+    0 calc(2 * 100cqw / 480) calc(4 * 100cqw / 480) #0007;
+}
+
+#wanted {
+  display: grid;
+  grid-template-columns: repeat(4, auto);
+  gap: calc(3 * 100cqw / 480) calc(4 * 100cqw / 480);
+}
+
+#wardrobe button {
+  margin: 0;
+  border: 0;
+  cursor: pointer;
+}
+
+/* 작은 WANTED 포스터. 바랜 종이에 초상화, 위 가운데에 빨간 압정. 고른 포스터에 금색 테 */
+#wanted button {
+  position: relative;
+  padding: calc(1.5 * 100cqw / 480) calc(1.5 * 100cqw / 480) calc(1 * 100cqw / 480);
+  background: var(--paper);
+  box-shadow: 0 calc(1 * 100cqw / 480) calc(1.5 * 100cqw / 480) #0007;
+}
+
+#wanted button::before {
+  content: '';
+  position: absolute;
+  top: calc(-1.5 * 100cqw / 480);
+  left: 50%;
+  translate: -50% 0;
+  width: calc(3 * 100cqw / 480);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #ff8a7a, #b0201a);
+}
+
+#wanted img {
+  display: block;
+  width: calc(16 * 100cqw / 480);
+  aspect-ratio: 1;
+  image-rendering: pixelated;
+}
+
+#wanted button[aria-pressed='true'] {
+  outline: calc(1.5 * 100cqw / 480) solid #f7d27a;
+}
+
+/* 고른 캐릭터 이름과 핵심 파츠 */
+#wardrobe-part {
+  max-width: 100%;
+  margin: 0;
+  overflow: hidden;
+  color: #f7e6bd;
+  font: 1.1cqw / 1 var(--text);
+  text-shadow: 0 calc(0.6 * 100cqw / 480) 0 #3d2412;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+#swatches {
+  display: flex;
+  gap: calc(2 * 100cqw / 480);
+}
+
+#swatches button {
+  width: calc(10 * 100cqw / 480);
+  aspect-ratio: 1;
+  padding: 0;
+  border: calc(1 * 100cqw / 480) solid #3d2412;
+}
+
+#swatches button[aria-pressed='true'] {
+  outline: calc(1.5 * 100cqw / 480) solid #f7d27a;
+  outline-offset: calc(0.5 * 100cqw / 480);
+}
+
+/* 방 안 다른 사람이 쓰는 색. 흐리게 하고 줄을 그어 막음 */
+#swatches button.taken {
+  opacity: 0.35;
+  background-image: linear-gradient(45deg, #0000 44%, #3d2412 44% 56%, #0000 56%) !important;
+  cursor: not-allowed;
+}
+
+#wardrobe button:focus-visible {
+  outline: calc(1.5 * 100cqw / 480) solid #fff;
+  outline-offset: calc(0.5 * 100cqw / 480);
 }
 
 /* 칠판 글씨. 분필처럼 흐린 흰색 */

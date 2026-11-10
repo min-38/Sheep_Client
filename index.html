@@ -28,6 +28,29 @@
         </svg>
         <output id="hit-stamp"></output>
       </figure>
+      <!-- 쓰러지는 장면의 자막 카드. 누가 어디를 맞혀 나를 쓰러뜨렸는지 무성 영화 자막처럼 띄움 (시스템 기획서 HUD 쓰러짐, SHEEP-119) -->
+      <figure id="kill-card" data-i18n-label="hud.killCard" hidden>
+        <img id="kill-face" alt="" />
+        <span class="who">
+          <span id="kill-kicker"></span>
+          <span id="kill-name"></span>
+        </span>
+        <!-- 사격 결과 카드와 같은 정면 블록 몸. 구멍 자리는 main.ts가 맞은 부위로 옮김 -->
+        <svg viewBox="0 0 100 100" aria-hidden="true">
+          <g class="figure">
+            <rect x="45" y="0" width="10" height="13.333" />
+            <rect x="46.667" y="13.333" width="6.667" height="3.333" />
+            <rect x="40" y="16.667" width="20" height="30" />
+            <rect x="33.333" y="16.667" width="6.667" height="43.333" />
+            <rect x="60" y="16.667" width="6.667" height="43.333" />
+            <rect x="40.833" y="46.667" width="8.333" height="53.333" />
+            <rect x="50.833" y="46.667" width="8.333" height="53.333" />
+          </g>
+          <circle id="kill-old" r="3.5" />
+          <circle id="kill-hole" r="4" />
+        </svg>
+        <figcaption id="kill-line"></figcaption>
+      </figure>
       <!-- 리볼버 실린더 6칸. 그림은 cylinder.ts가 채우고, 장전된 칸만 놋쇠 탄피 바닥이 보임 (시스템 기획서 HUD 탄 수) -->
       <svg id="ammo" viewBox="0 0 100 100" role="img"></svg>
       <output id="timer" data-i18n-label="hud.timer" hidden></output>
@@ -40,7 +63,14 @@
       <!-- 술집 대기실. 방에 들어가 판이 시작되기 전과 판이 끝난 뒤에 보임. 벽, 선반, 카운터, 술집 주인, 바 의자와 앉은 사람은 캔버스에 그리고
            글자가 있는 것만 여기 얹음 (시스템 기획서 방 화면 M8 대기실 짜임) -->
       <div id="saloon" hidden>
-        <!-- 바 좌석 꼬리표. 좌석 수는 방 인원 제한이고 목수건 색 번호가 좌석 번호. 칸은 main.ts가 방에 들어갈 때 만듦 -->
+        <!-- 왼쪽 벽의 현상금 게시판. 캐릭터마다 작은 WANTED 포스터, 그 아래 핵심 파츠 이름과 사람 색 견본. 단추는 main.ts가 만듦
+             (시스템 기획서 방 화면 캐릭터·색 바꾸기, SHEEP-118). 좌석 꼬리표보다 앞에 둬 겹치면 꼬리표가 위에 옴 -->
+        <div id="wardrobe" role="group" data-i18n-label="saloon.wardrobe">
+          <div id="wanted"></div>
+          <p id="wardrobe-part"></p>
+          <div id="swatches"></div>
+        </div>
+        <!-- 바 좌석 꼬리표. 좌석 수는 방 인원 제한이고 서버가 준 좌석 번호(seat)에 앉음. 칸은 main.ts가 방에 들어갈 때 만듦 -->
         <ol id="seats" data-i18n-label="saloon.seats"></ol>
         <!-- 술집 주인 말풍선. 가끔 팁이나 농담을 무성 영화 자막처럼 머리 위에 띄움. 자리는 main.ts가 술집 주인을 따라 옮김 -->
         <p id="bartender-line" hidden></p>
@@ -77,14 +107,12 @@
           <button type="button" id="practice" class="plank sign left" data-i18n="lobby.practice" disabled></button>
           <button type="button" class="plank sign settings-open" data-i18n="lobby.settings"></button>
         </div>
-        <!-- 입장 게시판: 못 박은 종이. 머리에 방 만들기, 그 아래 캐릭터 고르기, 방 목록, 맨 아래 뒤로·방 코드·입장 -->
+        <!-- 입장 게시판: 못 박은 종이. 머리에 방 만들기, 그 아래 방 목록, 맨 아래 뒤로·방 코드·입장. 캐릭터는 술집에서 고름 (SHEEP-118) -->
         <fieldset id="room-step" class="sheet" hidden disabled>
           <div id="board-head">
             <h2 data-i18n="lobby.rooms"></h2>
             <button type="button" id="create" class="plank" data-i18n="lobby.create"></button>
           </div>
-          <!-- 캐릭터 고르기. 칸은 main.ts가 캐릭터마다 초상화로 만듦 (시스템 기획서 캐릭터 고르기) -->
-          <div id="character-pick" role="radiogroup" aria-labelledby="character-label"><span id="character-label" data-i18n="lobby.character"></span></div>
           <!-- 줄은 main.ts가 만듦. 들어갈 수 있는 줄은 눌러 고르고(방 코드 칸에 코드가 들어감) 두 번 눌러 들어감 -->
           <ul id="room-list" data-i18n-label="lobby.roomList"></ul>
           <p id="room-hint" data-i18n="lobby.doubleClick"></p>

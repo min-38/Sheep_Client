@@ -28,6 +28,14 @@ export const ko: Copy = {
     wounded: '반샷',
     hitDown: '쓰러짐',
     miss: '빗나감',
+    killCard: '나를 쓰러뜨린 이',
+    downedBy: '쓰러뜨린 이',
+    outtaTime: '시간 다 됐수',
+    killLine: {
+      head: (name: string) => `${name}의 총알이 모자를 꿰뚫었구먼, 친구.`,
+      body: (name: string) => `${name}의 두 번째 총알에 고꾸라졌구먼, 친구.`,
+      timeout: '시간이 다 돼 버렸구먼, 친구.',
+    },
   },
   saloon: {
     seats: '바에 앉은 사람',
@@ -45,6 +53,11 @@ export const ko: Copy = {
     copyFailed: (keys) => `${keys}를 눌러, 친구`,
     readyStamp: '준비',
     winStamp: '승리',
+    wardrobe: '캐릭터와 색',
+    keyParts: ['목수건', '솜브레로', '셔츠', '코르셋 조끼', '조끼', '코트', '모자', '판초'],
+    partColor: (part) => `${part} 색`,
+    colors: ['빨강', '하늘', '초록', '노랑', '주황', '분홍', '하양', '검정'],
+    colorTaken: (color) => `${color}, 임자 있수`,
     bartender: {
       tips: [
         '쏘기 전에 총을 잠깐 가만히 둬. 손 떨면 빗나가, 친구.',
@@ -70,8 +83,7 @@ export const ko: Copy = {
     nickname: '닉네임',
     nicknameRule: '2~8자',
     ok: '확인',
-    character: '캐릭터',
-    characterNames: ['찰스'],
+    characterNames: ['찰스', '로사', '사일러스', '벨', '클레이턴', '제시', '케이트', '디에고'],
     roomList: '방 목록',
     code: '방 코드',
     join: '입장',
@@ -98,6 +110,7 @@ export const ko: Copy = {
       roomName: '방 이름 규칙에 맞지 않음',
       maxPlayers: '인원은 2~8명',
       character: '없는 캐릭터',
+      color: '없는 색',
     },
   },
   create: {

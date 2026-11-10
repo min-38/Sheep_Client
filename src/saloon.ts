@@ -15,14 +15,15 @@ export const bountyText = (wins: number) => (wins > 0 ? `$${wins * BOUNTY}` : ''
 // ponytail: 임시 문구. 게임 안 문구 스타일이 정해지면 바꿈
 export const bountyRise = (wins: number) => `${bountyText(wins - 1) || '$0'} → ${bountyText(wins)}`
 
-// 좌석 하나. wins는 이 방에서 이긴 횟수(최후의 1인)
-export type Seat = { nickname: string; character: number; ready: boolean; mine: boolean; wins: number }
+// 좌석 하나. color는 사람 색 번호이고 앉은 사람의 핵심 파츠를 칠함. wins는 이 방에서 이긴 횟수(최후의 1인)
+export type Seat = { nickname: string; character: number; color: number; ready: boolean; mine: boolean; wins: number }
 
-// 좌석 수는 방 인원 제한(2~8)이고, 목수건 색 번호가 곧 좌석 번호임. 나간 사람의 색은 비워 두고 다음 사람이 받으므로(컨셉 기획서 사람 구별),
-// 누가 나가도 남은 사람은 제자리에 앉아 있고 새로 온 사람은 빈 좌석에 앉음. 색이 좌석 수를 넘는 사람은 없음(서버가 인원 제한까지만 받음)
+// 좌석 수는 방 인원 제한(2~8)이고, 서버가 준 좌석 번호(seat)에 앉음. 나간 사람의 좌석은 비워 두고 다음 사람이 받으므로,
+// 누가 나가도 남은 사람은 제자리에 앉아 있고 새로 온 사람은 빈 좌석에 앉음. 색을 바꿔도 자리는 그대로임 (SHEEP-118).
+// 좌석 번호가 좌석 수를 넘는 사람은 없음(서버가 인원 제한까지만 받음)
 export function seatSlots(players: readonly PlayerState[], myId: string | null, seats: number): (Seat | null)[] {
   const slots: (Seat | null)[] = Array(seats).fill(null)
-  for (const p of players) if (p.color < seats) slots[p.color] = { nickname: p.nickname, character: p.character, ready: p.ready, mine: p.id === myId, wins: p.wins }
+  for (const p of players) if (p.seat < seats) slots[p.seat] = { nickname: p.nickname, character: p.character, color: p.color, ready: p.ready, mine: p.id === myId, wins: p.wins }
   return slots
 }
 
@@ -118,7 +119,7 @@ export function stepChatter(c: Chatter, now: number, counts: Record<Line['kind']
 // 술집 주인. 장식이라 사람마다 화면에서 따로 움직이고 서버는 모름. x는 몸 가운데(px)
 export type Bartender = { x: number; action: 'walk' | 'stand' | 'wipe'; target: number; until: number }
 
-// px. 술집 주인이 다니는 범위. 가운데 술병 선반 앞이라 오른쪽 칠판과 왼쪽 빈 벽(캐릭터·색 바꾸기 자리, SHEEP-118)을 가리지 않음
+// px. 술집 주인이 다니는 범위. 가운데 술병 선반 앞이라 오른쪽 칠판과 왼쪽 벽의 현상금 게시판(캐릭터·색 바꾸기, SHEEP-118)을 가리지 않음
 export const BAR_LEFT = 150
 export const BAR_RIGHT = 330
 // px/ms. ponytail: 임시 값. 화면을 보며 맞춤
@@ -158,10 +159,13 @@ const BOARD = { x: 352, y: 16, w: 110, h: 62 }
 const SHELF = { x: Math.round(columnAt(-30, 118)), w: Math.round(columnAt(30, 118) - columnAt(-30, 118)), top: Math.round(rowAt(46, 118)), rows: [38, 30, 22].map((y) => Math.round(rowAt(y, 118))) }
 const BOTTLE_COLORS = ['#2f6b3a', '#a8641c', '#b8d0c8', '#7a1e1e', '#3a4a7a', '#c8a040']
 
+// px. 왼쪽 벽 현상금 게시판(캐릭터·색 바꾸기, SHEEP-118)의 오른쪽 끝. style.css #wardrobe가 x 8부터 폭 108로 얹음.
+// 아래 끝(75)은 8명 방의 왼쪽 좌석 꼬리표와 앉은 손님 모자 위라 둘을 가리지 않음
+export const WARDROBE_RIGHT = 116
 // px. 말풍선 폭의 절반(style.css #bartender-line 폭과 같음)
 const BUBBLE_HALF = 75
-// 말풍선 가운데(px). 술집 주인 머리 위를 따르되 오른쪽 칠판과 왼쪽 화면 끝에 걸리지 않게 안쪽으로 당김
-export const bubbleX = (x: number) => Math.min(Math.max(x, BUBBLE_HALF + 4), BOARD.x - 4 - BUBBLE_HALF)
+// 말풍선 가운데(px). 술집 주인 머리 위를 따르되 오른쪽 칠판과 왼쪽 현상금 게시판에 걸리지 않게 안쪽으로 당김
+export const bubbleX = (x: number) => Math.min(Math.max(x, WARDROBE_RIGHT + 4 + BUBBLE_HALF), BOARD.x - 4 - BUBBLE_HALF)
 
 // 선반마다 늘어선 술병 [x, 너비, 높이, 색]. 늘 같은 모습이 되게 고정한 의사 난수로 한 번만 만듦
 const BOTTLES = (() => {

@@ -28,6 +28,14 @@ export const zh: Copy = {
     wounded: '负伤',
     hitDown: '击倒',
     miss: '未命中',
+    killCard: '谁把你撂倒了',
+    downedBy: '撂倒你的是',
+    outtaTime: '时间到',
+    killLine: {
+      head: (name: string) => `${name}一枪打穿了你的帽子，伙计。`,
+      body: (name: string) => `${name}第二枪把你撂倒了，伙计。`,
+      timeout: '时间用光喽，伙计。',
+    },
   },
   saloon: {
     seats: '吧台边的人',
@@ -45,6 +53,11 @@ export const zh: Copy = {
     copyFailed: (keys) => `按 ${keys} 吧，伙计`,
     readyStamp: '已准备',
     winStamp: '胜者',
+    wardrobe: '角色和颜色',
+    keyParts: ['领巾', '宽边帽', '衬衫', '束腰', '马甲', '外套', '帽子', '斗篷'],
+    partColor: (part) => `${part}颜色`,
+    colors: ['红', '天蓝', '绿', '黄', '橙', '粉', '白', '黑'],
+    colorTaken: (color) => `${color}，早有人占了`,
     bartender: {
       tips: [
         '开枪前先把枪稳住一会儿。手一抖就打不中，伙计。',
@@ -70,8 +83,7 @@ export const zh: Copy = {
     nickname: '昵称',
     nicknameRule: '2–8 个字符',
     ok: '确定',
-    character: '角色',
-    characterNames: ['查尔斯'],
+    characterNames: ['查尔斯', '罗莎', '塞拉斯', '贝尔', '克莱顿', '杰西', '凯特', '迭戈'],
     roomList: '房间列表',
     code: '房间代码',
     join: '加入',
@@ -98,6 +110,7 @@ export const zh: Copy = {
       roomName: '房间名不符合规则',
       maxPlayers: '人数须为 2–8 人',
       character: '没有这个角色',
+      color: '没有这个颜色',
     },
   },
   create: {

@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { CELL, CHARACTERS, characterBody, corners, drawFigure, FALL_LAND_MS, PORTRAITS, savedCharacter, SUICIDE_AIM, SUICIDE_FLASH, suicideStage, type Box, type Pose } from './character.ts'
+import { CELL, CHARACTERS, characterBody, corners, drawFigure, FALL_LAND_MS, keyColor, PORTRAIT_SIZE, portraitPixels, savedCharacter, savedColor, SUICIDE_AIM, SUICIDE_FLASH, suicideStage, type Box, type Pose } from './character.ts'
 import { makeCamera, type RGB } from './render.ts'
 import { STEP_MS } from './round.ts'
 
@@ -74,6 +74,12 @@ describe('CHARACTERS 틀 검사 (시스템 기획서 캐릭터)', () => {
       }
     })
 
+    test(`${n} ${ch.name}: 핵심 파츠(key) 상자가 있고 모두 한 색 (SHEEP-118에서 이 색만 바꿈)`, () => {
+      const keys = boxes.filter((b) => b.key)
+      expect(keys.length).toBeGreaterThan(0)
+      expect(new Set(keys.map((b) => b.color)).size).toBe(1)
+    })
+
     test(`${n} ${ch.name}: 색이 다른 상자가 같은 면에서 겹치지 않음 (겹치면 얼룩져 보임)`, () => {
       const overlap = (a: readonly number[], b: readonly number[], c: readonly number[], d: readonly number[], i: number) => Math.min(b[i], d[i]) - Math.max(a[i], c[i]) > 1e-9
       for (const [i, a] of boxes.entries())
@@ -89,10 +95,58 @@ describe('CHARACTERS 틀 검사 (시스템 기획서 캐릭터)', () => {
   }
 })
 
-describe('PORTRAITS', () => {
-  test('캐릭터마다 초상화가 하나씩 있음 (시스템 기획서 캐릭터 초상화)', () => {
-    expect(PORTRAITS).toHaveLength(CHARACTERS.length)
-    for (const url of PORTRAITS) expect(url).toMatch(/\.png/)
+// 사일러스(2번)는 셔츠, 찰스(0번)는 목수건, 로사(1번)는 솜브레로가 핵심 파츠 (시스템 기획서 캐릭터 핵심 파츠)
+const SILAS = 2
+const RED = 0
+const SKY = 1
+const GREEN = 2
+const hexRgb = (hex: string) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16))
+
+describe('keyColor', () => {
+  test('핵심 파츠는 사람 색으로 칠하고, 하늘은 몸통일 때만 짙은 파랑 (SHEEP-118)', () => {
+    expect(keyColor(SILAS, RED)).toBe('#d83a3a')
+    expect(keyColor(SILAS, SKY)).toBe('#2a6ab8')
+    expect(keyColor(0, SKY)).toBe('#4fb3e8')
+    expect(keyColor(1, SKY)).toBe('#4fb3e8')
+  })
+})
+
+describe('portraitPixels', () => {
+  test('64×64 RGBA이고 바깥은 투명', () => {
+    const px = portraitPixels(SILAS)
+    expect(px).toHaveLength(PORTRAIT_SIZE * PORTRAIT_SIZE * 4)
+    expect(px[3]).toBe(0)
+  })
+
+  test('색을 바꾸면 핵심 파츠 자리만 다시 칠하고 나머지는 그대로 (SHEEP-118)', () => {
+    const red = portraitPixels(SILAS, RED)
+    const green = portraitPixels(SILAS, GREEN)
+    let changed = 0
+    for (let p = 0; p < red.length; p += 4) {
+      if (red[p] === green[p] && red[p + 1] === green[p + 1] && red[p + 2] === green[p + 2]) continue
+      changed++
+      // 바뀐 칸은 빨강과 초록의 명암이라 그 색이 가장 셈
+      expect(red[p]).toBeGreaterThan(Math.max(red[p + 1], red[p + 2]))
+      expect(green[p + 1]).toBeGreaterThan(Math.max(green[p], green[p + 2]))
+    }
+    // 셔츠가 가슴 아래를 채움. 목수건(하늘)은 바뀌지 않음
+    expect(changed).toBeGreaterThan(100)
+  })
+
+  test('색을 주지 않으면 캐릭터 JSON의 핵심 파츠 색 그대로', () => {
+    expect(portraitPixels(SILAS)).toEqual(portraitPixels(SILAS, undefined))
+    expect(portraitPixels(SILAS)).not.toEqual(portraitPixels(SILAS, RED))
+  })
+})
+
+describe('characterBody 핵심 파츠 색', () => {
+  test('key 상자만 사람 색으로 칠하고, 색을 주지 않으면 JSON 색 그대로 (SHEEP-118)', () => {
+    const keys = CHARACTERS[SILAS].boxes.filter((b) => b.key).length
+    const red = hexRgb('#d83a3a')
+    const isRed = (b: { rgb: readonly number[] }) => b.rgb.every((v, i) => v === red[i])
+    expect(characterBody(SILAS, RED).rest.boxes.filter(isRed)).toHaveLength(keys)
+    expect(characterBody(SILAS).rest.boxes.filter(isRed)).toHaveLength(0)
+    expect(characterBody(SILAS, RED)).toBe(characterBody(SILAS, RED))
   })
 })
 
@@ -105,6 +159,18 @@ describe('savedCharacter', () => {
     expect(savedCharacter('0.5')).toBe(0)
     expect(savedCharacter('찰스')).toBe(0)
     expect(savedCharacter(String(CHARACTERS.length))).toBe(0)
+  })
+})
+
+describe('savedColor', () => {
+  test('기억한 번호가 사람 색 번호면 그 번호, 없거나 틀리면 null이라 보내지 않음 (SHEEP-118)', () => {
+    expect(savedColor('7')).toBe(7)
+    expect(savedColor('0')).toBe(0)
+    expect(savedColor(null)).toBeNull()
+    expect(savedColor('')).toBeNull()
+    expect(savedColor('8')).toBeNull()
+    expect(savedColor('-1')).toBeNull()
+    expect(savedColor('1.5')).toBeNull()
   })
 })
 
@@ -199,6 +265,33 @@ describe('characterBody', () => {
     expect(span(lying.boxes, 1)[1]).toBeLessThan(10 * CELL)
     expect(span(pick(lying, 'head', 31), 2)[1]).toBeLessThan(-10 * CELL)
     expect(Math.max(...lying.gun.map((p) => p[1]))).toBeLessThan(10)
+  })
+
+  test('쓰러지는 동안 총은 오른손에 쥔 채 같이 넘어감: 손잡이가 오른 주먹에 붙어 있음 (SHEEP-119)', () => {
+    for (const t of [0, 300, 600, FALL_LAND_MS, 2000, 5000]) {
+      const pose = body.fall(t)
+      // 오른팔에서 팔꿈치 아래 끝(손)
+      const [fist] = pick(pose, 'rightArm', 13.6)
+      const gap = Math.min(...pose.gun.map((p) => Math.hypot(p[0] - fist.c[0], p[1] - fist.c[1], p[2] - fist.c[2])))
+      expect(gap, `t=${t}`).toBeLessThan(0.8)
+    }
+  })
+
+  test('맞아 쓰러지면 바닥에 닿을 때 총을 놓쳐 모래 위에 눕힘. 시간 초과(자살)는 끝까지 쥠 (사용자 결정 2026-11-10, SHEEP-119)', () => {
+    const gap = (pose: Pose) => {
+      const [fist] = pick(pose, 'rightArm', 13.6)
+      return Math.min(...pose.gun.map((p) => Math.hypot(p[0] - fist.c[0], p[1] - fist.c[1], p[2] - fist.c[2])))
+    }
+    // 닿기 전에는 쥐고 있음
+    for (const t of [0, FALL_LAND_MS / 2, FALL_LAND_MS - 50]) expect(gap(body.fall(t, true)), `t=${t}`).toBeLessThan(0.8)
+    // 닿은 뒤에는 바닥에 옆으로 누운 총. 가장 낮은 곳이 바닥이고 두께만큼만 솟음
+    for (const t of [FALL_LAND_MS + 50, 2000, 5000]) {
+      const ys = body.fall(t, true).gun.map((p) => p[1])
+      near(Math.min(...ys) * CELL, 0)
+      expect(Math.max(...ys), `t=${t}`).toBeLessThan(1.2)
+    }
+    // 자살은 누운 뒤에도 손에 쥐고 있음
+    expect(gap(body.fall(5000, false))).toBeLessThan(0.8)
   })
 
   test('넘어지다 바닥에 닿는 때(FALL_LAND_MS)는 0.5~1.5초 뒤이고, 그 앞은 몸통이 아직 높고 그때는 몸통이 낮음', () => {

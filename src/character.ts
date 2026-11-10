@@ -1,11 +1,18 @@
+import belle from './assets/characters/belle.json'
 import charles from './assets/characters/charles.json'
+import clayton from './assets/characters/clayton.json'
+import diego from './assets/characters/diego.json'
+import jesse from './assets/characters/jesse.json'
+import kate from './assets/characters/kate.json'
+import rosa from './assets/characters/rosa.json'
+import silas from './assets/characters/silas.json'
 import motionData from './assets/motions.json'
-import charlesPortrait from './assets/portrait/charles.png'
 import revolverData from './assets/revolver-rig.json'
 import { revolverMesh } from './gun.ts'
 import { HEAD } from './hitcard.ts'
 import { horizonY, pack, tint, type Camera } from './render.ts'
 import { slerp, type Rig } from './rig.ts'
+import { BANDANA } from './roomlist.ts'
 import { STEP_MS } from './round.ts'
 
 // 블록 캐릭터 (컨셉 기획서 아트 캐릭터 그림). 캐릭터마다 상자 목록 JSON(src/assets/characters/) 하나를 읽고, 관절을 돌려 동작을 만들어
@@ -28,23 +35,38 @@ export type Body = {
   aim: (pitch: number) => Pose
   fire: (pitch: number) => Pose
   suicide: Pose[]
-  fall: (ms: number) => Pose
+  // drop이면 바닥에 닿을 때 총을 놓쳐 손 옆 모래 위에 눕힘(맞아 쓰러짐). 아니면 누운 뒤에도 쥠(자살) (사용자 결정 2026-11-10, SHEEP-119)
+  fall: (ms: number, drop?: boolean) => Pose
   // 술집 바 의자에 앉은 모습. 엉덩이가 서 있을 때 높이(16블록) 그대로이고, 허벅지는 앞으로 눕고 아래팔은 카운터 위에 얹음 (SHEEP-115)
   sit: Pose
 }
 
-// 캐릭터 JSON. part는 head, body, rightArm, leftArm, rightLeg, leftLeg 중 하나. 색은 상자마다 단색 하나이고 명암은 그릴 때 넣음
-export type CharacterData = { name: string; boxes: { part: string; from: number[]; to: number[]; color: string }[] }
+// 캐릭터 JSON. part는 head, body, rightArm, leftArm, rightLeg, leftLeg 중 하나. 색은 상자마다 단색 하나이고 명암은 그릴 때 넣음.
+// key는 핵심 파츠(사람이 색을 고를 수 있는 곳, SHEEP-118)의 상자에만 true로 둠 (시스템 기획서 캐릭터 핵심 파츠)
+export type CharacterData = { name: string; boxes: { part: string; from: number[]; to: number[]; color: string; key?: boolean }[] }
 // 캐릭터 번호(메시지의 character) 순서 (시스템 기획서 캐릭터 목록)
-export const CHARACTERS: readonly CharacterData[] = [charles]
-// 캐릭터 번호 순서의 WANTED 포스터 초상화(64×64 PNG 주소) (시스템 기획서 캐릭터 초상화)
-export const PORTRAITS: readonly string[] = [charlesPortrait]
+export const CHARACTERS: readonly CharacterData[] = [charles, rosa, silas, belle, clayton, jesse, kate, diego]
+// 브라우저에 기억한 번호. 없거나 0 이상 count 미만 정수가 아니면 null
+function savedIndex(raw: string | null, count: number): number | null {
+  const n = Number(raw)
+  return raw !== null && raw !== '' && Number.isInteger(n) && n >= 0 && n < count ? n : null
+}
 
 // 브라우저에 기억한 캐릭터 번호. 없거나 지금 캐릭터 번호가 아니면 처음 캐릭터 0 (시스템 기획서 캐릭터 고르기)
-export function savedCharacter(raw: string | null): number {
-  const n = Number(raw)
-  return raw !== null && Number.isInteger(n) && n >= 0 && n < CHARACTERS.length ? n : 0
-}
+export const savedCharacter = (raw: string | null): number => savedIndex(raw, CHARACTERS.length) ?? 0
+
+// 브라우저에 기억한 사람 색 번호. 없거나 틀리면 null이고, 그때는 보내지 않아 서버가 들어온 순서로 줌 (기술 설계서 메시지 joinRoom color)
+export const savedColor = (raw: string | null): number | null => savedIndex(raw, BANDANA.length)
+
+// 사람 색 번호 1(하늘)을 몸통 핵심 파츠에 칠할 때 대신 쓰는 짙은 파랑. 몸통이 하늘과 비슷하면 덜 보여 불리함 (시스템 기획서 캐릭터 색, SHEEP-118)
+const SKY = 1
+const SKY_ON_BODY = '#2a6ab8'
+
+// 핵심 파츠가 몸통(셔츠, 조끼, 코트, 판초)인지. 목수건(높이 23.6 위)과 모자는 아님
+const torsoKey = (data: CharacterData) => data.boxes.some((b) => b.key && b.part === 'body' && b.from[1] < 20)
+
+// 사람 색 번호 color를 그 캐릭터의 핵심 파츠에 칠할 색 (시스템 기획서 캐릭터 핵심 파츠)
+export const keyColor = (character: number, color: number) => (color === SKY && torsoKey(CHARACTERS[character]) ? SKY_ON_BODY : BANDANA[color])
 
 // ms. 시간 초과로 쓰러진 사람이 총을 머리에 대고 있는 시간과 그 뒤 불꽃 시간. 그다음엔 쓰러진 그림.
 // ponytail: 임시 값(시스템 기획서 판 흐름 시간). 플레이해 보며 정함
@@ -211,13 +233,13 @@ const rgb = (hex: string): RGB => {
   return [n >> 16, (n >> 8) & 255, n & 255]
 }
 
-// JSON 상자를 쉴 때의 Box와 덩어리로. 팔은 팔꿈치, 다리는 무릎 높이 아래가 아래쪽 덩어리
-function parts(data: CharacterData): { box: Box; seg: Seg }[] {
-  return data.boxes.map(({ part, from, to, color }) => {
+// JSON 상자를 쉴 때의 Box와 덩어리로. 팔은 팔꿈치, 다리는 무릎 높이 아래가 아래쪽 덩어리. key가 있으면 핵심 파츠 상자를 그 색으로 칠함
+function parts(data: CharacterData, key?: string): { box: Box; seg: Seg }[] {
+  return data.boxes.map(({ part, from, to, color, key: isKey }) => {
     const c: V = [(from[0] + to[0]) / 2, (from[1] + to[1]) / 2, (from[2] + to[2]) / 2]
     const cut = part.endsWith('Arm') ? ELBOW : KNEE
     const seg = (part === 'head' || part === 'body' ? part : `${part}${c[1] < cut ? 1 : 0}`) as Seg
-    return { box: { c, axes: [X, Y, Z], half: [(to[0] - from[0]) / 2, (to[1] - from[1]) / 2, (to[2] - from[2]) / 2], rgb: rgb(color) }, seg }
+    return { box: { c, axes: [X, Y, Z], half: [(to[0] - from[0]) / 2, (to[1] - from[1]) / 2, (to[2] - from[2]) / 2], rgb: rgb(isKey && key ? key : color) }, seg }
   })
 }
 
@@ -250,15 +272,18 @@ function elbowFor(s: V, h: V, a: number, b: number, out: V): V {
   return add(add(s, u, along), across(out, u), Math.sqrt(Math.max(0, a * a - along * along)))
 }
 
+// 가장 낮은 곳의 높이(블록)
+const lowest = (points: readonly V[]) => Math.min(...points.map((q) => q[1]))
+
 // 가장 낮은 곳이 바닥에 닿게 올림
 function ground(p: Pose): Pose {
-  const bottom = Math.min(...p.boxes.flatMap((b) => corners(b).map((q) => q[1])), ...p.gun.map((q) => q[1]))
+  const bottom = lowest([...p.boxes.flatMap(corners), ...p.gun])
   const lift: Move = { from: [0, bottom, 0], to: [0, 0, 0], turn: (v) => v }
   return { boxes: p.boxes.map((b) => moveBox(b, lift)), gun: p.gun.map((q) => movePoint(q, lift)) }
 }
 
-function build(data: CharacterData): Body {
-  const shape = parts(data)
+function build(data: CharacterData, key?: string): Body {
+  const shape = parts(data, key)
   const posed = (m: Record<Seg, Move>) => ({
     boxes: shape.map(({ box, seg }) => moveBox(box, m[seg])),
     fist: movePoint([4, FIST, 0], m.rightArm1),
@@ -270,8 +295,12 @@ function build(data: CharacterData): Body {
     const p = posed(m)
     return { boxes: p.boxes, gun: holster.map((q) => movePoint(q, p.thigh)) }
   }
+  // 총을 오른손에 쥔 채. 팔을 내린 자세에서 총열은 팔을 따라 아래, 총 위는 앞이라 앞으로 뻗으면 겨눈 모습과 같음.
+  // 총은 오른 아래팔을 따라 움직임 (SHEEP-119)
+  const inHand = holdGun([4, FIST, 0], DOWN, Z).gun
+  const held = (m: Record<Seg, Move>): Pose => ({ boxes: posed(m).boxes, gun: inHand.map((q) => movePoint(q, m.rightArm1)) })
   // 동작 데이터 m의 f번째 프레임. 가장 낮은 곳이 바닥에 닿게 둠
-  const play = (m: Motion, f: number) => ground(holstered(motionMoves(m, f)))
+  const play = (m: Motion, f: number, pose = holstered) => ground(pose(motionMoves(m, f)))
   const frames = (ms: number) => (ms * MOTIONS.fps) / 1000
   // 위아래 시선(pitch)만큼 머리를 들고 오른팔과 총을 d쪽으로 뻗음. flash면 총구 앞에 불꽃
   const aimed = (pitch: number, d: V, flash: boolean): Pose => {
@@ -289,6 +318,17 @@ function build(data: CharacterData): Body {
     return { boxes: flash ? [...p.boxes, rod(muzzle, X, -0.5, 4, 4, FLASH)] : p.boxes, gun }
   }
   const { stand, walk, fall } = MOTIONS.clips
+  // 맞아 쓰러져 바닥에 닿을 때 놓친 총. 그때 주먹 아래 모래 위에, 총열은 아래팔을 바닥에 눕힌 쪽으로 두고 옆으로 눕힘.
+  // 그 뒤로 몸이 조금 더 움직여도 총은 그 자리에 있음
+  const dropped = (() => {
+    const m = motionMoves(fall, frames(FALL_LAND_MS))
+    const fist = movePoint([4, FIST, 0], m.rightArm1)
+    const arm = m.rightArm1.turn(DOWN)
+    const barrel: V = Math.hypot(arm[0], arm[2]) > 0.2 ? unit([arm[0], 0, arm[2]]) : Z
+    const gun = holdGun([fist[0], 0, fist[2]], barrel, cross(Y, barrel)).gun
+    const bottom = lowest(gun)
+    return gun.map((q): V => [q[0], q[1] - bottom, q[2]])
+  })()
   return {
     rest: holstered(moves(rest)),
     stand: (ms) => play(stand, frames(ms)),
@@ -298,15 +338,118 @@ function build(data: CharacterData): Body {
     aim: (pitch) => aimed(pitch, ahead(pitch), false),
     fire: (pitch) => aimed(pitch, ahead(pitch + RECOIL), true),
     suicide: [temple(false), temple(true)],
-    fall: (ms) => play(fall, frames(ms)),
+    // 맞거나 쏜 뒤라 총을 손에 쥔 채 넘어짐. 맞았으면 바닥에 닿을 때 놓침
+    fall: (ms, drop = false) =>
+      drop && ms >= FALL_LAND_MS ? { ...ground({ boxes: posed(motionMoves(fall, frames(ms))).boxes, gun: [] }), gun: dropped } : play(fall, frames(ms), held),
     sit: holstered(moves(seated)),
   }
 }
 
-const cache: Body[] = []
+const cache = new Map<string, Body>()
 
-// 캐릭터 번호(CHARACTERS 순서)의 모든 동작. 캐릭터마다 처음 부를 때 한 번 만듦
-export const characterBody = (character: number): Body => (cache[character] ??= build(CHARACTERS[character]))
+// 캐릭터 번호(CHARACTERS 순서)의 모든 동작. color는 그 사람의 사람 색 번호이고 핵심 파츠를 그 색으로 칠함. 없으면 JSON 색 그대로(첫 화면 배경).
+// 캐릭터와 색마다 처음 부를 때 한 번 만듦
+export function characterBody(character: number, color?: number): Body {
+  const id = `${character}/${color}`
+  let body = cache.get(id)
+  if (!body) cache.set(id, (body = build(CHARACTERS[character], color === undefined ? undefined : keyColor(character, color))))
+  return body
+}
+
+// WANTED 포스터 초상화 (시스템 기획서 캐릭터 초상화). 상자 목록을 정면에서 15° 돌려 모자 꼭대기부터 가슴 위까지 64×64로 그림.
+// 목수건과 핵심 파츠만 제 색이고 나머지는 갈색 인쇄 톤. 테두리 한 칸을 짙은 갈색으로 두름. SHEEP-117의 PNG를 만든 그리기와 같음
+export const PORTRAIT_SIZE = 64
+// 1블록의 px, 그림 맨 위 높이(블록, 모자 꼭대기 32 조금 위), 돌린 각도
+const PORTRAIT_SCALE = 6.8
+const PORTRAIT_TOP = 32.3
+const PORTRAIT_YAW = (15 * Math.PI) / 180
+// 보는 쪽에서 왼쪽 위 앞에서 오는 빛
+const PORTRAIT_LIGHT = unit([-0.45, 0.6, 0.66])
+// 갈색 인쇄 톤의 가장 어두운 색과 밝은 색, 테두리 색
+const INK: RGB = [52, 30, 18]
+const PRINT: RGB = [240, 214, 168]
+const OUTLINE: RGB = [42, 26, 16]
+
+// 목수건 상자. 몸통의 높이 23.6~25.7 사이 상자 중 목(x -1~1)이 아닌 것
+const isKerchief = (b: CharacterData['boxes'][number]) => b.part === 'body' && b.from[1] >= 23.6 && b.to[1] <= 25.7 && !(b.from[0] === -1 && b.to[0] === 1)
+
+// 초상화의 RGBA 픽셀(64×64×4). color가 없으면 JSON 색 그대로. 픽셀마다 화면 뒤에서 앞으로 광선을 쏴 처음 닿는 상자 면을 칠함
+export function portraitPixels(character: number, color?: number): Uint8ClampedArray<ArrayBuffer> {
+  const n = PORTRAIT_SIZE
+  const c = Math.cos(PORTRAIT_YAW)
+  const s = Math.sin(PORTRAIT_YAW)
+  const key = color === undefined ? undefined : rgb(keyColor(character, color))
+  const boxes = CHARACTERS[character].boxes.map((b) => ({ from: b.from, to: b.to, own: b.key || isKerchief(b), rgb: b.key && key ? key : rgb(b.color) }))
+  const px = new Uint8ClampedArray(n * n * 4)
+  const d: V = [s, 0, -c]
+  for (let j = 0; j < n; j++) {
+    for (let i = 0; i < n; i++) {
+      const x = (i + 0.5 - n / 2) / PORTRAIT_SCALE
+      const y = PORTRAIT_TOP - (j + 0.5) / PORTRAIT_SCALE
+      const o: V = [x * c - 100 * s, y, x * s + 100 * c]
+      let best = Infinity
+      let hit: (typeof boxes)[number] | null = null
+      let normal = [0, 0, 0]
+      for (const b of boxes) {
+        let t0 = -Infinity
+        let t1 = Infinity
+        let axis = -1
+        for (let k = 0; k < 3; k++) {
+          if (Math.abs(d[k]) < 1e-12) {
+            if (o[k] < b.from[k] || o[k] > b.to[k]) {
+              t0 = Infinity
+              break
+            }
+            continue
+          }
+          const a = (b.from[k] - o[k]) / d[k]
+          const z = (b.to[k] - o[k]) / d[k]
+          if (Math.min(a, z) > t0) {
+            t0 = Math.min(a, z)
+            axis = k
+          }
+          t1 = Math.min(t1, Math.max(a, z))
+        }
+        if (t0 <= t1 && t0 < best && axis >= 0) {
+          best = t0
+          hit = b
+          normal = [0, 0, 0]
+          normal[axis] = -Math.sign(d[axis])
+        }
+      }
+      if (!hit) continue
+      // 모델의 면 방향을 보는 쪽 기준으로 돌려 빛을 잼
+      const seen: V = [normal[0] * c + normal[2] * s, normal[1], -normal[0] * s + normal[2] * c]
+      const k = 0.55 + 0.5 * Math.max(0, dot(seen, PORTRAIT_LIGHT))
+      let col = hit.rgb.map((v) => v * k)
+      if (!hit.own) {
+        const light = (0.3 * col[0] + 0.59 * col[1] + 0.11 * col[2]) / 255
+        col = col.map((v, q) => v * 0.35 + (INK[q] + (PRINT[q] - INK[q]) * Math.min(1, light * 1.15)) * 0.65)
+      }
+      px.set([col[0], col[1], col[2], 255], (j * n + i) * 4)
+    }
+  }
+  const filled = (i: number, j: number) => i >= 0 && j >= 0 && i < n && j < n && px[(j * n + i) * 4 + 3] === 255
+  const edge: number[] = []
+  for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) if (!filled(i, j) && (filled(i - 1, j) || filled(i + 1, j) || filled(i, j - 1) || filled(i, j + 1))) edge.push((j * n + i) * 4)
+  for (const p of edge) px.set([...OUTLINE, 255], p)
+  return px
+}
+
+const portraits = new Map<string, string>()
+
+// 초상화를 <img>에 넣을 주소(PNG data URL)로. 캐릭터와 색마다 처음 부를 때 한 번 그림. 캔버스가 있는 브라우저에서만 부름
+export function portraitUrl(character: number, color?: number): string {
+  const id = `${character}/${color}`
+  let url = portraits.get(id)
+  if (url === undefined) {
+    const canvas = document.createElement('canvas')
+    canvas.width = canvas.height = PORTRAIT_SIZE
+    canvas.getContext('2d')!.putImageData(new ImageData(portraitPixels(character, color), PORTRAIT_SIZE), 0, 0)
+    portraits.set(id, (url = canvas.toDataURL()))
+  }
+  return url
+}
 
 // 상자의 꼭짓점 8개
 export const corners = (b: Box): V[] =>

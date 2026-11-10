@@ -28,6 +28,14 @@ export const ja: Copy = {
     wounded: '負傷',
     hitDown: 'ダウン',
     miss: 'ミス',
+    killCard: 'あんたを仕留めた奴',
+    downedBy: '仕留めたのは',
+    outtaTime: '時間切れ',
+    killLine: {
+      head: (name: string) => `${name}の弾が帽子をぶち抜いたぜ、相棒。`,
+      body: (name: string) => `${name}の二発目でお陀仏だ、相棒。`,
+      timeout: '時間切れだぜ、相棒。',
+    },
   },
   saloon: {
     seats: 'カウンターの客',
@@ -45,6 +53,11 @@ export const ja: Copy = {
     copyFailed: (keys) => `${keys}を押しな、相棒`,
     readyStamp: '準備OK',
     winStamp: '勝者',
+    wardrobe: 'キャラクターと色',
+    keyParts: ['ネッカチーフ', 'ソンブレロ', 'シャツ', 'コルセット', 'ベスト', 'コート', '帽子', 'ポンチョ'],
+    partColor: (part) => `${part}の色`,
+    colors: ['赤', '空色', '緑', '黄', 'オレンジ', 'ピンク', '白', '黒'],
+    colorTaken: (color) => `${color}、先客ありだぜ`,
     bartender: {
       tips: [
         '撃つ前に少し銃を止めな。震える手じゃ当たらねえぜ、相棒。',
@@ -70,8 +83,7 @@ export const ja: Copy = {
     nickname: 'ニックネーム',
     nicknameRule: '2〜8文字',
     ok: 'OK',
-    character: 'キャラクター',
-    characterNames: ['チャールズ'],
+    characterNames: ['チャールズ', 'ロサ', 'サイラス', 'ベル', 'クレイトン', 'ジェシー', 'ケイト', 'ディエゴ'],
     roomList: 'ルーム一覧',
     code: 'ルームコード',
     join: '入室',
@@ -98,6 +110,7 @@ export const ja: Copy = {
       roomName: 'ルーム名がルールに合っていません',
       maxPlayers: '人数は2〜8人です',
       character: 'そのキャラクターはいません',
+      color: 'その色はありません',
     },
   },
   create: {

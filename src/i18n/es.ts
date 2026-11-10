@@ -28,6 +28,14 @@ export const es: Copy = {
     wounded: 'Herido',
     hitDown: 'Abatido',
     miss: 'Fallo',
+    killCard: 'Quién te tumbó',
+    downedBy: 'Te tumbó',
+    outtaTime: 'Sin tiempo',
+    killLine: {
+      head: (name: string) => `La bala de ${name} te halló el sombrero, compadre.`,
+      body: (name: string) => `El segundo plomazo de ${name} te tumbó, compadre.`,
+      timeout: 'Se te acabó el tiempo, compadre.',
+    },
   },
   saloon: {
     seats: 'Gente en la barra',
@@ -45,6 +53,11 @@ export const es: Copy = {
     copyFailed: (keys) => `Pulsa ${keys}, compañero`,
     readyStamp: 'Listo',
     winStamp: 'Ganador',
+    wardrobe: 'Personaje y color',
+    keyParts: ['Pañuelo', 'Sombrero', 'Camisa', 'Corsé', 'Chaleco', 'Abrigo', 'Sombrero alto', 'Poncho'],
+    partColor: (part) => `Color: ${part}`,
+    colors: ['Rojo', 'Celeste', 'Verde', 'Amarillo', 'Naranja', 'Rosa', 'Blanco', 'Negro'],
+    colorTaken: (color) => `${color}, ya tiene dueño`,
     bartender: {
       tips: [
         'Quieto con el hierro un rato antes de disparar. Mano temblona no acierta, compadre.',
@@ -70,8 +83,7 @@ export const es: Copy = {
     nickname: 'Apodo',
     nicknameRule: '2–8 caracteres',
     ok: 'Aceptar',
-    character: 'Personaje',
-    characterNames: ['Charles'],
+    characterNames: ['Charles', 'Rosa', 'Silas', 'Belle', 'Clayton', 'Jesse', 'Kate', 'Diego'],
     roomList: 'Lista de salas',
     code: 'Código de sala',
     join: 'Entrar',
@@ -98,6 +110,7 @@ export const es: Copy = {
       roomName: 'Ese nombre de sala no cumple las reglas',
       maxPlayers: 'Debe haber de 2 a 8 jugadores',
       character: 'Ese personaje no existe',
+      color: 'Ese color no existe',
     },
   },
   create: {

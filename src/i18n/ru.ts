@@ -28,6 +28,14 @@ export const ru: Copy = {
     wounded: 'Ранен',
     hitDown: 'Повержен',
     miss: 'Мимо',
+    killCard: 'Кто тебя уложил',
+    downedBy: 'Стрелок',
+    outtaTime: 'Время вышло',
+    killLine: {
+      head: (name: string) => `Стрелок ${name} — и пуля прямо под шляпу, приятель.`,
+      body: (name: string) => `Стрелок ${name} — вторая пуля тебя и уложила, приятель.`,
+      timeout: 'Время-то вышло, приятель.',
+    },
   },
   saloon: {
     seats: 'Люди у стойки',
@@ -45,6 +53,11 @@ export const ru: Copy = {
     copyFailed: (keys) => `Жми ${keys}, приятель`,
     readyStamp: 'Готов',
     winStamp: 'Победитель',
+    wardrobe: 'Персонаж и цвет',
+    keyParts: ['Платок', 'Сомбреро', 'Рубаха', 'Корсет', 'Жилет', 'Плащ', 'Шляпа', 'Пончо'],
+    partColor: (part) => `Цвет: ${part}`,
+    colors: ['Красный', 'Голубой', 'Зелёный', 'Жёлтый', 'Оранжевый', 'Розовый', 'Белый', 'Чёрный'],
+    colorTaken: (color) => `${color} — уж занят`,
     bartender: {
       tips: [
         'Подержи ствол спокойно, прежде чем палить. Дрожащая рука мажет, приятель.',
@@ -70,8 +83,7 @@ export const ru: Copy = {
     nickname: 'Никнейм',
     nicknameRule: '2–8 символов',
     ok: 'ОК',
-    character: 'Персонаж',
-    characterNames: ['Чарльз'],
+    characterNames: ['Чарльз', 'Роса', 'Сайлас', 'Белль', 'Клейтон', 'Джесси', 'Кейт', 'Диего'],
     roomList: 'Список комнат',
     code: 'Код комнаты',
     join: 'Войти',
@@ -98,6 +110,7 @@ export const ru: Copy = {
       roomName: 'Название комнаты не подходит под правила',
       maxPlayers: 'Игроков должно быть от 2 до 8',
       character: 'Такого персонажа нет',
+      color: 'Такого цвета нет',
     },
   },
   create: {

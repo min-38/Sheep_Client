@@ -1,7 +1,7 @@
 import './style.css'
 import revolverData from './assets/revolver-rig.json'
 import { orbit } from './backdrop.ts'
-import { CHARACTERS, characterBody, drawFigure, PORTRAITS, savedCharacter, SUICIDE_AIM, SUICIDE_FLASH, suicideStage, type Body, type Pose } from './character.ts'
+import { CHARACTERS, characterBody, drawFigure, keyColor, portraitUrl, savedCharacter, savedColor, SUICIDE_AIM, SUICIDE_FLASH, suicideStage, type Body, type Pose } from './character.ts'
 import { best, measure, toLocalTime, toServerTime, type ClockSample } from './clock.ts'
 import { CYLINDER_TURN, cylinderSvg } from './cylinder.ts'
 import { makeProps, SKIES, timeOfDay } from './desert.ts'
@@ -22,6 +22,7 @@ import type { Rig } from './rig.ts'
 import { banner, DUEL_LIMIT, dueling, formatTime, joins, locked, resultText, standingCount, stepIndex, timeLeft, walking, type Schedule } from './round.ts'
 import { bountyRise, bubbleX, COPIED_MS, copyKeys, drawSaloon, SALOON_CAMERA, seatSlots, seatSpot, seatTag, startBartender, startChatter, stepBartender, stepChatter, STOOL, tally } from './saloon.ts'
 import { cut, replayWindow } from './replay.ts'
+import { filming, motionMs, SCENE_MS, sceneCamera, SLOW } from './downscene.ts'
 // 지금 언어의 문구. 이 파일은 t를 시각 변수로 많이 써 문구는 copy로 부름
 import { copyOf, HTML_LANG, LANGUAGES, setLanguage, t as copy, textAt, type Language } from './i18n/index.ts'
 import { readSettings, radiansPerPixel, type Crosshair, type Hand, type Settings } from './settings.ts'
@@ -48,9 +49,11 @@ const TURN_INTERVAL = 50
 const INTERP_DELAY = 100
 // 한 번 맞출 때 재는 횟수. 그중 왕복이 가장 짧은 값을 씀 (기술 설계서 시간 맞추기)
 const SYNC_COUNT = 5
-// ms. 쓰러져 "쓰러짐"을 보인 뒤 관전으로 넘어가기까지. 함께 쓰러짐으로 늦게 오는 내 shotResult(맞고 D 안에 쏜 발사)가 그 안에 다 와서,
-// 관전을 시작한 뒤 오는 shotResult는 관전 대상의 복사본임. ponytail: 임시 값(시스템 기획서 HUD 관전). 플레이해 보며 정함
-const SPECTATE_AFTER = 1000
+// ms. 쓰러져 쓰러짐 장면(SHEEP-119)을 보인 뒤 관전으로 넘어가기까지. 함께 쓰러짐으로 늦게 오는 내 shotResult(맞고 D 안에 쏜 발사)가
+// 그 안에 다 와서, 관전을 시작한 뒤 오는 shotResult는 관전 대상의 복사본임 (시스템 기획서 HUD 관전)
+const SPECTATE_AFTER = SCENE_MS
+// px. 쓰러짐 장면의 위아래 검은 띠 높이(화면 높이의 9%)
+const FILM_BAR = Math.round(H * 0.09)
 
 const canvas = document.querySelector<HTMLCanvasElement>('#screen')!
 canvas.width = W
@@ -87,8 +90,9 @@ let sentPitch = 0
 let sentAt = -Infinity
 // 플레이어마다 받은 상태. 나도 넣어 서버가 나를 걷게 할 때 다른 사람과 같이 보간해 그림
 const history = new Map<string, Sample[]>()
-// 사람마다 고른 캐릭터 번호. state마다 새로 받아 그 사람의 모델을 고름
-let characters = new Map<string, number>()
+// 사람마다 고른 캐릭터 번호와 사람 색 번호. state마다 새로 받아 그 사람의 모델과 핵심 파츠 색을 고름
+type Look = { character: number; color: number }
+let characters = new Map<string, Look>()
 // 마지막으로 받은 state의 사람들. 판 끝 포스터에 이긴 사람의 닉네임, 색, 이긴 횟수를 적는 데 씀
 let roster: readonly PlayerState[] = []
 // 1인칭 리볼버 모델. 부품이 뼈대로 움직임 (컨셉 기획서 아트와 사운드 1인칭 총)
@@ -115,7 +119,7 @@ type Scene = {
   shots: Map<string, { at: number; angle: number }>
   downs: Map<string, Down>
   schedule: Schedule
-  characters: Map<string, number>
+  characters: Map<string, Look>
 }
 const live = (): Scene => ({ history, shots, downs, schedule, characters })
 // 다시 보기 (컨셉 기획서 규칙 탈락한 뒤). 쓰러지면 누구의 눈으로 어느 구간(ms, 내 시계)을 볼지 정하고 그때의 판 시각을 떠 둠(replayPlan).
@@ -139,12 +143,13 @@ function applyState(players: readonly PlayerState[]) {
   }
   placed = true
   record(history, players, now)
-  characters = new Map(players.map((p) => [p.id, p.character]))
+  characters = new Map(players.map((p) => [p.id, { character: p.character, color: p.color }]))
   roster = players
   pickWatch(now)
   // 창이 숨어 그리기가 멈춰도 state는 오므로 여기서 떠 둠
   if (replayPlan && now > replayPlan.end) saveReplay()
   showSeats(players)
+  showWardrobe(players)
   // 내 준비 여부도 서버가 정함. 누르면 이 값을 뒤집어 보냄
   ready = me.ready
   showReady()
@@ -250,7 +255,8 @@ function playFallOf(id: string, reason: 'shot' | 'timeout') {
   if (!audio || !placed || !samples) return
   const now = performance.now()
   const when = toAudioTime(now + INTERP_DELAY + (id === myId ? 0 : fallDelay(reason)), stampOf(audio))
-  if (id === myId) return playFall(audio, when)
+  // 내 쓰러짐은 장면처럼 늦춰 느리게 넘어진 몸이 바닥에 닿을 때 낮게 들림 (SHEEP-119)
+  if (id === myId) return playFall(audio, toAudioTime(now + INTERP_DELAY + fallDelay(reason) / SLOW, stampOf(audio)), undefined, SLOW)
   const view = eyes(now)
   const body = sampleAt(samples, now - INTERP_DELAY)
   playFall(audio, when, heardFrom(view.x, view.y, view.angle, body.x, body.y))
@@ -267,7 +273,8 @@ function othersAt(t: number, viewer: string, scene: Scene): Thing[] {
       const s = sampleAt(samples, t)
       const shot = scene.shots.get(id)
       const flashing = shot !== undefined && t >= shot.at && t < shot.at + FLASH_SHOWN
-      const body = characterBody(scene.characters.get(id)!)
+      const look = scene.characters.get(id)!
+      const body = characterBody(look.character, look.color)
       // "시작!"부터 서 있는 사람은 총을 겨눈 모습. 머리와 팔은 그 사람의 위아래 시선대로
       const upright = duel ? body.aim(s.pitch) : s.pose === 'walk' ? body.walk(walked) : body.stand(t)
       // 불꽃 동안은 쏜 각도로 그림. 돌고 바로 쏘면 돌아간 각도는 다음 state로 늦게 옴
@@ -278,7 +285,7 @@ function othersAt(t: number, viewer: string, scene: Scene): Thing[] {
 // 탈락하면 뒤로 넘어짐. 시간 초과는 자살 모습(총을 댐, 불꽃)을 보인 뒤 넘어짐
 function poseAt(body: Body, down: Down | undefined, t: number, upright: Pose) {
   if (down === undefined || t < down.at) return upright
-  if (down.reason === 'shot') return body.fall(t - down.at)
+  if (down.reason === 'shot') return body.fall(t - down.at, true)
   const stage = suicideStage(t - down.at)
   return stage === null ? body.fall(t - down.at - SUICIDE_AIM - SUICIDE_FLASH) : body.suicide[stage]
 }
@@ -323,6 +330,36 @@ const crosshair = document.querySelector<HTMLDivElement>('#crosshair')!
 // 설정에서 고른 모양. 관전과 다시 보기에서도 내 모양 (시스템 기획서 HUD 조준점)
 crosshair.dataset.shape = settings.crosshair
 const hitCard = document.querySelector<HTMLElement>('#hit-card')!
+// 쓰러지는 장면의 자막 카드 (SHEEP-119). 탈락과 downedBy를 받을 때 채우고, 장면 동안 보임
+const killCard = document.querySelector<HTMLElement>('#kill-card')!
+const killFace = document.querySelector<HTMLImageElement>('#kill-face')!
+const killKicker = document.querySelector<HTMLElement>('#kill-kicker')!
+const killName = document.querySelector<HTMLElement>('#kill-name')!
+const killLine = document.querySelector<HTMLElement>('#kill-line')!
+const killHole = document.querySelector<SVGCircleElement>('#kill-hole')!
+const killOld = document.querySelector<SVGCircleElement>('#kill-old')!
+// 몸 그림(100×100)에서 구멍 자리. 머리, 두 번째 반샷(가슴과 앞서 맞은 배), 시간 초과는 오른쪽 관자놀이
+const KILL_HOLES = { head: [51, 6], body: [53, 26], timeout: [55.5, 7] } as const
+const OLD_WOUND = [45, 38] as const
+// 나를 쓰러뜨린 사람과 맞은 부위. 시간 초과면 null
+let downedBy: { playerId: string; zone: 'head' | 'body' } | null = null
+
+function fillKillCard() {
+  const by = downedBy && roster.find((p) => p.id === downedBy!.playerId)
+  const me = roster.find((p) => p.id === myId)
+  const who = by ?? me
+  if (!who) return
+  killFace.src = portraitUrl(who.character, who.color)
+  killKicker.textContent = by ? copy.hud.downedBy : copy.hud.outtaTime
+  killName.textContent = who.nickname
+  killLine.textContent = by ? copy.hud.killLine[downedBy!.zone](by.nickname) : copy.hud.killLine.timeout
+  const [x, y] = KILL_HOLES[by ? downedBy!.zone : 'timeout']
+  killHole.setAttribute('cx', `${x}`)
+  killHole.setAttribute('cy', `${y}`)
+  killOld.setAttribute('cx', `${OLD_WOUND[0]}`)
+  killOld.setAttribute('cy', `${OLD_WOUND[1]}`)
+  killOld.style.display = by && downedBy!.zone === 'body' ? '' : 'none'
+}
 const hitHole = document.querySelector<SVGCircleElement>('#hit-hole')!
 const hitStamp = document.querySelector<HTMLOutputElement>('#hit-stamp')!
 const bloodView = document.querySelector<HTMLDivElement>('#blood')!
@@ -435,6 +472,10 @@ function frame(now: number) {
   showAmmo(rounds)
   const dt = now - lastFrame
   lastFrame = now
+  // 내가 쓰러진 것을 보인 때부터 장면 시간(ms). 다시 보기와 관전 중에는 장면이 없음 (시스템 기획서 HUD 쓰러짐)
+  const mine = !r && !watch && myId !== null ? downs.get(myId) : undefined
+  const sceneT = mine ? now - INTERP_DELAY - mine.at : -1
+  const inScene = mine !== undefined && sceneT >= 0 && sceneT < SCENE_MS
   if (!saloon.hidden) {
     // 판 사이에는 결투장 대신 술집 한 장면을 그림 (시스템 기획서 방 화면 M8 대기실 짜임)
     bartender = stepBartender(bartender, now, dt, Math.random)
@@ -448,6 +489,22 @@ function frame(now: number) {
       if (bartenderLine.textContent !== text) bartenderLine.textContent = text
       bartenderLine.style.left = `${(bubbleX(bartender.x) * 100) / W}%`
     }
+  } else if (grid && view && inScene) {
+    // 내 앞 위에서 내 몸을 내려다보며 넘어지는 동작만 늦춤. 늘 카메라를 보는 소품 그림은 위에서 보면 납작해 빼고, 하늘은 화면 밖임 (SHEEP-119)
+    const me = sampleAt(history.get(myId!)!, now - INTERP_DELAY)
+    const look = characters.get(myId!)!
+    const body = characterBody(look.character, look.color)
+    const self = { x: me.x, y: me.y, facing: me.angle, ...poseAt(body, { at: 0, reason: mine.reason }, motionMs(sceneT), body.rest) }
+    const things = [self, ...othersAt(now - INTERP_DELAY, myId!, scene)]
+    renderFrame(pixels, W, H, grid, sceneCamera(me.x, me.y, me.angle, sceneT, FOV), things, SKIES[timeOfDay(standing ?? history.size)])
+    ctx.putImageData(image, 0, 0)
+    // 바닥에 닿을 때까지 옛 영화처럼 위아래에 검은 띠
+    if (filming(sceneT, mine.reason)) {
+      ctx.fillStyle = '#000'
+      ctx.fillRect(0, 0, W, FILM_BAR)
+      ctx.fillRect(0, H - FILM_BAR, W, FILM_BAR)
+    }
+    playSteps(now)
   } else if (grid && view) {
     // 내 자리도 다른 사람처럼 INTERP_DELAY 전을 그림. 받은 그대로 그리면 걷는 동안 20Hz로 끊겨 보임
     const things = [...othersAt(r ? t : now - INTERP_DELAY, view.id, scene), ...props]
@@ -481,6 +538,8 @@ function frame(now: number) {
   flash.hidden = t - fired >= FLASH_SHOWN
   // 다시 보기에서는 그 사람의 혈흔과 사격 결과를 몰라 숨김
   game.classList.toggle('replaying', r !== null)
+  game.classList.toggle('filming', inScene && filming(sceneT, mine.reason))
+  killCard.hidden = !inScene
   bloodView.hidden = r !== null || !(watch ? watch.wounded : blood.shown)
   replayButton.hidden = replay === null
   // "쓰러짐"이 뜰 때부터 판 도중에만 보임. 재대결로 다시 서거나 판이 끝나 술집으로 돌아가면 숨음
@@ -495,20 +554,23 @@ function frame(now: number) {
   // 내가 쓰러진 것과 판 결과도 INTERP_DELAY 뒤에 알림. 나를 맞힌 사람의 불꽃보다 먼저 뜨지 않게 함.
   // 승리는 글자 대신 이긴 사람의 포스터를 띄움
   const shown = result && now - INTERP_DELAY >= result.at ? result : null
-  if (shown?.outcome === 'win' && winView.hidden) showWinner(shown.playerIds[0])
-  const text = r
-    ? clock
-      ? banner(scene.schedule, toServerTime(t, clock.offset))
-      : ''
-    : shown
-      ? winView.hidden
-        ? resultText(shown, myId)
+  // 내 쓰러짐 장면 동안은 포스터와 결과 글자를 미룸. 마지막 한 발이면 장면이 끝난 뒤 남은 결과 시간에 포스터가 뜸 (SHEEP-119)
+  if (shown?.outcome === 'win' && winView.hidden && !inScene) showWinner(shown.playerIds[0])
+  const text = inScene
+    ? ''
+    : r
+      ? clock
+        ? banner(scene.schedule, toServerTime(t, clock.offset))
         : ''
-      : myId !== null && isDown(myId, now - INTERP_DELAY) && !watch
-        ? copy.hud.down
-        : clock
-          ? banner(schedule, toServerTime(now, clock.offset))
+      : shown
+        ? winView.hidden
+          ? resultText(shown, myId)
           : ''
+        : myId !== null && isDown(myId, now - INTERP_DELAY) && !watch
+          ? copy.hud.down
+          : clock
+            ? banner(schedule, toServerTime(now, clock.offset))
+            : ''
   if (bannerText.value !== text) bannerText.value = text
   // 관전과 다시 보기에서는 그 사람 화면 그대로라 누구의 눈인지 적어 둠
   const who = (id: string) => roster.find((p) => p.id === id)?.nickname ?? ''
@@ -581,7 +643,7 @@ boardCode.addEventListener('click', async () => {
   }
 })
 
-// 바 좌석 (시스템 기획서 방 화면 M8 대기실 짜임). 좌석 수는 방 인원 제한이라 방에 들어갈 때 다시 만듦. 좌석 번호가 목수건 색 번호.
+// 바 좌석 (시스템 기획서 방 화면 M8 대기실 짜임). 좌석 수는 방 인원 제한이라 방에 들어갈 때 다시 만듦. 좌석 번호는 서버가 준 seat.
 // 꼬리표는 앉은 사람 머리 위의 종이이고, 닉네임은 사용자가 넣은 이름이라 textContent로만 넣음
 const seatList = document.querySelector<HTMLOListElement>('#seats')!
 type SeatView = { li: HTMLLIElement; nick: HTMLSpanElement; wins: HTMLSpanElement; star: HTMLElement; stamp: HTMLSpanElement }
@@ -637,7 +699,7 @@ document.querySelectorAll<HTMLElement>('.sheet').forEach((el, i) => dressPaper(e
 function showWinner(id: string) {
   const p = roster.find((q) => q.id === id)
   if (!p) return
-  winFace.src = PORTRAITS[p.character]
+  winFace.src = portraitUrl(p.character, p.color)
   document.querySelector('#win-name')!.textContent = p.nickname
   document.querySelector<HTMLOutputElement>('#win-bounty')!.value = bountyRise(p.wins)
   winView.hidden = false
@@ -665,7 +727,7 @@ function showSeats(players: readonly PlayerState[]) {
   const middle = (seatCount - 1) / 2
   const order = slots.map((_, i) => i).sort((a, b) => Math.abs(b - middle) - Math.abs(a - middle))
   for (const i of order) {
-    const pose = slots[i] && characterBody(slots[i].character).sit
+    const pose = slots[i] && characterBody(slots[i].character, slots[i].color).sit
     drawFigure(guestPixels, W, H, NO_WALLS, SALOON_CAMERA, { ...seatSpot(i, seatCount), boxes: pose ? [...STOOL, ...pose.boxes] : [...STOOL], gun: pose ? pose.gun : [] }, SALOON_LIGHT)
   }
   guestsCtx.putImageData(guestImage, 0, 0)
@@ -703,11 +765,10 @@ const DUEL_GAP = 3
 const BACKDROP_RADIUS = 4
 // 라디안. 조금 올려 봐 두 사람이 제목 아래로 내려오고 석양 하늘이 넓게 보임. ponytail: 임시 값
 const BACKDROP_PITCH = 0.1
-// 첫 화면 배경에 세우는 것. 남북으로 마주 보고 총을 찬 채 선 두 사람과 둘레 소품. 그림은 여기서 한 번만 만듦.
-// 캐릭터가 찰스 하나뿐이라 둘 다 찰스임. 캐릭터가 늘면 서로 다른 캐릭터로 세움
+// 첫 화면 배경에 세우는 것. 남북으로 마주 보고 총을 찬 채 선 두 사람(찰스와 무법자 제시)과 둘레 소품. 그림은 여기서 한 번만 만듦
 const BACKDROP_THINGS: Thing[] = [
   { x: BACKDROP_MID, y: BACKDROP_MID - DUEL_GAP / 2, facing: Math.PI / 2, ...characterBody(0).rest },
-  { x: BACKDROP_MID, y: BACKDROP_MID + DUEL_GAP / 2, facing: -Math.PI / 2, ...characterBody(0).rest },
+  { x: BACKDROP_MID, y: BACKDROP_MID + DUEL_GAP / 2, facing: -Math.PI / 2, ...characterBody(5).rest },
   ...makeProps(BACKDROP_MID, BACKDROP_MID),
 ]
 // 배경이 돌기 시작한 시각(ms). 페이지가 뜨는 데 걸린 시간만큼 돌아가 있지 않고 늘 같은 장면에서 시작함.
@@ -727,32 +788,81 @@ function saveNickname(name: string) {
     localStorage.setItem(SAVED_NICKNAME, name)
   } catch {}
 }
-// 고른 캐릭터 번호 (시스템 기획서 캐릭터 고르기). 첫 화면 2단계에서 고르고 브라우저에 기억해 방에 들어갈 때마다 보냄
+// 고른 캐릭터 번호와 사람 색 번호 (시스템 기획서 캐릭터 고르기). 술집 왼쪽 벽 게시판에서 고르고 브라우저에 기억해 방에 들어갈 때마다 보냄.
+// 기억한 색이 없으면 null이라 보내지 않고 서버가 들어온 순서로 줌
 const SAVED_CHARACTER = 'character'
+const SAVED_COLOR = 'color'
 let character = 0
+let color: number | null = null
 try {
   character = savedCharacter(localStorage.getItem(SAVED_CHARACTER))
+  color = savedColor(localStorage.getItem(SAVED_COLOR))
 } catch {}
-// 캐릭터마다 초상화 하나를 고르는 칸으로 둠. 고른 칸에 테두리. 초상화 이름(alt)은 언어를 바꿀 때 넣음
-const characterPick = document.querySelector<HTMLDivElement>('#character-pick')!
-const characterFaces = CHARACTERS.map((_, i) => {
-  const label = document.createElement('label')
-  const radio = document.createElement('input')
-  radio.type = 'radio'
-  radio.name = 'character'
-  radio.value = String(i)
-  radio.checked = i === character
-  const face = document.createElement('img')
-  face.src = PORTRAITS[i]
-  label.append(radio, face)
-  characterPick.append(label)
-  return face
-})
-characterPick.addEventListener('change', (e) => {
-  character = Number((e.target as HTMLInputElement).value)
+// 사생활 보호 모드처럼 저장소를 막으면 던지므로 기억 못 해도 그냥 둠
+function remember(key: string, value: number) {
   try {
-    localStorage.setItem(SAVED_CHARACTER, String(character))
+    localStorage.setItem(key, String(value))
   } catch {}
+}
+
+// 술집 왼쪽 벽의 현상금 게시판 (시스템 기획서 방 화면 캐릭터·색 바꾸기, SHEEP-118). 캐릭터마다 작은 WANTED 포스터, 그 아래 핵심 파츠 이름과 색 견본.
+// 누르면 dress로 보내고, 무엇을 골랐는지와 다른 사람이 쓰는 색은 서버가 보낸 state대로 그림. 그래서 겹친 색을 서버가 버리면 그대로 돌아옴
+const wardrobe = document.querySelector<HTMLDivElement>('#wardrobe')!
+const wardrobePart = document.querySelector<HTMLParagraphElement>('#wardrobe-part')!
+const posters = CHARACTERS.map((_, i) => {
+  const button = document.createElement('button')
+  button.type = 'button'
+  button.dataset.character = String(i)
+  button.append(document.createElement('img'))
+  return button
+})
+document.querySelector('#wanted')!.append(...posters)
+const swatches = BANDANA.map((_, i) => {
+  const button = document.createElement('button')
+  button.type = 'button'
+  button.dataset.color = String(i)
+  return button
+})
+document.querySelector('#swatches')!.append(...swatches)
+// 마지막으로 그린 게시판. state는 20Hz로 오지만 바뀔 때만 다시 넣어 화면 낭독기가 되풀이해 읽지 않게 함. 언어를 바꾸면 비움
+let shownWardrobe = ''
+function showWardrobe(players: readonly PlayerState[]) {
+  const me = players.find((p) => p.id === myId)
+  if (!me) return
+  const taken = players.filter((p) => p.id !== myId).map((p) => p.color)
+  const key = JSON.stringify([me.character, me.color, taken])
+  if (key === shownWardrobe) return
+  shownWardrobe = key
+  // 모든 포스터를 내 색으로 칠해 어느 캐릭터를 골라도 어떻게 보일지 앎
+  posters.forEach((button, i) => {
+    button.setAttribute('aria-pressed', String(i === me.character))
+    button.setAttribute('aria-label', copy.lobby.characterNames[i])
+    button.querySelector('img')!.src = portraitUrl(i, me.color)
+  })
+  wardrobePart.textContent = `${copy.lobby.characterNames[me.character]} · ${copy.saloon.partColor(copy.saloon.keyParts[me.character])}`
+  // 견본은 내 캐릭터의 핵심 파츠에 칠해질 색 (하늘은 몸통이면 짙은 파랑). 다른 사람이 쓰는 색은 줄을 그어 막음
+  swatches.forEach((button, i) => {
+    const used = taken.includes(i)
+    button.style.background = keyColor(me.character, i)
+    button.classList.toggle('taken', used)
+    button.setAttribute('aria-pressed', String(i === me.color))
+    button.setAttribute('aria-disabled', String(used))
+    button.setAttribute('aria-label', used ? copy.saloon.colorTaken(copy.saloon.colors[i]) : copy.saloon.colors[i])
+  })
+}
+wardrobe.addEventListener('click', (e) => {
+  const button = (e.target as HTMLElement).closest('button')
+  const me = roster.find((p) => p.id === myId)
+  if (!button || !me) return
+  if (button.dataset.character !== undefined) {
+    character = Number(button.dataset.character)
+    remember(SAVED_CHARACTER, character)
+    send({ type: 'dress', character, color: me.color })
+  } else if (button.dataset.color !== undefined && !button.classList.contains('taken')) {
+    color = Number(button.dataset.color)
+    remember(SAVED_COLOR, color)
+    send({ type: 'dress', character: me.character, color })
+  }
 })
 let connected = false
 // ms. 방 목록이 보이는 동안 다시 받는 간격. ponytail: 임시 값(시스템 기획서 방 화면 대기실 보기)
@@ -821,7 +931,7 @@ codeInput.addEventListener('keydown', (e) => {
 
 // 들어갈 수 있는 줄은 초점을 받으면(누르거나 Tab) 고르고, 두 번 누르거나 Enter로 들어감
 const rowCode = (e: Event) => (e.target as HTMLElement).closest<HTMLElement>('li[data-code]')?.dataset.code
-const joinCode = (code: string) => enterWith((nickname) => ({ type: 'joinRoom', code, nickname, character }))
+const joinCode = (code: string) => enterWith((nickname) => ({ type: 'joinRoom', code, nickname, character, color: color ?? undefined }))
 roomList.addEventListener('focusin', (e) => {
   const code = rowCode(e)
   if (code === undefined) return
@@ -1071,6 +1181,9 @@ function receive(data: string) {
       downs.set(m.playerId, { at: performance.now(), reason: m.reason })
       playFallOf(m.playerId, m.reason)
       if (m.playerId !== myId) break
+      // 맞아 쓰러졌으면 바로 뒤에 downedBy가 와 카드를 다시 채움
+      downedBy = null
+      fillKillCard()
       // 쓰러지면 돌지도 쏘지도 않아 포인터 잠금을 풂. 관전은 화면을 눌러 바꾸고, 다시 보기는 버튼을 누름
       document.exitPointerLock()
       // 시간 초과는 쏜 사람이 없어 제한 시각 앞을 내 눈으로 봄 (컨셉 기획서 규칙 탈락한 뒤 다시 보기)
@@ -1079,6 +1192,8 @@ function receive(data: string) {
     case 'downedBy':
       // 나를 쓰러뜨린 사람의 눈으로 그 발사 앞뒤를 봄
       if (clock) planReplay(m.playerId, toLocalTime(m.at, clock.offset))
+      downedBy = { playerId: m.playerId, zone: m.zone }
+      fillKillCard()
       break
     case 'result':
       // 창이 숨어 그리기가 멈춘 동안에는 앞 결과가 끝나지 않은 채 다음 결과가 올 수 있어 먼저 끝냄
@@ -1160,7 +1275,7 @@ document.querySelector('#create-form')!.addEventListener('submit', (e) => {
   const name = checkRoomName()
   if (name === null) return
   createPanel.hidden = true
-  enterWith((nickname) => ({ type: 'createRoom', nickname, name, maxPlayers: Number(maxPlayersSelect.value), private: privateBox.checked, character }))
+  enterWith((nickname) => ({ type: 'createRoom', nickname, name, maxPlayers: Number(maxPlayersSelect.value), private: privateBox.checked, character, color: color ?? undefined }))
 })
 // 술집의 나가기. 답(left)이 오면 첫 화면으로 돌아감
 document.querySelector('#leave')!.addEventListener('click', () => send({ type: 'leaveRoom' }))
@@ -1179,7 +1294,7 @@ lobby.addEventListener('submit', (e) => {
     showStep()
     return
   }
-  enterWith((nickname) => ({ type: 'joinRoom', code: codeInput.value, nickname, character }))
+  enterWith((nickname) => ({ type: 'joinRoom', code: codeInput.value, nickname, character, color: color ?? undefined }))
 })
 
 // 설정 창 (시스템 기획서 방 화면 설정). 첫 화면과 대기실의 설정 버튼이 같은 창을 엶. 값을 움직이는 대로 적용하고 기억함
@@ -1273,7 +1388,7 @@ function applyCopy() {
     v.stamp.textContent = copy.saloon.readyStamp
   }
   shownSeats = ''
-  characterFaces.forEach((face, i) => (face.alt = copy.lobby.characterNames[i]))
+  shownWardrobe = ''
   status.textContent = statusText()
   showReady()
   shownRounds = undefined
