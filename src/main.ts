@@ -15,14 +15,16 @@ import { dressPaper, PAPER_GRAIN, PAPER_INK } from './paper.ts'
 import { BANDANA, joinable, memberText, roomStatus, type RoomInfo } from './roomlist.ts'
 import { normalizeRoomName, randomRoomName } from './roomname.ts'
 import { castRay, type Grid } from './raycast.ts'
-import { MUSIC_FADE, playMusic, setMusicVolume, trackAt } from './music.ts'
+import { playMusic, setMusicVolume, trackAt } from './music.ts'
 import { makeCamera, renderFrame } from './render.ts'
 import { loaded, pull, ROUNDS } from './revolver.ts'
 import type { Rig } from './rig.ts'
-import { banner, DUEL_LIMIT, dueling, formatTime, joins, locked, resultText, standingCount, stepIndex, timeLeft, TURN_MS, walking, type Schedule } from './round.ts'
+import { banner, DUEL_LIMIT, dueling, formatTime, joins, locked, resultText, standingCount, stepIndex, STEPS_FROM, timeLeft, TURN_MS, walking, type Schedule } from './round.ts'
 import { bountyRise, bubbleX, COPIED_MS, copyKeys, drawSaloon, SALOON_CAMERA, seatSlots, seatSpot, seatTag, startBartender, startChatter, stepBartender, stepChatter, STOOL, tally } from './saloon.ts'
 import { cut, replayWindow } from './replay.ts'
+import { irisOpen, walkerAt, walkoffAt, walkoffCamera } from './ceremony.ts'
 import { filming, motionMs, SCENE_MS, sceneCamera, SLOW } from './downscene.ts'
+import { drawEntrance, entranceAt } from './entrance.ts'
 // 지금 언어의 문구. 이 파일은 t를 시각 변수로 많이 써 문구는 copy로 부름
 import { copyOf, HTML_LANG, LANGUAGES, setLanguage, t as copy, textAt, type Language } from './i18n/index.ts'
 import { readSettings, radiansPerPixel, type Crosshair, type Hand, type Settings } from './settings.ts'
@@ -31,7 +33,8 @@ import { nextTarget } from './spectate.ts'
 import { drawSmoke, smoke, SMOKE_MS, SMOKE_PX } from './smoke.ts'
 import { along, bulletDots, bulletRange, EYE_HEIGHT, FLIGHT_MS } from './bullet.ts'
 import { burst, BURST_MS, pool } from './blood.ts'
-import { fallDelay, heardFrom, loadEffects, play, playFall, playSignal, playStep, setEffectsVolume, stampOf, toAudioTime } from './sound.ts'
+import { fallDelay, heardFrom, loadEffects, play, playFall, playHeartbeat, playSignal, playStep, setEffectsVolume, stampOf, toAudioTime } from './sound.ts'
+import { darkness, heartbeats, stepDip } from './tension.ts'
 import type { Thing } from './sprite.ts'
 import { afterTurn, aimAt, crosshairOffset, scaleAt, steady, sway, type Unsteady } from './sway.ts'
 import { tilt, turn } from './turn.ts'
@@ -40,6 +43,9 @@ import { tilt, turn } from './turn.ts'
 const W = 480
 const H = 270
 const FOV = 66
+// 라디안. 걷는 동안 걸음을 디딜 때 시선이 내려앉는 깊이와 좌우로 기우는 폭 (사용자 결정 2026-11-10, SHEEP-141). ponytail: 임시 값. 플레이해 보며 정함
+const STEP_DIP = 0.035
+const STEP_SWAY = 0.012
 // 투영면까지의 거리(px). renderFrame과 같은 값이라야 조준점이 총알이 갈 곳에 놓임
 const PROJ = W / (2 * Math.tan((FOV * Math.PI) / 360))
 // ms. 시스템 기획서 리볼버 발사 간격. 서버와 같은 값이어야 내가 센 탄 수가 서버와 어긋나지 않음
@@ -282,9 +288,10 @@ function playFallOf(id: string, reason: 'shot' | 'timeout') {
 // viewer는 눈이 되는 사람이라 그리지 않음. 관전이나 다시 보기면 쓰러진 나도 보임
 function othersAt(t: number, viewer: string, scene: Scene): Thing[] {
   const duel = clock !== null && dueling(scene.schedule, toServerTime(t, clock.offset))
-  // 걷기 시각부터 지난 시간(ms). 먼저 TURN_MS 동안 제자리에서 뒤돌며 발을 떼고(SHEEP-120), 그다음 걷는 동작이 발소리를 내는 걸음마다 한쪽 다리를 가장 앞에 둠
+  // 걷기 시각부터 지난 시간(ms). 먼저 TURN_MS 동안 제자리에서 뒤돌며 발을 떼고(SHEEP-120), 뜸을 들이는 동안은 서버가 Stand로 세움(SHEEP-141).
+  // 그다음 걷는 동작이 발소리를 내는 걸음마다 한쪽 다리를 가장 앞에 둠
   const walked = clock !== null && scene.schedule.walk !== undefined ? toServerTime(t, clock.offset) - scene.schedule.walk : 0
-  const stepping = (body: Body) => (walked < TURN_MS ? body.turn(walked) : body.walk(walked - TURN_MS))
+  const stepping = (body: Body) => (walked < TURN_MS ? body.turn(walked) : body.walk(Math.max(0, walked - STEPS_FROM)))
   // 카운트다운부터 지난 시간(ms). 서 있는 사람은 그동안 총을 꺼내 장전하고 권총집에 다시 넣음 (SHEEP-121). 카운트다운 밖이면 null
   const counted = clock !== null && scene.schedule.countdown !== undefined ? toServerTime(t, clock.offset) - scene.schedule.countdown : null
   const reloadingFor = counted !== null && counted >= 0 && !(scene.schedule.walk !== undefined && walked >= 0) ? counted : null
@@ -513,11 +520,15 @@ canvas.addEventListener('mousedown', (e) => {
   shots.set(myId!, { at: e.timeStamp, angle: aim.angle, pitch: aim.pitch })
 })
 
+// t(내 시계)에 D로 총을 뽑을 수 있는지. "시작!" 전, 쓰러진 뒤, 판 결과가 정해진 뒤, 이미 뽑았으면 아님.
+// 뽑기 키와 뽑으라는 안내(SHEEP-138)가 같이 씀
+const canDraw = (t: number) =>
+  grid !== null && clock !== null && result === null && drawnAt === null && myId !== null && !downs.has(myId) && dueling(schedule, toServerTime(t, clock.offset))
+
 // D 키로 총을 뽑음 (사용자 결정 2026-11-09, SHEEP-123). 한글 입력 중에도 되게 글자가 아니라 키 자리(code)로 받음.
-// "시작!" 전, 쓰러진 뒤, 판 결과가 정해진 뒤, 이미 뽑았으면 무시함. 포인터 잠금은 보지 않아 잠그기 전에도 뽑음
+// 포인터 잠금은 보지 않아 잠그기 전에도 뽑음
 document.addEventListener('keydown', (e) => {
-  if (e.code !== 'KeyD' || e.repeat || !grid || !clock || result || drawnAt !== null || myId === null || downs.has(myId)) return
-  if (!dueling(schedule, toServerTime(e.timeStamp, clock.offset))) return
+  if (e.code !== 'KeyD' || e.repeat || !clock || !canDraw(e.timeStamp)) return
   drawnAt = e.timeStamp
   send(drawMessage(e.timeStamp, clock.offset))
   // 공이치기는 총을 다 들어 공이치기가 끝까지 젖혀지고 화면이 튀는 순간에 맞춤 (gun.ts lift, gunClips)
@@ -557,6 +568,8 @@ function frame(now: number) {
   const view = r ? replayEyes(r.replay, r.t) : grid && placed ? eyes(now) : null
   const t = r ? r.t : now
   const scene = r ? r.replay : live()
+  // 승리 세레모니가 시작하고 지난 시간(ms). 승리 결과가 끝나는 시각에서 거꾸로 잼 (SHEEP-136). 그 전이거나 승리가 아니면 null
+  const walkoff = result?.outcome === 'win' && result.end !== undefined && clock ? walkoffAt(result.end, toServerTime(now, clock.offset)) : null
   const steadiness = view && (r || watch) ? imitate(`${r ? 'replay' : 'watch'}:${view.id}`, view, t) : unsteady
   const s = sway(t, scaleAt(steadiness, t))
   // 눈이 되는 사람의 마지막 발사와 남은 총알. 관전하는 사람의 불꽃은 INTERP_DELAY 뒤라 아직 보일 때가 아니면 없는 것으로 봄.
@@ -572,11 +585,26 @@ function frame(now: number) {
   const mine = !r && !watch && myId !== null ? downs.get(myId) : undefined
   const sceneT = mine ? now - INTERP_DELAY - mine.at : -1
   const inScene = mine !== undefined && sceneT >= 0 && sceneT < SCENE_MS
+  // 술집에서 모두 준비해 카운트다운을 기다리는 동안은 바에서 뒤돌아 문을 나서는 장면을 보이고, 카운트다운 시각에 술집을 닫음 (SHEEP-137).
+  // 시계를 맞추기 전이면 바로 닫음
+  const serverNow = clock ? toServerTime(now, clock.offset) : Infinity
+  if (leaveSaloonAt !== null && serverNow >= leaveSaloonAt) {
+    saloon.hidden = true
+    leaveSaloonAt = null
+  }
+  const leaving = leaveSaloonAt !== null && !saloon.hidden ? entranceAt(leaveSaloonAt, serverNow) : null
+  saloon.classList.toggle('leaving', leaving !== null)
+  // 내가 이번 라운드를 걷고 있어 긴장 연출을 보는지 (SHEEP-141). 다시 보기, 관전, 앞 라운드에 쓰러져 끼지 못한 때는 아님
+  const tense = !r && !watch && reloading && myId !== null && !downs.has(myId)
   if (!saloon.hidden) {
     // 판 사이에는 결투장 대신 술집 한 장면을 그림 (시스템 기획서 방 화면 M8 대기실 짜임)
     bartender = stepBartender(bartender, now, dt, Math.random)
-    drawSaloon(ctx, bartender, now)
-    ctx.drawImage(guests, 0, 0)
+    const drawBar = () => {
+      drawSaloon(ctx, bartender, now)
+      ctx.drawImage(guests, 0, 0)
+    }
+    if (leaving) drawEntrance(ctx, leaving, drawBar)
+    else drawBar()
     const { tips, jokes } = copy.saloon.bartender
     chatter = stepChatter(chatter, now, { tips: tips.length, jokes: jokes.length }, Math.random)
     bartenderLine.hidden = chatter.line === null
@@ -584,6 +612,20 @@ function frame(now: number) {
       const text = copy.saloon.bartender[chatter.line.kind][chatter.line.index] ?? ''
       if (bartenderLine.textContent !== text) bartenderLine.textContent = text
       bartenderLine.style.left = `${(bubbleX(bartender.x) * 100) / W}%`
+    }
+  } else if (grid && walkoff !== null && result) {
+    // 모두 이긴 사람 뒤에서 그 사람이 해 쪽으로 걸어가는 모습을 봄. 쓰러진 사람과 피 웅덩이는 그 자리에 남음 (SHEEP-136).
+    // 이긴 사람이 그사이 나갔으면 앞 화면을 그대로 둠
+    const winner = result.playerIds[0]
+    const samples = history.get(winner)
+    const look = characters.get(winner)
+    if (samples && look) {
+      const at = sampleAt(samples, now - INTERP_DELAY)
+      const body = characterBody(look.character, look.color, look.hand)
+      const walker = withWounds({ ...walkerAt(at.x, at.y, walkoff), ...body.walk(walkoff) }, body, hits.get(winner), now - INTERP_DELAY)
+      const things = [...othersAt(now - INTERP_DELAY, winner, live()), walker, ...bloodAt(now - INTERP_DELAY, live()), ...props]
+      renderFrame(pixels, W, H, grid, walkoffCamera(at.x, at.y, FOV), things, SKIES[timeOfDay(standing ?? history.size)])
+      ctx.putImageData(image, 0, 0)
     }
   } else if (grid && view && inScene) {
     // 내 앞 위에서 내 몸을 내려다보며 넘어지는 동작만 늦춤. 늘 카메라를 보는 소품 그림은 위에서 보면 납작해 빼고, 하늘은 화면 밖임 (SHEEP-119)
@@ -605,7 +647,9 @@ function frame(now: number) {
   } else if (grid && view) {
     // 내 자리도 다른 사람처럼 INTERP_DELAY 전을 그림. 받은 그대로 그리면 걷는 동안 20Hz로 끊겨 보임
     const things = [...othersAt(r ? t : now - INTERP_DELAY, view.id, scene), ...bulletsAt(r ? t : now - INTERP_DELAY, view.id, scene, grid), ...bloodAt(r ? t : now - INTERP_DELAY, scene), ...props]
-    renderFrame(pixels, W, H, grid, makeCamera(view.x, view.y, view.angle, FOV, view.pitch), things, SKIES[timeOfDay(standing ?? history.size)])
+    // 이번 라운드를 걷는 내 눈은 걸음마다 무겁게 내려앉고 디딘 발 쪽으로 살짝 기욺. 발소리처럼 INTERP_DELAY 전 걸음에 맞춤 (SHEEP-141)
+    const bump = tense && clock && schedule.walk !== undefined ? stepDip(schedule.walk, toServerTime(now - INTERP_DELAY, clock.offset)) : { dip: 0, tilt: 0 }
+    renderFrame(pixels, W, H, grid, makeCamera(view.x, view.y, view.angle + bump.tilt * STEP_SWAY, FOV, view.pitch - bump.dip * STEP_DIP), things, SKIES[timeOfDay(standing ?? history.size)])
     ctx.putImageData(image, 0, 0)
     playSteps(now)
     // 총은 시점에 붙어 있어 위아래 시선과 상관없이 같은 자리에 있고, 조준점과 같은 흔들림으로 돎.
@@ -642,6 +686,10 @@ function frame(now: number) {
   // 다시 보기에서는 그 사람의 혈흔과 사격 결과를 몰라 숨김
   game.classList.toggle('replaying', r !== null)
   game.classList.toggle('filming', inScene && filming(sceneT, mine.reason))
+  // 세레모니 동안은 HUD를 숨기고 마지막에 화면을 동그랗게 닫음 (SHEEP-136)
+  game.classList.toggle('ceremony', walkoff !== null)
+  iris.hidden = walkoff === null
+  if (walkoff !== null && result?.end !== undefined && clock) iris.style.setProperty('--iris', String(irisOpen(result.end, toServerTime(now, clock.offset))))
   killCard.hidden = !inScene
   bloodView.hidden = r !== null || !(watch ? watch.wounded : blood.shown)
   replayButton.hidden = replay === null
@@ -658,7 +706,9 @@ function frame(now: number) {
   // 승리는 글자 대신 이긴 사람의 포스터를 띄움
   const shown = result && now - INTERP_DELAY >= result.at ? result : null
   // 내 쓰러짐 장면 동안은 포스터와 결과 글자를 미룸. 마지막 한 발이면 장면이 끝난 뒤 남은 결과 시간에 포스터가 뜸 (SHEEP-119)
-  if (shown?.outcome === 'win' && winView.hidden && !inScene) showWinner(shown.playerIds[0])
+  // 세레모니가 시작하면 포스터를 닫음 (SHEEP-136)
+  if (shown?.outcome === 'win' && winView.hidden && !inScene && walkoff === null) showWinner(shown.playerIds[0])
+  if (walkoff !== null) winView.hidden = true
   const text = inScene
     ? ''
     : r
@@ -675,6 +725,8 @@ function frame(now: number) {
             ? banner(schedule, toServerTime(now, clock.offset))
             : ''
   if (bannerText.value !== text) bannerText.value = text
+  // 뽑을 수 있는 동안 "시작!" 아래에 D 키 안내를 띄움. 뽑으면 바로 사라짐 (SHEEP-138)
+  drawHint.hidden = !canDraw(now)
   // 관전과 다시 보기에서는 그 사람 화면 그대로라 누구의 눈인지 적어 둠
   const who = (id: string) => roster.find((p) => p.id === id)?.nickname ?? ''
   const watchText = r ? copy.hud.replayWho(who(r.replay.viewer)) : watch ? copy.hud.watchingWho(who(watch.id)) : ''
@@ -692,9 +744,16 @@ function frame(now: number) {
   alive.hidden = left === null
   const aliveText = left === null ? '' : copy.hud.aliveCount(standingCount(scene.history.keys(), scene.downs, r ? t : now - INTERP_DELAY))
   if (alive.value !== aliveText) alive.value = aliveText
-  // 화면과 판 시각으로 배경음악을 고름. "시작!"에 다 줄어들게 MUSIC_FADE만큼 앞당겨 봄 (시스템 기획서 사운드 배경음악)
+  // 화면 가장자리 어둠. 다 돈 때부터 박동마다 뛰며 짙어지고 가운데로 좁혀 들어와 "시작!"에 걷힘 (SHEEP-141)
+  const dark = tense && clock ? darkness(schedule, toServerTime(now, clock.offset)) : 0
+  tension.hidden = dark === 0
+  if (dark > 0) {
+    tension.style.opacity = String(dark)
+    tension.style.scale = String(1.5 - 0.5 * dark)
+  }
+  // 화면과 판 시각으로 배경음악을 고름. 결투장 곡은 10걸음을 다 걸은 때부터 천천히 줄어듦 (시스템 기획서 사운드 배경음악, SHEEP-141)
   const screen = !lobby.hidden ? 'title' : !saloon.hidden ? 'saloon' : 'arena'
-  if (audio) playMusic(audio, trackAt(screen, schedule, clock ? toServerTime(now + MUSIC_FADE, clock.offset) : -Infinity))
+  if (audio) playMusic(audio, trackAt(screen, schedule, clock ? toServerTime(now, clock.offset) : -Infinity))
   requestAnimationFrame(frame)
 }
 requestAnimationFrame(frame)
@@ -789,6 +848,8 @@ const NO_WALLS = new Float64Array(W).fill(Infinity)
 const SALOON_LIGHT = [255, 255, 255] as const
 // 판 끝 포스터 (시스템 기획서 방 화면 M8 판 끝). HUD의 승리·패배 글자 대신 띄우고 결과 시간이 끝나면(endResult) 닫음
 const winView = document.querySelector<HTMLDivElement>('#win')!
+// 세레모니 끝에 화면을 동그랗게 닫는 검은 막. 구멍 크기는 --iris(0~1) (SHEEP-136)
+const iris = document.querySelector<HTMLDivElement>('#iris')!
 const winFace = document.querySelector<HTMLImageElement>('#win-face')!
 
 // 바랜 종이 질감 (paper.ts). 결과 카드와 포스터는 가장자리까지, 창은 얼룩만. 종이마다 seed가 달라 얼룩과 귀퉁이가 다름
@@ -838,6 +899,11 @@ function showSeats(players: readonly PlayerState[]) {
 const readyButton = document.querySelector<HTMLButtonElement>('#ready')!
 const readyCount = document.querySelector<HTMLOutputElement>('#ready-count')!
 const bannerText = document.querySelector<HTMLOutputElement>('#banner')!
+// 술집에서 받은 카운트다운 시각(서버 시계). 이 시각까지 술집을 나서는 장면을 보이고 술집을 닫음. 술집 밖에서 받았거나 닫았으면 null (SHEEP-137)
+let leaveSaloonAt: number | null = null
+const tension = document.querySelector<HTMLDivElement>('#tension')!
+const drawHint = document.querySelector<HTMLParagraphElement>('#draw-hint')!
+const drawHintKey = drawHint.querySelector('kbd')!
 const timer = document.querySelector<HTMLOutputElement>('#timer')!
 const alive = document.querySelector<HTMLOutputElement>('#alive')!
 const watching = document.querySelector<HTMLOutputElement>('#watching')!
@@ -1243,10 +1309,11 @@ function receive(data: string) {
       break
     case 'phase':
       if (result && result.end === undefined) result.end = m.at
-      // 새 판은 카운트다운부터 다시 받음. 판 도중의 ready는 서버가 버리므로 준비 버튼을 숨김 (기술 설계서 메시지 ready)
+      // 새 판은 카운트다운부터 다시 받음. 술집에서 오면 카운트다운 시각까지 술집을 나서는 장면을 보인 뒤 frame이 술집을 닫음 (SHEEP-137).
+      // 그동안 준비 버튼도 숨김. 판 도중의 ready는 서버가 버림 (기술 설계서 메시지 ready)
       if (m.phase === 'countdown') {
         schedule = {}
-        saloon.hidden = true
+        leaveSaloonAt = saloon.hidden ? null : m.at
         // 재대결이면 재대결하는 사람만, 새 판이면 방 사람 모두가 섬. 앞 판 결과는 이 시각에 끝나므로 아직 남아 있음
         standing = result?.outcome === 'rematch' ? result.playerIds.length : history.size
         reloading = myId !== null && joins(result, myId)
@@ -1287,6 +1354,11 @@ function receive(data: string) {
         }
         // 공이치기 소리는 "시작!"이 아니라 D 키로 뽑은 때에 냄 (SHEEP-123)
         if (m.phase === 'duel') playSignal(audio, when)
+        // 심장 소리는 이번 라운드를 걷는 나만 들음. 다 돈 때부터 마지막 걸음 전까지 점점 빨리 뜀 (SHEEP-141).
+        // ponytail: 걷는 중에 방을 나가도 예약한 박동은 마지막 걸음 시각까지 들림. 거슬리면 노드를 모아 두고 나갈 때 멈춤
+        if (m.phase === 'walk' && reloading && !downs.has(myId)) {
+          for (const beat of heartbeats(m.at)) playHeartbeat(audio, toAudioTime(toLocalTime(beat, clock.offset), stampOf(audio)))
+        }
       }
       break
     case 'shot':
@@ -1339,6 +1411,7 @@ function receive(data: string) {
     case 'left':
       // 첫 화면으로 돌아감. 다음 방에 들어가면 그 방의 맵과 상태를 새로 받음
       saloon.hidden = true
+      leaveSaloonAt = null
       lobby.hidden = false
       room.value = ''
       myId = null
@@ -1501,6 +1574,9 @@ function applyCopy() {
   for (const el of document.querySelectorAll<HTMLElement>('[data-i18n]')) el.textContent = textAt(copy, el.dataset.i18n!) ?? ''
   for (const el of document.querySelectorAll<HTMLElement>('[data-i18n-label]')) el.setAttribute('aria-label', textAt(copy, el.dataset.i18nLabel!) ?? '')
   for (const el of document.querySelectorAll<HTMLInputElement>('[data-i18n-placeholder]')) el.placeholder = textAt(copy, el.dataset.i18nPlaceholder!) ?? ''
+  // 키 자리가 언어마다 달라 키 자리에 표시를 넣어 문장을 만든 뒤, 그 앞뒤 글 사이에 D 키 모양을 둠 (SHEEP-138)
+  const [beforeKey, afterKey] = copy.hud.drawHint('\0').split('\0')
+  drawHint.replaceChildren(beforeKey, drawHintKey, afterKey)
   for (const v of seatViews) {
     v.star.setAttribute('aria-label', copy.saloon.mySeat)
     v.stamp.textContent = copy.saloon.readyStamp
