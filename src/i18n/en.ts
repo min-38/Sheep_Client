@@ -29,6 +29,8 @@ export const en = {
     // "시작!" 아래 총을 뽑으라는 안내 (SHEEP-138). key 자리에 D 키 모양이 들어감. 규칙 안내라 사투리 없이 바로 읽히게 씀
     drawHint: (key: string) => `Hit ${key} to draw`,
     win: "Last one standin'!",
+    // 세레모니 동안 이긴 사람 이름 아래에 적는 한 줄 (SHEEP-142). 이름은 위에 따로 크게 적음
+    lastStanding: "Last one standin'",
     lose: 'Not your day, partner',
     rematch: (n: number) => `${n} fellers go again`,
     // 내 사격 결과 카드의 도장
@@ -57,8 +59,8 @@ export const en = {
     readyCount: (ready: number, total: number) => `${ready} of ${total} ready to draw`,
     settings: 'Settings',
     mySeat: 'My seat',
-    // 좌석 꼬리표의 칼자국 눈금이 뜻하는 이긴 횟수
-    wins: (n: number) => `${n} win${n === 1 ? '' : 's'}`,
+    // 좌석 꼬리표에 적는 이긴 횟수. 0승도 "0 Win"으로 적음 (사용자 결정 2026-11-10, SHEEP-148)
+    wins: (n: number) => `${n} Win${n > 1 ? 's' : ''}`,
     // 칠판의 방 코드 복사 (SHEEP-114). 서부 사투리 말투 (CLAUDE.md Language)
     copyCode: 'Copy room code',
     copied: 'Copied, partner',

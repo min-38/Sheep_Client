@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest'
 import type { PlayerState } from './net.ts'
-import { BAR_LEFT, BAR_RIGHT, bountyRise, bountyText, bubbleX, CHATTER_FIRST, CHATTER_GAP, CHATTER_SHOW, copyKeys, seatSlots, seatSpot, seatTag, startBartender, startChatter, stepBartender, stepChatter, tally, WARDROBE_RIGHT } from './saloon.ts'
+import { BAR_LEFT, BAR_RIGHT, bountyRise, bountyText, bubbleX, CHATTER_FIRST, CHATTER_GAP, CHATTER_SHOW, copyKeys, seatSlots, seatSpot, seatTag, startBartender, startChatter, stepBartender, stepChatter, WARDROBE_RIGHT } from './saloon.ts'
 
 // seat번 좌석에 앉은 사람. 색은 따로 주지 않으면 좌석 번호와 같음
 const player = (id: string, seat: number, extra: Partial<PlayerState> = {}): PlayerState => ({
@@ -50,15 +50,6 @@ describe('seatSlots', () => {
     const slots = seatSlots([player('a', 0, { color: 7 }), player('b', 1, { color: 0 })], null, 2)
     expect(slots[0]?.color).toBe(7)
     expect(slots[1]?.color).toBe(0)
-  })
-})
-
-describe('tally', () => {
-  test('이긴 횟수만큼 칼자국, 9번이 넘으면 숫자', () => {
-    expect(tally(0)).toBe('')
-    expect(tally(3)).toBe('|||')
-    expect(tally(9)).toBe('|||||||||')
-    expect(tally(10)).toBe('10')
   })
 })
 

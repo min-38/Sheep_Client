@@ -23,6 +23,7 @@ export const ko: Copy = {
     go: '시작!',
     drawHint: (key) => `${key} 키로 총을 뽑아`,
     win: '끝까지 서 있었구먼!',
+    lastStanding: '끝까지 서 있었구먼',
     lose: '오늘은 날이 아니구먼, 친구',
     rematch: (n) => `${n}명이 한 판 더 붙는구먼`,
     head: '머리에 한 방',

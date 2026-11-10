@@ -66,6 +66,8 @@
       <output id="room" data-i18n-label="hud.roomCode"></output>
       <!-- 승리 세레모니 끝에 화면을 동그랗게 닫는 검은 막 (SHEEP-136). 구멍 크기는 main.ts가 --iris로 줄임 -->
       <div id="iris" hidden></div>
+      <!-- 세레모니 동안 이긴 사람 이름을 무성 영화 자막처럼 띄움. 포스터가 닫힌 뒤에도 누가 이겼는지 보임 (SHEEP-142) -->
+      <p id="win-card" hidden><b id="win-card-name"></b><span data-i18n="hud.lastStanding"></span></p>
       <!-- 술집 대기실. 방에 들어가 판이 시작되기 전과 판이 끝난 뒤에 보임. 벽, 선반, 카운터, 술집 주인, 바 의자와 앉은 사람은 캔버스에 그리고
            글자가 있는 것만 여기 얹음 (시스템 기획서 방 화면 M8 대기실 짜임) -->
       <div id="saloon" hidden>

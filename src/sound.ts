@@ -118,25 +118,22 @@ export function playStep(audio: AudioContext, when: number, from?: { right: numb
   thump.stop(when + 0.1)
 }
 
-// 심장 박동 한 번(쿵-쿵)을 when(AudioContext 시각, 초)에 냄. 내 몸 소리라 가운데서 들림 (사용자 결정 2026-11-10, SHEEP-141).
-// 작은 스피커에서도 들리게 배음이 있는 삼각파를 낮게 떨어뜨림. ponytail: 합성한 임시음. 들어 보고 CC0 효과음으로 바꿀지 정함
-export function playHeartbeat(audio: AudioContext, when: number) {
-  for (const [at, gain] of [
-    [0, 0.5],
-    [0.15, 0.35],
-  ]) {
-    const start = when + at
-    const tone = new OscillatorNode(audio, { type: 'triangle', frequency: 80 })
-    tone.frequency.setValueAtTime(80, start)
-    tone.frequency.exponentialRampToValueAtTime(45, start + 0.12)
-    const volume = new GainNode(audio, { gain: 0 })
-    volume.gain.setValueAtTime(0.0001, start)
-    volume.gain.exponentialRampToValueAtTime(gain, start + 0.012)
-    volume.gain.exponentialRampToValueAtTime(0.001, start + 0.16)
-    tone.connect(volume).connect(effectsOut(audio))
-    tone.start(start)
-    tone.stop(start + 0.17)
-  }
+// 빨려 들어가는 소리를 when(AudioContext 시각, 초)부터 seconds 동안 냄 (사용자 결정 2026-11-11, SHEEP-145).
+// 잡음이 낮은 데서 높은 데로 쓸려 올라가며 커지다 뚝 끊김. ponytail: 합성한 임시음. 들어 보고 CC0 효과음으로 바꿀지 정함
+export function playWhoosh(audio: AudioContext, when: number, seconds: number) {
+  const noise = new AudioBuffer({ length: Math.round(audio.sampleRate * seconds), sampleRate: audio.sampleRate })
+  const data = noise.getChannelData(0)
+  for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1
+  const source = new AudioBufferSourceNode(audio, { buffer: noise })
+  const band = new BiquadFilterNode(audio, { type: 'bandpass', frequency: 200, Q: 1.2 })
+  band.frequency.setValueAtTime(200, when)
+  band.frequency.exponentialRampToValueAtTime(3000, when + seconds)
+  const volume = new GainNode(audio, { gain: 0 })
+  volume.gain.setValueAtTime(0.001, when)
+  volume.gain.exponentialRampToValueAtTime(0.6, when + seconds * 0.95)
+  volume.gain.linearRampToValueAtTime(0, when + seconds)
+  source.connect(band).connect(volume).connect(effectsOut(audio))
+  source.start(when)
 }
 
 // 탈락을 보여 주기 시작한 때부터 뒤로 넘어지는 동작이 바닥에 닿기까지(ms). 시간 초과는 자살 모습(총을 댐, 불꽃)이 끝난 뒤에 넘어짐
