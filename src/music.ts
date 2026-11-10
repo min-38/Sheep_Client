@@ -38,12 +38,11 @@ export function setMusicVolume(v: number) {
 }
 
 // 곡을 바꿈. 앞 곡은 MUSIC_FADE 동안 줄인 뒤 멈추고, 새 곡은 처음부터 키움. 같은 곡이면 그대로 둠.
-// 끄기(null)는 결투장에서 다 걸은 뒤뿐이라 MUSIC_STOP_FADE 동안 천천히 줄임.
+// 끄기(null)는 MUSIC_STOP_FADE 동안 천천히 줄임. fadeMs를 주면 줄이고 키우는 시간을 그 값으로 함(술집을 나서는 동안, SHEEP-145).
 // ponytail: mp3는 앞뒤에 짧은 무음이 붙어 되풀이할 때 틈이 날 수 있음. 거슬리면 끝에서 다음 곡 처음으로 겹쳐 넘김
-export function playMusic(audio: AudioContext, track: Track | null) {
+export function playMusic(audio: AudioContext, track: Track | null, fadeMs = track === null ? MUSIC_STOP_FADE : MUSIC_FADE) {
   if (track === playing) return
   const now = audio.currentTime
-  const fadeMs = track === null ? MUSIC_STOP_FADE : MUSIC_FADE
   const fade = fadeMs / 1000
   const old = playing === null ? undefined : players.get(playing)
   if (old) {
