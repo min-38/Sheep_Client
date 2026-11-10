@@ -78,6 +78,22 @@ const torsoKey = (data: CharacterData) => data.boxes.some((b) => b.key && b.part
 // 사람 색 번호 color를 그 캐릭터의 핵심 파츠에 칠할 색 (시스템 기획서 캐릭터 핵심 파츠)
 export const keyColor = (character: number, color: number) => (color === SKY && torsoKey(CHARACTERS[character]) ? SKY_ON_BODY : BANDANA[color])
 
+// 블록. 머리 상자 가운데 이 높이부터 위는 모자임 (7.5등신 틀의 머리 위 30블록 바로 아래)
+const HAT_FROM = 29.3
+
+// 1인칭 화면 위에 보이는 내 모자 챙 (SHEEP-159). 모자 상자 가운데 얼굴(머리 앞면)보다 가장 멀리 앞으로 나온 것의 색과 나온 길이(블록).
+// 챙이 앞으로 많이 나올수록 눈 위로 크게 보임. 핵심 파츠면 사람 색으로 칠함. 모자가 없거나 얼굴보다 거의 나오지 않으면 null
+export function brimOf(character: number, color?: number): { color: string; overhang: number } | null {
+  const head = CHARACTERS[character].boxes.filter((b) => b.part === 'head')
+  const face = Math.max(...head.filter((b) => b.from[1] <= NECK[1]).map((b) => b.to[2]))
+  const hat = head.filter((b) => b.from[1] >= HAT_FROM)
+  if (hat.length === 0) return null
+  const front = hat.reduce((a, b) => (b.to[2] > a.to[2] ? b : a))
+  const overhang = front.to[2] - face
+  if (overhang < 0.2) return null
+  return { color: front.key && color !== undefined ? keyColor(character, color) : front.color, overhang }
+}
+
 // ms. 시간 초과로 쓰러진 사람이 총을 머리에 대고 있는 시간과 그 뒤 불꽃 시간. 그다음엔 쓰러진 그림.
 // ponytail: 임시 값(시스템 기획서 판 흐름 시간). 플레이해 보며 정함
 export const SUICIDE_AIM = 600
