@@ -209,6 +209,11 @@ body {
   padding-top: 0.5cqw;
 }
 
+/* 모두 준비해 술집을 나서는 동안(SHEEP-137)은 술집 위에 얹은 게시판, 좌석 꼬리표, 칠판, 버튼, 말풍선을 숨김. 그림은 캔버스가 돌림 */
+#saloon.leaving > * {
+  visibility: hidden;
+}
+
 /* 승리 세레모니 (SHEEP-136). 이긴 사람이 해 쪽으로 걸어가는 동안 HUD를 숨김 */
 #game.ceremony :is(#blood, #crosshair, #flash, #hit-card, #kill-card, #ammo, #timer, #alive, #banner, #watching, #replay, #leave-down, #room) {
   visibility: hidden;
