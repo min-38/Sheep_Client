@@ -28,6 +28,8 @@ export const en = {
     go: 'Draw!',
     // "시작!" 아래 총을 뽑으라는 안내 (SHEEP-138). key 자리에 D 키 모양이 들어감. 규칙 안내라 사투리 없이 바로 읽히게 씀
     drawHint: (key: string) => `Hit ${key} to draw`,
+    // 판 도중 포인터가 잠기지 않아 돌 수 없을 때 조준점 아래에 띄움 (SHEEP-152)
+    lockHint: 'Click the screen to take aim, partner',
     win: "Last one standin'!",
     // 세레모니 동안 이긴 사람 이름 아래에 적는 한 줄 (SHEEP-142). 이름은 위에 따로 크게 적음
     lastStanding: "Last one standin'",
@@ -156,7 +158,6 @@ export const en = {
   },
   // 설정 창
   settings: {
-    sensitivity: 'Sensitivity',
     music: 'Music',
     effects: 'Sound effects',
     hand: 'Gun hand',

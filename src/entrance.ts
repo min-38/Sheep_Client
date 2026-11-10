@@ -28,6 +28,8 @@ const FULL_ZOOM = 4.4
 // 걸어갈 거리 가운데 문에 닿을 때까지의 몫, 문에 닿는 때(ms)
 const PUSH_SHARE = (1 - 1 / DOOR_ZOOM) / (1 - 1 / FULL_ZOOM)
 const PUSH_AT = TURN_END + PUSH_SHARE * (THROUGH_END - TURN_END)
+// ms. 나서는 장면을 시작하고 문을 쾅 미는 때. 문 소리를 여기에 맞춰 냄 (SHEEP-153)
+export const DOOR_PUSH_AT = PUSH_AT
 
 // turn 0~1 돈 몫, zoom 화면 배율(1부터), pushed 문을 민 뒤 지난 시간(ms, 밀기 전은 음수), white 0~1 하얗게 덮은 정도,
 // arena 하얀 화면 뒤에 술집 대신 결투장을 그릴 때인지

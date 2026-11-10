@@ -22,6 +22,7 @@ export const de: Copy = {
     down: 'Ins Gras gebissen',
     go: 'Zieh!',
     drawHint: (key) => `Drück ${key} zum Ziehen`,
+    lockHint: 'Klick aufs Bild, um anzulegen, Partner',
     win: 'Nur du stehst noch!',
     lastStanding: 'Der Letzte, der noch steht',
     lose: 'Nicht dein Tag, Partner',
@@ -132,7 +133,6 @@ export const de: Copy = {
     cancel: 'Abbrechen',
   },
   settings: {
-    sensitivity: 'Empfindlichkeit',
     music: 'Musik',
     effects: 'Soundeffekte',
     hand: 'Waffenhand',

@@ -22,6 +22,7 @@ export const ru: Copy = {
     down: 'Наглотался пыли',
     go: 'Огонь!',
     drawHint: (key) => `Жми ${key} и выхватывай`,
+    lockHint: 'Щёлкни по экрану, чтоб прицелиться, дружище',
     win: 'Стоишь до последнего!',
     lastStanding: 'Последний на ногах',
     lose: 'Не твой день, приятель',
@@ -132,7 +133,6 @@ export const ru: Copy = {
     cancel: 'Отмена',
   },
   settings: {
-    sensitivity: 'Чувствительность',
     music: 'Музыка',
     effects: 'Звуковые эффекты',
     hand: 'Рука с оружием',

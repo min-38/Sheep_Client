@@ -22,6 +22,7 @@ export const ko: Copy = {
     down: '흙먼지를 먹었구먼',
     go: '시작!',
     drawHint: (key) => `${key} 키로 총을 뽑아`,
+    lockHint: '화면을 눌러야 겨눌 수 있수, 친구',
     win: '끝까지 서 있었구먼!',
     lastStanding: '끝까지 서 있었구먼',
     lose: '오늘은 날이 아니구먼, 친구',
@@ -131,7 +132,6 @@ export const ko: Copy = {
     cancel: '취소',
   },
   settings: {
-    sensitivity: '감도',
     music: '배경음악',
     effects: '효과음',
     hand: '총을 든 손',

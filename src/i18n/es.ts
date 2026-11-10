@@ -22,6 +22,7 @@ export const es: Copy = {
     down: 'Mordiste el polvo',
     go: '¡Desenfunda!',
     drawHint: (key) => `Pulsa ${key} para desenfundar`,
+    lockHint: "Haz clic en la pantalla pa' apuntar, compadre",
     win: '¡Nomás tú en pie!',
     lastStanding: 'El último en pie',
     lose: 'No es tu día, compadre',
@@ -132,7 +133,6 @@ export const es: Copy = {
     cancel: 'Cancelar',
   },
   settings: {
-    sensitivity: 'Sensibilidad',
     music: 'Música',
     effects: 'Efectos de sonido',
     hand: 'Mano del arma',

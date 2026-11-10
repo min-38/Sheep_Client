@@ -24,16 +24,16 @@ import { bountyRise, bubbleX, COPIED_MS, copyKeys, drawSaloon, SALOON_CAMERA, se
 import { cut, replayWindow } from './replay.ts'
 import { irisOpen, walkerAt, walkoffAt, walkoffCamera } from './ceremony.ts'
 import { filming, motionMs, SCENE_MS, sceneCamera, SLOW } from './downscene.ts'
-import { drawEntrance, ENTER_FADE, ENTER_MS, entranceAt, entranceTrack, WHOOSH_AT, WHOOSH_MS } from './entrance.ts'
+import { DOOR_PUSH_AT, drawEntrance, ENTER_FADE, ENTER_MS, entranceAt, entranceTrack, WHOOSH_AT, WHOOSH_MS } from './entrance.ts'
 // 지금 언어의 문구. 이 파일은 t를 시각 변수로 많이 써 문구는 copy로 부름
 import { copyOf, HTML_LANG, LANGUAGES, setLanguage, t as copy, textAt, type Language } from './i18n/index.ts'
-import { readSettings, radiansPerPixel, type Crosshair, type Hand, type Settings } from './settings.ts'
+import { readSettings, RADIANS_PER_PIXEL, type Crosshair, type Hand, type Settings } from './settings.ts'
 import { oneTab } from './tablock.ts'
 import { nextTarget } from './spectate.ts'
-import { drawSmoke, smoke, SMOKE_MS, SMOKE_PX } from './smoke.ts'
+import { drawSmoke, HALO_ALPHA, HALO_SIZE, smoke, SMOKE_MS, SMOKE_PX } from './smoke.ts'
 import { along, bulletDots, bulletRange, EYE_HEIGHT, FLIGHT_MS } from './bullet.ts'
 import { burst, BURST_MS, pool } from './blood.ts'
-import { fallDelay, heardFrom, loadEffects, play, playFall, playSignal, playStep, playWhoosh, setEffectsVolume, stampOf, toAudioTime } from './sound.ts'
+import { fallDelay, heardFrom, loadEffects, play, playDoor, playFall, playSignal, playStep, playWhoosh, setEffectsVolume, stampOf, toAudioTime } from './sound.ts'
 import { darkness, stepDip } from './tension.ts'
 import type { Thing } from './sprite.ts'
 import { afterTurn, aimAt, crosshairOffset, scaleAt, steady, sway, type Unsteady } from './sway.ts'
@@ -316,7 +316,16 @@ function othersAt(t: number, viewer: string, scene: Scene): Thing[] {
       // 반동으로 들린 총구(fire)가 아니라 겨눈 총구(aim)라야 0.1초 뒤 팔이 내려와도 연기가 총 위에 떠 보이지 않음
       const [mx, my, mz] = inWorld(s.x, s.y, shot.angle, body.aim(s.pitch).muzzle!)
       const right = [-Math.sin(shot.angle), Math.cos(shot.angle)]
-      return [figure, ...smoke(t - shot.at).map((p) => ({ x: mx + right[0] * p.drift, y: my + right[1] * p.drift, z: mz + p.rise, size: p.size, alpha: p.alpha }))]
+      const ahead = [Math.cos(shot.angle), Math.sin(shot.angle)]
+      // 덩이마다 옅은 테두리를 덧칠해 가장자리를 부드럽게 함 (SHEEP-155)
+      const puffs = smoke(t - shot.at).flatMap((p) => {
+        const at = { x: mx + right[0] * p.drift + ahead[0] * p.ahead, y: my + right[1] * p.drift + ahead[1] * p.ahead, z: mz + p.rise }
+        return [
+          { ...at, size: p.size * HALO_SIZE, alpha: p.alpha * HALO_ALPHA },
+          { ...at, size: p.size, alpha: p.alpha },
+        ]
+      })
+      return [figure, ...puffs]
     })
 }
 
@@ -389,18 +398,26 @@ function poseAt(body: Body, down: Down | undefined, t: number, upright: Pose) {
 }
 
 // 포인터 잠금 중에만 돌림. 잠금 전에는 커서가 화면 밖으로 나가 이동량이 끊김.
-// 쓰러진 뒤에는 잠그지 않음. 돌지도 쏘지도 않고, 커서가 보여야 다시 보기 버튼을 누름
-canvas.addEventListener('click', () => {
-  if (myId === null || !downs.has(myId)) canvas.requestPointerLock()
+// 쓰러진 뒤에는 잠그지 않음. 돌지도 쏘지도 않고, 커서가 보여야 다시 보기 버튼을 누름.
+// 브라우저는 사용자 입력 없이 부른 잠금을 거절할 수 있어 실패는 넘기고, 판 도중이면 화면을 누르라는 안내가 뜸 (SHEEP-152)
+function lockPointer() {
+  if (document.pointerLockElement === canvas || (myId !== null && downs.has(myId))) return
+  Promise.resolve(canvas.requestPointerLock()).catch(() => {})
+}
+canvas.addEventListener('click', lockPointer)
+// 판 도중(술집 밖에서 서 있는 동안)인데 잠기지 않았으면 다시 잠가야 돎
+const wantsLock = () => saloon.hidden && grid !== null && myId !== null && !downs.has(myId) && document.pointerLockElement !== canvas
+// 판 도중에 누른 키(D로 뽑기 등)도 사용자 입력이라 그 김에 잠금을 다시 걺. Esc는 잠금을 푸는 키라 뺌
+document.addEventListener('keydown', (e) => {
+  if (e.code !== 'Escape' && wantsLock()) lockPointer()
 })
 // 팔 흔들림 배율. 돈 만큼 커지고 가만히 있으면 잦아듦. 빨리 돌아 바로 쏘면 부정확함 (시스템 기획서 리볼버 흔들림 배율)
 let unsteady = steady
 document.addEventListener('mousemove', (e) => {
   if (document.pointerLockElement !== canvas || inputLocked(e.timeStamp)) return
-  const sensitivity = radiansPerPixel(settings)
-  angle = turn(angle, e.movementX, sensitivity)
-  pitch = tilt(pitch, e.movementY, sensitivity)
-  unsteady = afterTurn(unsteady, Math.hypot(e.movementX, e.movementY) * sensitivity, e.timeStamp, drawnAt !== null)
+  angle = turn(angle, e.movementX, RADIANS_PER_PIXEL)
+  pitch = tilt(pitch, e.movementY, RADIANS_PER_PIXEL)
+  unsteady = afterTurn(unsteady, Math.hypot(e.movementX, e.movementY) * RADIANS_PER_PIXEL, e.timeStamp, drawnAt !== null)
 })
 
 const ammo = document.querySelector<SVGSVGElement>('#ammo')!
@@ -606,7 +623,7 @@ function frame(now: number) {
     // 나서는 장면 끝에는 하얀 화면 뒤로 내 눈에 보이는 결투장을 그림. 아직 카운트다운 전이라 모두 시작 자리에 서 있음 (SHEEP-145)
     const drawArena = () => {
       if (!grid || !view) return
-      renderFrame(pixels, W, H, grid, makeCamera(view.x, view.y, view.angle, FOV, view.pitch), [...othersAt(now - INTERP_DELAY, view.id, scene), ...props], SKIES[timeOfDay(standing ?? history.size)])
+      renderFrame(pixels, W, H, grid, { ...makeCamera(view.x, view.y, view.angle, FOV, view.pitch), z: EYE_HEIGHT }, [...othersAt(now - INTERP_DELAY, view.id, scene), ...props], SKIES[timeOfDay(standing ?? history.size)])
       ctx.putImageData(image, 0, 0)
     }
     if (leaving) drawEntrance(ctx, leaving, drawBar, drawArena)
@@ -655,7 +672,9 @@ function frame(now: number) {
     const things = [...othersAt(r ? t : now - INTERP_DELAY, view.id, scene), ...bulletsAt(r ? t : now - INTERP_DELAY, view.id, scene, grid), ...bloodAt(r ? t : now - INTERP_DELAY, scene), ...props]
     // 이번 라운드를 걷는 내 눈은 걸음마다 무겁게 내려앉고 디딘 발 쪽으로 살짝 기욺. 발소리처럼 INTERP_DELAY 전 걸음에 맞춤 (SHEEP-141)
     const bump = tense && clock && schedule.walk !== undefined ? stepDip(schedule.walk, toServerTime(now - INTERP_DELAY, clock.offset)) : { dip: 0, tilt: 0 }
-    renderFrame(pixels, W, H, grid, makeCamera(view.x, view.y, view.angle + bump.tilt * STEP_SWAY, FOV, view.pitch - bump.dip * STEP_DIP), things, SKIES[timeOfDay(standing ?? history.size)])
+    // 눈은 캐릭터 눈 자리 높이라 마주 선 사람과 눈높이가 같음 (SHEEP-158)
+    const eye = { ...makeCamera(view.x, view.y, view.angle + bump.tilt * STEP_SWAY, FOV, view.pitch - bump.dip * STEP_DIP), z: EYE_HEIGHT }
+    renderFrame(pixels, W, H, grid, eye, things, SKIES[timeOfDay(standing ?? history.size)])
     ctx.putImageData(image, 0, 0)
     playSteps(now)
     // 총은 시점에 붙어 있어 위아래 시선과 상관없이 같은 자리에 있고, 조준점과 같은 흔들림으로 돎.
@@ -674,7 +693,7 @@ function frame(now: number) {
     const kick = Math.max(hold.kick, 1 - (t - fired) / RECOIL_MS)
     const muzzle = drawGun(ctx, revolverMesh(revolver, plays, rounds ?? 0), { ...s, kick, lower: hold.lower }, W, H, PROJ, hand === 'left' ? -1 : 1)
     flash.style.transform = `translate(${(muzzle.x * 100) / W}cqw, ${(muzzle.y * 100) / W}cqw)`
-    drawSmoke(ctx, muzzle, t - fired, SMOKE_PX)
+    drawSmoke(ctx, muzzle, t - fired, SMOKE_PX, { x: W / 2, y: H / 2 })
     // 마우스 이벤트가 아니라 여기서 보내야 마지막으로 멈춘 각도도 빠지지 않고 감
     if ((angle !== sentAngle || pitch !== sentPitch) && now - sentAt >= TURN_INTERVAL && ws?.readyState === WebSocket.OPEN) {
       send({ type: 'turn', angle, pitch })
@@ -738,6 +757,8 @@ function frame(now: number) {
   if (bannerText.value !== text) bannerText.value = text
   // 뽑을 수 있는 동안 "시작!" 아래에 D 키 안내를 띄움. 뽑으면 바로 사라짐 (SHEEP-138)
   drawHint.hidden = !canDraw(now)
+  // 판 도중인데 포인터가 잠기지 않았으면 화면을 누르라고 알림 (SHEEP-152)
+  lockHint.hidden = !wantsLock()
   // 관전과 다시 보기에서는 그 사람 화면 그대로라 누구의 눈인지 적어 둠
   const who = (id: string) => roster.find((p) => p.id === id)?.nickname ?? ''
   const watchText = r ? copy.hud.replayWho(who(r.replay.viewer)) : watch ? copy.hud.watchingWho(who(watch.id)) : ''
@@ -916,6 +937,7 @@ const bannerText = document.querySelector<HTMLOutputElement>('#banner')!
 let leaveSaloonAt: number | null = null
 const tension = document.querySelector<HTMLDivElement>('#tension')!
 const drawHint = document.querySelector<HTMLParagraphElement>('#draw-hint')!
+const lockHint = document.querySelector<HTMLParagraphElement>('#lock-hint')!
 const drawHintKey = drawHint.querySelector('kbd')!
 const timer = document.querySelector<HTMLOutputElement>('#timer')!
 const alive = document.querySelector<HTMLOutputElement>('#alive')!
@@ -1331,6 +1353,9 @@ function receive(data: string) {
         standing = result?.outcome === 'rematch' ? result.playerIds.length : history.size
         reloading = myId !== null && joins(result, myId)
         drawnAt = null
+        // 판이 시작되면 화면을 누르지 않아도 돌 수 있게 바로 잠금 (SHEEP-152). 마지막에 준비를 누른 사람은 그 입력으로,
+        // 판이 끝날 때 코드로 푼 사람은 입력 없이도 잠기는 브라우저가 많음. 안 되면 안내를 보고 화면을 누름
+        if (reloading) lockPointer()
       }
       if (m.phase === 'walk') {
         // 걷기 시각은 다음 라운드 카운트다운이 시작한 뒤에 와 결과 시간은 이미 끝났음. 창이 숨어 그리기가 멈췄으면 결과를 여기서 먼저 끝내야
@@ -1351,6 +1376,8 @@ function receive(data: string) {
         // 술집을 나서 하얗게 번질 때 빨려 들어가는 소리. 술집에서 카운트다운을 받은 때에 미리 예약함 (SHEEP-145).
         // ponytail: 그사이 방을 나가도 예약한 소리는 남. 거슬리면 노드를 두었다 나갈 때 멈춤
         if (m.phase === 'countdown' && leaveSaloonAt !== null) playWhoosh(audio, when - (ENTER_MS - WHOOSH_AT) / 1000, WHOOSH_MS / 1000)
+        // 스윙 도어를 쾅 미는 소리. 문짝이 밀리는 그림(entrance.ts pushed 0)에 맞춤 (SHEEP-153)
+        if (m.phase === 'countdown' && leaveSaloonAt !== null) playDoor(audio, when - (ENTER_MS - DOOR_PUSH_AT) / 1000)
         // 장전 소리는 느린 Reload 클립에서 총알이 다 들어갈 때, 실린더 닫는 소리는 실린더가 다 닫힐 때 딸깍이 들리게 함 (gun.ts gunClips)
         if (m.phase === 'countdown' && reloading) {
           play(audio, 'load', when + reloadSoundAt(RELOAD_SEATED) / 1000)
@@ -1503,7 +1530,6 @@ lobby.addEventListener('submit', (e) => {
 const settingsPanel = document.querySelector<HTMLDivElement>('#settings-panel')!
 const settingsForm = document.querySelector<HTMLFormElement>('#settings-form')!
 const sliders = {
-  sensitivity: document.querySelector<HTMLInputElement>('#sensitivity')!,
   music: document.querySelector<HTMLInputElement>('#music')!,
   effects: document.querySelector<HTMLInputElement>('#effects')!,
 }
@@ -1520,7 +1546,7 @@ const languageList = enhanceSelect(languageSelect, document.querySelector('#lang
 
 // 막대는 % 정수, 설정은 배율이라 100으로 나눔. 값 글자는 막대 옆에 %로
 function showSettings() {
-  for (const key of ['sensitivity', 'music', 'effects'] as const) {
+  for (const key of ['music', 'effects'] as const) {
     sliders[key].value = String(Math.round(settings[key] * 100))
     document.querySelector<HTMLOutputElement>(`#${key}-value`)!.value = `${sliders[key].value}%`
   }
@@ -1537,7 +1563,7 @@ settingsForm.addEventListener('input', () => {
   const percent = (key: keyof typeof sliders) => Number(sliders[key].value) / 100
   const language = languageSelect.value as Language
   const relabel = language !== settings.language
-  settings = { sensitivity: percent('sensitivity'), music: percent('music'), effects: percent('effects'), hand, language, crosshair: crosshairShape }
+  settings = { music: percent('music'), effects: percent('effects'), hand, language, crosshair: crosshairShape }
   crosshair.dataset.shape = settings.crosshair
   setEffectsVolume(settings.effects)
   setMusicVolume(settings.music)

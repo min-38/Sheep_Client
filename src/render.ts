@@ -86,10 +86,10 @@ export function renderFrame(pixels: Uint32Array, w: number, h: number, grid: Gri
     // 둘레 벽은 판정에만 남기고 그리지 않아 지평선까지 사막이 이어져 보임 (기술 설계서 결투장)
     if (hit.mapX === 0 || hit.mapY === 0 || hit.mapY === grid.length - 1 || hit.mapX === grid[hit.mapY].length - 1) continue
     zbuf[x] = hit.dist
-    // 눈높이는 벽의 절반이라 지평선에서 위아래로 반씩
-    const halfH = (proj * 0.5) / hit.dist
-    const top = Math.max(0, Math.floor(horizon - halfH))
-    const bottom = Math.min(h, Math.ceil(horizon + halfH))
+    // 벽 높이는 1칸. 지평선은 눈높이라 그 위로 1 - 눈높이, 아래로 눈높이만큼
+    const eye = cam.z ?? 0.5
+    const top = Math.max(0, Math.floor(horizon - (proj * (1 - eye)) / hit.dist))
+    const bottom = Math.min(h, Math.ceil(horizon + (proj * eye) / hit.dist))
     const color = hit.side === 0 ? wallX : wallY
     for (let y = top; y < bottom; y++) pixels[y * w + x] = color
   }

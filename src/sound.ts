@@ -136,6 +136,57 @@ export function playWhoosh(audio: AudioContext, when: number, seconds: number) {
   source.start(when)
 }
 
+// 술집 스윙 도어를 미는 소리를 when(AudioContext 시각, 초)에 냄 (사용자 플레이테스트 2026-11-11, SHEEP-153).
+// 나무 문짝이 쾅 밀리는 둔한 소리에, 문짝이 앞뒤로 떠는 동안(entrance.ts swingAngle, 주기 0.63초) 경첩이 두 번 삐걱임.
+// ponytail: 합성한 임시음. 들어 보고 CC0 효과음으로 바꿀지 정함 (시스템 기획서 사운드)
+export function playDoor(audio: AudioContext, when: number) {
+  const out = new GainNode(audio)
+  out.connect(effectsOut(audio))
+  // 쾅: 나무 판이 울리는 낮은 잡음과 둔탁한 두드림
+  const noise = new AudioBuffer({ length: Math.round(audio.sampleRate * 0.25), sampleRate: audio.sampleRate })
+  const data = noise.getChannelData(0)
+  for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1
+  const source = new AudioBufferSourceNode(audio, { buffer: noise })
+  const wood = new BiquadFilterNode(audio, { type: 'bandpass', frequency: 260, Q: 2 })
+  const bang = new GainNode(audio)
+  bang.gain.setValueAtTime(0.9, when)
+  bang.gain.exponentialRampToValueAtTime(0.001, when + 0.25)
+  source.connect(wood).connect(bang).connect(out)
+  source.start(when)
+  const knock = new OscillatorNode(audio, { type: 'triangle', frequency: 150 })
+  knock.frequency.setValueAtTime(150, when)
+  knock.frequency.exponentialRampToValueAtTime(70, when + 0.15)
+  const knockVolume = new GainNode(audio)
+  knockVolume.gain.setValueAtTime(0.5, when)
+  knockVolume.gain.exponentialRampToValueAtTime(0.001, when + 0.15)
+  knock.connect(knockVolume).connect(out)
+  knock.start(when)
+  knock.stop(when + 0.15)
+  // 삐걱: 높낮이가 떨리는 톱니파를 좁은 대역으로 걸러 경첩 소리로. 떠는 문짝이 되돌아올 때마다 한 번씩, 점점 작게
+  for (const [at, gain] of [
+    [0.12, 0.12],
+    [0.45, 0.06],
+  ]) {
+    const start = when + at
+    const creak = new OscillatorNode(audio, { type: 'sawtooth', frequency: 620 })
+    creak.frequency.setValueAtTime(620, start)
+    creak.frequency.linearRampToValueAtTime(840, start + 0.22)
+    const wobble = new OscillatorNode(audio, { frequency: 28 })
+    const depth = new GainNode(audio, { gain: 40 })
+    wobble.connect(depth).connect(creak.frequency)
+    const hinge = new BiquadFilterNode(audio, { type: 'bandpass', frequency: 1400, Q: 6 })
+    const volume = new GainNode(audio, { gain: 0 })
+    volume.gain.setValueAtTime(0.001, start)
+    volume.gain.exponentialRampToValueAtTime(gain, start + 0.05)
+    volume.gain.exponentialRampToValueAtTime(0.001, start + 0.25)
+    creak.connect(hinge).connect(volume).connect(out)
+    for (const o of [creak, wobble]) {
+      o.start(start)
+      o.stop(start + 0.25)
+    }
+  }
+}
+
 // 탈락을 보여 주기 시작한 때부터 뒤로 넘어지는 동작이 바닥에 닿기까지(ms). 시간 초과는 자살 모습(총을 댐, 불꽃)이 끝난 뒤에 넘어짐
 export const fallDelay = (reason: 'shot' | 'timeout') => (reason === 'timeout' ? SUICIDE_AIM + SUICIDE_FLASH : 0) + FALL_LAND_MS
 

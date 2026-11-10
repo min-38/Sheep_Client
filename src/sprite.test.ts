@@ -95,6 +95,12 @@ describe('drawSprites', () => {
     expect(bottomRow(draw([at(4, 0)]))).toBeCloseTo(H / 2 + (W / 2) * 0.5 / 4, 0)
   })
 
+  test('눈높이가 높으면 발이 지평선에서 눈높이만큼 아래에 닿음 (SHEEP-158)', () => {
+    // 거리 4, proj = W/2
+    const high = { ...makeCamera(0, 0, 0, 90, 0), z: 0.84 }
+    expect(bottomRow(draw([at(4, 0)], undefined, high))).toBeCloseTo(H / 2 + ((W / 2) * 0.84) / 4, 0)
+  })
+
   test('그림 높이는 h / PX_PER_CELL 칸', () => {
     const pixels = draw([at(4, 0)])
     let rows = 0

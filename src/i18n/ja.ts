@@ -22,6 +22,7 @@ export const ja: Copy = {
     down: '土を舐めたな',
     go: '抜け！',
     drawHint: (key) => `${key} キーで抜け`,
+    lockHint: '画面をクリックして構えな、相棒',
     win: '最後まで立ってたのはあんただ！',
     lastStanding: '最後まで立ってた',
     lose: '今日はツイてねえな、相棒',
@@ -131,7 +132,6 @@ export const ja: Copy = {
     cancel: 'キャンセル',
   },
   settings: {
-    sensitivity: '感度',
     music: 'BGM',
     effects: '効果音',
     hand: '銃を持つ手',
