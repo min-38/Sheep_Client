@@ -475,7 +475,7 @@ function fillKillCard() {
   killOld.setAttribute('cy', `${OLD_WOUND[1]}`)
   killOld.style.display = by && downedBy!.zone === 'body' ? '' : 'none'
 }
-const hitHole = document.querySelector<SVGCircleElement>('#hit-hole')!
+const hitHole = document.querySelector<SVGGElement>('#hit-hole')!
 const hitStamp = document.querySelector<HTMLOutputElement>('#hit-stamp')!
 const bloodView = document.querySelector<HTMLDivElement>('#blood')!
 // 반샷 혈흔. 판이 끝날 때까지 남아 한 발만 더 맞으면 쓰러진다는 표시를 겸함 (컨셉 기획서 화면 혈흔)
@@ -488,8 +488,7 @@ function showHitCard(r: ShotResult) {
   hitHole.style.visibility = r.zone === null ? 'hidden' : 'visible'
   if (r.zone === null) return
   const dot = dotPosition(r.offset, r.height)
-  hitHole.setAttribute('cx', String(dot.x))
-  hitHole.setAttribute('cy', String(dot.y))
+  hitHole.setAttribute('transform', `translate(${dot.x} ${dot.y})`)
 }
 
 // 사람마다 마지막으로 발소리를 낸 걸음 번호. 걷기 시각을 받을 때 비움
