@@ -23,6 +23,7 @@ import { banner, DUEL_LIMIT, dueling, formatTime, joins, locked, resultText, sta
 import { bountyRise, bubbleX, COPIED_MS, copyKeys, drawSaloon, SALOON_CAMERA, seatSlots, seatSpot, seatTag, startBartender, startChatter, stepBartender, stepChatter, STOOL, tally } from './saloon.ts'
 import { cut, replayWindow } from './replay.ts'
 import { filming, motionMs, SCENE_MS, sceneCamera, SLOW } from './downscene.ts'
+import { drawEntrance, entranceAt } from './entrance.ts'
 // 지금 언어의 문구. 이 파일은 t를 시각 변수로 많이 써 문구는 copy로 부름
 import { copyOf, HTML_LANG, LANGUAGES, setLanguage, t as copy, textAt, type Language } from './i18n/index.ts'
 import { readSettings, radiansPerPixel, type Crosshair, type Hand, type Settings } from './settings.ts'
@@ -572,11 +573,24 @@ function frame(now: number) {
   const mine = !r && !watch && myId !== null ? downs.get(myId) : undefined
   const sceneT = mine ? now - INTERP_DELAY - mine.at : -1
   const inScene = mine !== undefined && sceneT >= 0 && sceneT < SCENE_MS
+  // 술집에서 모두 준비해 카운트다운을 기다리는 동안은 바에서 뒤돌아 문을 나서는 장면을 보이고, 카운트다운 시각에 술집을 닫음 (SHEEP-137).
+  // 시계를 맞추기 전이면 바로 닫음
+  const serverNow = clock ? toServerTime(now, clock.offset) : Infinity
+  if (leaveSaloonAt !== null && serverNow >= leaveSaloonAt) {
+    saloon.hidden = true
+    leaveSaloonAt = null
+  }
+  const leaving = leaveSaloonAt !== null && !saloon.hidden ? entranceAt(leaveSaloonAt, serverNow) : null
+  saloon.classList.toggle('leaving', leaving !== null)
   if (!saloon.hidden) {
     // 판 사이에는 결투장 대신 술집 한 장면을 그림 (시스템 기획서 방 화면 M8 대기실 짜임)
     bartender = stepBartender(bartender, now, dt, Math.random)
-    drawSaloon(ctx, bartender, now)
-    ctx.drawImage(guests, 0, 0)
+    const drawBar = () => {
+      drawSaloon(ctx, bartender, now)
+      ctx.drawImage(guests, 0, 0)
+    }
+    if (leaving) drawEntrance(ctx, leaving, drawBar)
+    else drawBar()
     const { tips, jokes } = copy.saloon.bartender
     chatter = stepChatter(chatter, now, { tips: tips.length, jokes: jokes.length }, Math.random)
     bartenderLine.hidden = chatter.line === null
@@ -838,6 +852,8 @@ function showSeats(players: readonly PlayerState[]) {
 const readyButton = document.querySelector<HTMLButtonElement>('#ready')!
 const readyCount = document.querySelector<HTMLOutputElement>('#ready-count')!
 const bannerText = document.querySelector<HTMLOutputElement>('#banner')!
+// 술집에서 받은 카운트다운 시각(서버 시계). 이 시각까지 술집을 나서는 장면을 보이고 술집을 닫음. 술집 밖에서 받았거나 닫았으면 null (SHEEP-137)
+let leaveSaloonAt: number | null = null
 const timer = document.querySelector<HTMLOutputElement>('#timer')!
 const alive = document.querySelector<HTMLOutputElement>('#alive')!
 const watching = document.querySelector<HTMLOutputElement>('#watching')!
@@ -1243,10 +1259,11 @@ function receive(data: string) {
       break
     case 'phase':
       if (result && result.end === undefined) result.end = m.at
-      // 새 판은 카운트다운부터 다시 받음. 판 도중의 ready는 서버가 버리므로 준비 버튼을 숨김 (기술 설계서 메시지 ready)
+      // 새 판은 카운트다운부터 다시 받음. 술집에서 오면 카운트다운 시각까지 술집을 나서는 장면을 보인 뒤 frame이 술집을 닫음 (SHEEP-137).
+      // 그동안 준비 버튼도 숨김. 판 도중의 ready는 서버가 버림 (기술 설계서 메시지 ready)
       if (m.phase === 'countdown') {
         schedule = {}
-        saloon.hidden = true
+        leaveSaloonAt = saloon.hidden ? null : m.at
         // 재대결이면 재대결하는 사람만, 새 판이면 방 사람 모두가 섬. 앞 판 결과는 이 시각에 끝나므로 아직 남아 있음
         standing = result?.outcome === 'rematch' ? result.playerIds.length : history.size
         reloading = myId !== null && joins(result, myId)
@@ -1339,6 +1356,7 @@ function receive(data: string) {
     case 'left':
       // 첫 화면으로 돌아감. 다음 방에 들어가면 그 방의 맵과 상태를 새로 받음
       saloon.hidden = true
+      leaveSaloonAt = null
       lobby.hidden = false
       room.value = ''
       myId = null
