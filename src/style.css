@@ -276,6 +276,39 @@ body {
   background: radial-gradient(circle at 50% 58%, #0000 calc(var(--iris, 1) * 60cqw), #000 calc(var(--iris, 1) * 60cqw + 0.3cqw));
 }
 
+/* 받은 돈 자막 (SHEEP-150, 시안 C). 다 닫힌 검은 화면 가운데에 무성 영화 자막처럼 흰 겹테 카드. 돈은 놋쇠 빛으로 크게 */
+#paid-card {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: #000;
+  pointer-events: none;
+}
+
+#paid-card[hidden] {
+  display: none;
+}
+
+#paid-card p {
+  margin: 0;
+  display: grid;
+  justify-items: center;
+  gap: 1cqw;
+  padding: 3cqw 8cqw;
+  border: 0.3cqw double #f3ead5;
+  outline: 0.6cqw solid #000;
+  outline-offset: -1.4cqw;
+  color: #f3ead5;
+  font: 2.4cqw / 1.3 var(--text);
+  text-align: center;
+}
+
+#paid-card b {
+  color: #f6dc8f;
+  font: 6cqw / 1 var(--display);
+}
+
 /* 걷는 동안 화면 가장자리 어둠 (SHEEP-141). 가운데는 비우고 가장자리로 갈수록 검게. 짙기(opacity)와 크기(scale)는 main.ts가 정함 */
 #tension {
   inset: 0;

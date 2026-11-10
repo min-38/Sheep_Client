@@ -20,9 +20,9 @@ import { makeCamera, renderFrame } from './render.ts'
 import { loaded, pull, ROUNDS } from './revolver.ts'
 import type { Rig } from './rig.ts'
 import { banner, DUEL_LIMIT, dueling, formatTime, joins, locked, resultText, standingCount, stepIndex, STEPS_FROM, timeLeft, TURN_MS, walking, type Schedule } from './round.ts'
-import { bountyRise, bubbleX, COPIED_MS, copyKeys, drawSaloon, SALOON_CAMERA, seatSlots, seatSpot, seatTag, startBartender, startChatter, stepBartender, stepChatter, STOOL } from './saloon.ts'
+import { bountyRise, bountyText, bubbleX, COPIED_MS, copyKeys, drawSaloon, SALOON_CAMERA, seatSlots, seatSpot, seatTag, startBartender, startChatter, stepBartender, stepChatter, STOOL } from './saloon.ts'
 import { cut, replayWindow } from './replay.ts'
-import { irisOpen, walkerAt, walkoffAt, walkoffCamera } from './ceremony.ts'
+import { irisOpen, paidShown, walkerAt, walkoffAt, walkoffCamera } from './ceremony.ts'
 import { filming, motionMs, SCENE_MS, sceneCamera, SLOW } from './downscene.ts'
 import { DOOR_PUSH_AT, drawEntrance, ENTER_FADE, ENTER_MS, entranceAt, entranceTrack, WHOOSH_AT, WHOOSH_MS } from './entrance.ts'
 // 지금 언어의 문구. 이 파일은 t를 시각 변수로 많이 써 문구는 copy로 부름
@@ -720,8 +720,16 @@ function frame(now: number) {
   if (walkoff !== null && result?.end !== undefined && clock) iris.style.setProperty('--iris', String(irisOpen(result.end, toServerTime(now, clock.offset))))
   // 포스터를 닫은 뒤에도 누가 이겼는지 보이게 세레모니 내내 이긴 사람 이름을 띄움. 그사이 나갔으면 띄우지 않음 (SHEEP-142)
   const winnerName = walkoff !== null && result ? (roster.find((p) => p.id === result!.playerIds[0])?.nickname ?? '') : ''
-  winCard.hidden = winnerName === ''
+  // 화면이 다 닫히면 이름 자막 대신 검은 화면에 받은 돈 자막. 한 판 이기면 현상금 한 몫(BOUNTY)을 받음 (SHEEP-150)
+  const paid = paidShown(walkoff) && winnerName !== ''
+  winCard.hidden = winnerName === '' || paid
   if (winCardName.textContent !== winnerName) winCardName.textContent = winnerName
+  paidCard.hidden = !paid
+  if (paid) {
+    paidAmount.textContent = bountyText(1)
+    const to = copy.hud.paidTo(winnerName)
+    if (paidTo.textContent !== to) paidTo.textContent = to
+  }
   killCard.hidden = !inScene
   bloodView.hidden = r !== null || !(watch ? watch.wounded : blood.shown)
   // 다시 보기 버튼은 잠시 숨김 (사용자 결정 2026-11-10, SHEEP-143). 다시 보기 코드는 그대로 두어, 다시 켤 때는 `replay === null`일 때만 숨기게 되돌림
@@ -795,7 +803,7 @@ function frame(now: number) {
   const screen = !lobby.hidden ? 'title' : !saloon.hidden ? 'saloon' : 'arena'
   // 술집을 나서는 동안은 문을 밀 때부터 술집 곡을 천천히 줄이고, 결투장이 드러날 때 결투 전 곡을 천천히 키움 (SHEEP-145)
   if (audio && leaving) playMusic(audio, entranceTrack(leaving), ENTER_FADE)
-  else if (audio) playMusic(audio, trackAt(screen, schedule, clock ? toServerTime(now, clock.offset) : -Infinity))
+  else if (audio) playMusic(audio, trackAt(screen, schedule, clock ? toServerTime(now, clock.offset) : -Infinity, result?.outcome === 'win'))
   requestAnimationFrame(frame)
 }
 requestAnimationFrame(frame)
@@ -894,6 +902,9 @@ const winView = document.querySelector<HTMLDivElement>('#win')!
 const iris = document.querySelector<HTMLDivElement>('#iris')!
 const winCard = document.querySelector<HTMLParagraphElement>('#win-card')!
 const winCardName = document.querySelector<HTMLElement>('#win-card-name')!
+const paidCard = document.querySelector<HTMLDivElement>('#paid-card')!
+const paidAmount = document.querySelector<HTMLElement>('#paid-amount')!
+const paidTo = document.querySelector<HTMLSpanElement>('#paid-to')!
 const winFace = document.querySelector<HTMLImageElement>('#win-face')!
 
 // 바랜 종이 질감 (paper.ts). 결과 카드와 포스터는 가장자리까지, 창은 얼룩만. 종이마다 seed가 달라 얼룩과 귀퉁이가 다름

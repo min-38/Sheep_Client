@@ -26,4 +26,13 @@ describe('trackAt', () => {
   test('재대결 카운트다운에 판 시각을 비우면 다시 결투 전 곡', () => {
     expect(trackAt('arena', { countdown: 25000 }, 24000)).toBe('standoff')
   })
+
+  test('승리 결과 동안은 승리 곡. 재대결 결과와 결투 중에는 아님 (SHEEP-150)', () => {
+    const s = { countdown: 1000, walk: 4000, duel: 20000 }
+    expect(trackAt('arena', s, 22000, true)).toBe('victory')
+    expect(trackAt('arena', s, 22000, false)).toBeNull()
+    expect(trackAt('arena', s, 21000)).toBeNull()
+    // 승리가 끝나 술집으로 돌아가면 술집 곡
+    expect(trackAt('saloon', s, 33000, true)).toBe('saloon')
+  })
 })
