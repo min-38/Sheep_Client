@@ -1,7 +1,7 @@
 import './style.css'
 import revolverData from './assets/revolver-rig.json'
 import { orbit } from './backdrop.ts'
-import { CHARACTERS, characterBody, drawFigure, inWorld, keyColor, portraitUrl, savedCharacter, savedColor, SUICIDE_AIM, SUICIDE_FLASH, suicideStage, type Body, type Pose } from './character.ts'
+import { CHARACTERS, characterBody, drawFigure, inWorld, keyColor, pinWound, portraitUrl, savedCharacter, savedColor, SUICIDE_AIM, SUICIDE_FLASH, suicideStage, toModel, woundBox, type Body, type Figure, type Pose, type Wound } from './character.ts'
 import { best, measure, toLocalTime, toServerTime, type ClockSample } from './clock.ts'
 import { CYLINDER_TURN, cylinderSvg } from './cylinder.ts'
 import { makeProps, SKIES, timeOfDay } from './desert.ts'
@@ -9,7 +9,7 @@ import { enhanceSelect } from './dropdown.ts'
 import { drawGun, gunClips, lift, RAISE_MS, RECOIL_MS, RELOAD_AT, RELOAD_SEATED, RELOAD_SHUT, revolverMesh } from './gun.ts'
 import { dotPosition, noBlood, onGameEnd, onRevived, onWalk, onWounded, resultLabel } from './hitcard.ts'
 import { record, sampleAt, type Sample } from './interpolate.ts'
-import { fireMessage, parseServerMessage, stopMessage, type ClientMessage, type PlayerState, type RoundResult, type ShotResult } from './net.ts'
+import { fireMessage, parseServerMessage, stopMessage, type ClientMessage, type HitPoint, type PlayerState, type RoundResult, type ShotResult } from './net.ts'
 import { normalizeNickname } from './nickname.ts'
 import { dressPaper, PAPER_GRAIN, PAPER_INK } from './paper.ts'
 import { BANDANA, joinable, memberText, roomStatus, type RoomInfo } from './roomlist.ts'
@@ -30,6 +30,7 @@ import { oneTab } from './tablock.ts'
 import { nextTarget } from './spectate.ts'
 import { drawSmoke, smoke, SMOKE_MS, SMOKE_PX } from './smoke.ts'
 import { along, bulletDots, bulletRange, EYE_HEIGHT, FLIGHT_MS } from './bullet.ts'
+import { burst, BURST_MS } from './blood.ts'
 import { fallDelay, heardFrom, loadEffects, play, playFall, playSignal, playStep, setEffectsVolume, stampOf, toAudioTime } from './sound.ts'
 import type { Thing } from './sprite.ts'
 import { afterTurn, aimAt, crosshairOffset, scaleAt, steady, sway, type Unsteady } from './sway.ts'
@@ -107,6 +108,11 @@ const shots = new Map<string, Shot>()
 // 쓰러진 사람마다 탈락을 받은 시각(ms)과 사유. 시간 초과면 쓰러진 그림 전에 자살 모습을 보여 줌
 const downs = new Map<string, { at: number; reason: 'shot' | 'timeout' }>()
 const isDown = (id: string, t: number) => (downs.get(id)?.at ?? Infinity) <= t
+// 사람마다 맞은 자리. 판이 끝나면 비우고, 함께 쓰러졌다 다시 서는 사람은 그 라운드에 맞은 것을 지움 (SHEEP-126)
+const hits = new Map<string, Hit[]>()
+// 이번 라운드 걷기를 받은 시각(ms, 내 시계). 다시 서는 사람의 상처를 되돌리는 데 씀
+let roundStartAt = -Infinity
+const addHit = (id: string, hit: HitPoint) => hits.set(id, [...(hits.get(id) ?? []), { ...hit, at: performance.now() }])
 // 서버가 알린 판 결과와 받은 시각(ms). 탈락처럼 INTERP_DELAY 뒤에 띄움.
 // end는 결과 바로 뒤에 오는 phase의 시각(서버 시계, 승리면 lobby, 재대결이면 countdown)이고 이때 endResult로 끝냄
 let result: (RoundResult & { at: number; end?: number }) | null = null
@@ -118,14 +124,17 @@ let watch: Watch | null = null
 type Down = { at: number; reason: 'shot' | 'timeout' }
 // 발사 하나. at은 받은 시각(ms, 내 시계, 내 발사는 쏜 시각), angle과 pitch는 쏜 각도와 위아래 각도
 type Shot = { at: number; angle: number; pitch: number }
+// 맞은 자리 하나 (SHEEP-126). at은 받은 시각(ms, 내 시계). wound는 맞은 뒤 처음 그릴 때 그때 모습의 가장 가까운 상자에 붙인 상처
+type Hit = HitPoint & { at: number; wound?: Wound }
 type Scene = {
   history: Map<string, Sample[]>
   shots: Map<string, Shot>
   downs: Map<string, Down>
   schedule: Schedule
   characters: Map<string, Look>
+  hits: Map<string, Hit[]>
 }
-const live = (): Scene => ({ history, shots, downs, schedule, characters })
+const live = (): Scene => ({ history, shots, downs, schedule, characters, hits })
 // 다시 보기 (컨셉 기획서 규칙 탈락한 뒤). 쓰러지면 누구의 눈으로 어느 구간(ms, 내 시계)을 볼지 정하고 그때의 판 시각을 떠 둠(replayPlan).
 // 그 구간이 다 지나면 기록을 떠 둬(replay) 버튼이 보임. replayFrom은 다시 보는 중일 때 누른 시각(ms)
 type Replay = Scene & { viewer: string; start: number; end: number }
@@ -206,7 +215,7 @@ function saveReplay() {
   const plan = replayPlan!
   replayPlan = null
   const kept = new Map([...history].map(([id, samples]) => [id, cut(samples, plan.start, plan.end)]))
-  if (kept.has(plan.viewer)) replay = { ...plan, history: kept, shots: new Map(shots), downs: new Map(downs), characters: new Map(characters) }
+  if (kept.has(plan.viewer)) replay = { ...plan, history: kept, shots: new Map(shots), downs: new Map(downs), characters: new Map(characters), hits: new Map([...hits].map(([id, list]) => [id, [...list]])) }
 }
 
 // 다시 보는 중이면 떠 둔 기록과 그 안의 시각(ms, 내 시계). 같은 빠르기로 흐르고, 끝까지 보면 관전으로 돌아감
@@ -282,7 +291,7 @@ function othersAt(t: number, viewer: string, scene: Scene): Thing[] {
       // "시작!"부터 서 있는 사람은 총을 겨눈 모습. 머리와 팔은 그 사람의 위아래 시선대로
       const upright = duel ? body.aim(s.pitch) : s.pose === 'walk' ? body.walk(walked) : body.stand(t)
       // 불꽃 동안은 쏜 각도로 그림. 돌고 바로 쏘면 돌아간 각도는 다음 state로 늦게 옴
-      const figure = { x: s.x, y: s.y, facing: flashing ? shot.angle : s.angle, ...(flashing ? body.fire(s.pitch) : poseAt(body, scene.downs.get(id), t, upright)) }
+      const figure = withWounds({ x: s.x, y: s.y, facing: flashing ? shot.angle : s.angle, ...(flashing ? body.fire(s.pitch) : poseAt(body, scene.downs.get(id), t, upright)) }, body, scene.hits.get(id), t)
       if (shot === undefined || t < shot.at || t >= shot.at + SMOKE_MS) return [figure]
       // 연기는 쏜 쪽으로 겨눈 총구에서 나와 공중에 남음. 그 뒤 돌거나 쓰러져도 따라가지 않음 (SHEEP-124).
       // 반동으로 들린 총구(fire)가 아니라 겨눈 총구(aim)라야 0.1초 뒤 팔이 내려와도 연기가 총 위에 떠 보이지 않음
@@ -290,6 +299,36 @@ function othersAt(t: number, viewer: string, scene: Scene): Thing[] {
       const right = [-Math.sin(shot.angle), Math.cos(shot.angle)]
       return [figure, ...smoke(t - shot.at).map((p) => ({ x: mx + right[0] * p.drift, y: my + right[1] * p.drift, z: mz + p.rise, size: p.size, alpha: p.alpha }))]
     })
+}
+
+// 그 사람 몸에 남은 상처를 작은 상자로 더함. 맞은 뒤 처음 그릴 때 그때 모습의 가장 가까운 상자에 붙여, 그 뒤로는 그 상자를 따라감 (SHEEP-126)
+function withWounds(fig: Figure, body: Body, list: Hit[] | undefined, t: number): Figure {
+  const shown = (list ?? []).filter((h) => h.at <= t)
+  if (shown.length === 0) return fig
+  // 불꽃 상자처럼 동작마다 더해지는 상자에는 붙이지 않음
+  const own = fig.boxes.slice(0, body.rest.boxes.length)
+  for (const h of shown) h.wound ??= pinWound(own, toModel(fig.x, fig.y, fig.facing, h.x, h.y, h.height))
+  return { ...fig, boxes: [...fig.boxes, ...shown.map((h) => woundBox(own, h.wound!))] }
+}
+
+// 피 색. 튀는 조각은 상처보다 밝음
+const BLOOD_RGB: readonly [number, number, number] = [150, 15, 15]
+
+// 맞은 자리에서 튀는 피 (SHEEP-126). 몸 가운데에서 맞은 자리 쪽(바깥)으로 부채꼴로 퍼지며 떨어짐. 바닥 아래로는 내려가지 않음
+function bloodAt(t: number, scene: Scene): Thing[] {
+  return [...scene.hits].flatMap(([id, list]): Thing[] => {
+    const samples = scene.history.get(id)
+    if (!samples) return []
+    return list
+      .filter((h) => t >= h.at && t < h.at + BURST_MS)
+      .flatMap((h) => {
+        const c = sampleAt(samples, h.at)
+        const len = Math.hypot(h.x - c.x, h.y - c.y) || 1
+        const nx = (h.x - c.x) / len
+        const ny = (h.y - c.y) / len
+        return burst(t - h.at).map((d) => ({ x: h.x + nx * d.out - ny * d.side, y: h.y + ny * d.out + nx * d.side, z: Math.max(0.01, h.height + d.up), size: 0.03, alpha: d.alpha, rgb: BLOOD_RGB }))
+      })
+  })
 }
 
 // 총알 색과 크기(칸). 머리는 어두운 납, 잔상은 달군 빛. 실제보다 크게 둬 결투 거리에서도 1~2px로 보임. ponytail: 화면을 보며 맞출 값
@@ -530,8 +569,8 @@ function frame(now: number) {
     const me = sampleAt(history.get(myId!)!, now - INTERP_DELAY)
     const look = characters.get(myId!)!
     const body = characterBody(look.character, look.color, look.hand)
-    const self = { x: me.x, y: me.y, facing: me.angle, ...poseAt(body, { at: 0, reason: mine.reason }, motionMs(sceneT), body.rest) }
-    const things = [self, ...othersAt(now - INTERP_DELAY, myId!, scene), ...bulletsAt(now - INTERP_DELAY, myId!, scene, grid)]
+    const self = withWounds({ x: me.x, y: me.y, facing: me.angle, ...poseAt(body, { at: 0, reason: mine.reason }, motionMs(sceneT), body.rest) }, body, hits.get(myId!), now - INTERP_DELAY)
+    const things = [self, ...othersAt(now - INTERP_DELAY, myId!, scene), ...bulletsAt(now - INTERP_DELAY, myId!, scene, grid), ...bloodAt(now - INTERP_DELAY, scene)]
     renderFrame(pixels, W, H, grid, sceneCamera(me.x, me.y, me.angle, sceneT, FOV), things, SKIES[timeOfDay(standing ?? history.size)])
     ctx.putImageData(image, 0, 0)
     // 바닥에 닿을 때까지 옛 영화처럼 위아래에 검은 띠
@@ -543,7 +582,7 @@ function frame(now: number) {
     playSteps(now)
   } else if (grid && view) {
     // 내 자리도 다른 사람처럼 INTERP_DELAY 전을 그림. 받은 그대로 그리면 걷는 동안 20Hz로 끊겨 보임
-    const things = [...othersAt(r ? t : now - INTERP_DELAY, view.id, scene), ...bulletsAt(r ? t : now - INTERP_DELAY, view.id, scene, grid), ...props]
+    const things = [...othersAt(r ? t : now - INTERP_DELAY, view.id, scene), ...bulletsAt(r ? t : now - INTERP_DELAY, view.id, scene, grid), ...bloodAt(r ? t : now - INTERP_DELAY, scene), ...props]
     renderFrame(pixels, W, H, grid, makeCamera(view.x, view.y, view.angle, FOV, view.pitch), things, SKIES[timeOfDay(standing ?? history.size)])
     ctx.putImageData(image, 0, 0)
     playSteps(now)
@@ -1073,6 +1112,8 @@ function endResult(r: RoundResult) {
   } else {
     // 쓰러졌다 다시 서는 나(함께 쓰러짐)는 혈흔을 그 라운드 전으로 되돌림. 서버가 반샷을 되돌리는 것과 같음. 일으키기 전에 봐야 가를 수 있음
     if (myId !== null && downs.has(myId) && r.playerIds.includes(myId)) blood = onRevived(blood)
+    // 함께 쓰러졌다 다시 서는 사람의 상처도 그 라운드 전으로 되돌림. 서 있던 사람은 그대로 남음
+    for (const id of r.playerIds) if (downs.has(id)) hits.set(id, (hits.get(id) ?? []).filter((h) => h.at < roundStartAt))
     for (const id of r.playerIds) downs.delete(id)
     if (myId !== null && r.playerIds.includes(myId)) gun = loaded(r.rounds)
     // 관전하던 사람은 다시 장전하고, 내가 다시 서면 관전이 풀림. 서버도 이때 관전을 풂
@@ -1087,6 +1128,7 @@ function clearMatch() {
   standing = null
   pitch = 0
   downs.clear()
+  hits.clear()
   gun = loaded(ROUNDS)
   blood = onGameEnd()
   watch = null
@@ -1148,6 +1190,7 @@ function receive(data: string) {
       history.clear()
       shots.clear()
       downs.clear()
+      hits.clear()
       watch = replay = replayPlan = replayFrom = null
       schedule = {}
       standing = null
@@ -1191,6 +1234,7 @@ function receive(data: string) {
           result = null
         }
         blood = onWalk(blood)
+        roundStartAt = performance.now()
         stoppedAt = null
         lastStep.clear()
       }
@@ -1218,6 +1262,7 @@ function receive(data: string) {
       break
     case 'eliminated':
       downs.set(m.playerId, { at: performance.now(), reason: m.reason })
+      if (m.hit) addHit(m.playerId, m.hit)
       playFallOf(m.playerId, m.reason)
       if (m.playerId !== myId) break
       // 맞아 쓰러졌으면 바로 뒤에 downedBy가 와 카드를 다시 채움
@@ -1243,12 +1288,13 @@ function receive(data: string) {
       showHitCard(m)
       break
     case 'wounded':
-      // 쓰러진 나는 맞지 않아, 관전 중에 오는 것은 관전 대상의 복사본임
-      if (watch) watch.wounded = true
-      else blood = onWounded(blood)
+      // 반샷은 모두에게 옴. 나면 혈흔을, 관전 대상이면 그 사람 화면의 혈흔을 띄움 (SHEEP-126)
+      addHit(m.playerId, m.hit)
+      if (m.playerId === myId) blood = onWounded(blood)
+      if (watch?.id === m.playerId) watch.wounded = true
       break
     case 'spectating':
-      // 관전을 시작할 때 그 사람의 혈흔과 실린더. 그 뒤로는 복사된 wounded와 그 사람의 shot으로 바꿈
+      // 관전을 시작할 때 그 사람의 혈흔과 실린더. 그 뒤로는 모두에게 오는 wounded와 그 사람의 shot으로 바꿈
       if (watch?.id === m.playerId) {
         watch.wounded ||= m.wounds > 0
         watch.rounds = m.ammo

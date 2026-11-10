@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { CELL, CHARACTERS, characterBody, corners, drawFigure, FALL_LAND_MS, inWorld, keyColor, PORTRAIT_SIZE, portraitPixels, savedCharacter, savedColor, SUICIDE_AIM, SUICIDE_FLASH, suicideStage, type Box, type Pose } from './character.ts'
+import { CELL, CHARACTERS, characterBody, corners, drawFigure, FALL_LAND_MS, inWorld, pinWound, toModel, woundBox, keyColor, PORTRAIT_SIZE, portraitPixels, savedCharacter, savedColor, SUICIDE_AIM, SUICIDE_FLASH, suicideStage, type Box, type Pose } from './character.ts'
 import { makeCamera, type RGB } from './render.ts'
 import { STEP_MS } from './round.ts'
 
@@ -424,6 +424,38 @@ describe('총구와 inWorld (SHEEP-124)', () => {
     near(inWorld(2, 3, 0, [0, 0, 1 / CELL]), [3, 3, 0])
     near(inWorld(2, 3, 0, [1 / CELL, 0, 0]), [2, 4, 0])
     near(inWorld(2, 3, Math.PI / 2, [0, 10, 1 / CELL]), [2, 4, 10 * CELL])
+  })
+})
+
+describe('상처 (SHEEP-126)', () => {
+  const body = characterBody(0)
+
+  test('toModel은 inWorld를 되돌림', () => {
+    const p: [number, number, number] = [3, 20, 2.5]
+    const [x, y, h] = inWorld(7, 4, 1.1, p)
+    toModel(7, 4, 1.1, x, y, h).forEach((v, i) => expect(v).toBeCloseTo(p[i], 9))
+  })
+
+  test('맞은 자리를 가장 가까운 상자 겉면에 붙이고, 그 상자가 움직이면 상처도 따라감', () => {
+    // 몸통 앞(z) 바깥 1블록, 높이 20의 점 → 몸통 상자 앞면에 붙음
+    const wound = pinWound(body.rest.boxes, [0.5, 20, 2.5])
+    const onRest = woundBox(body.rest.boxes, wound)
+    const trunk = body.rest.boxes[wound.box]
+    expect(Math.abs(onRest.c[2] - (trunk.c[2] + trunk.half[2]))).toBeLessThan(1e-9)
+    expect(onRest.c[1]).toBeCloseTo(20, 9)
+    // 쓰러진 뒤에는 상자를 따라 낮게 누움
+    const fallen = body.fall(5000)
+    const onFallen = woundBox(fallen.boxes, wound)
+    expect(onFallen.c[1]).toBeLessThan(10)
+    expect(Math.hypot(...onFallen.c.map((v, i) => v - fallen.boxes[wound.box].c[i]))).toBeCloseTo(Math.hypot(...onRest.c.map((v, i) => v - trunk.c[i])), 9)
+  })
+
+  test('상자 안쪽에 든 점도 가장 가까운 겉면으로 밀어냄', () => {
+    const wound = pinWound(body.rest.boxes, [0, 20, 0.2])
+    const trunk = body.rest.boxes[wound.box]
+    const box = woundBox(body.rest.boxes, wound)
+    const faces = box.c.map((v, i) => Math.abs(Math.abs(v - trunk.c[i]) - trunk.half[i]) < 1e-9)
+    expect(faces.some(Boolean)).toBe(true)
   })
 })
 
