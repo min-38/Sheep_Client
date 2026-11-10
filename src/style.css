@@ -207,6 +207,19 @@ body {
   padding-top: 0.5cqw;
 }
 
+/* 승리 세레모니 (SHEEP-136). 이긴 사람이 해 쪽으로 걸어가는 동안 HUD를 숨김 */
+#game.ceremony :is(#blood, #crosshair, #flash, #hit-card, #kill-card, #ammo, #timer, #alive, #banner, #watching, #replay, #leave-down, #room) {
+  visibility: hidden;
+}
+
+/* 옛 영화처럼 화면이 걸어가는 사람 쪽으로 동그랗게 닫힘(아이리스). 구멍 반지름은 --iris(1 다 열림 ~ 0 다 닫힘)에 화면 대각선 반을 곱함 */
+#iris {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(circle at 50% 58%, #0000 calc(var(--iris, 1) * 60cqw), #000 calc(var(--iris, 1) * 60cqw + 0.3cqw));
+}
+
 /* 반샷 혈흔. 가운데는 투명하고 가장자리로 갈수록 진해짐. 핏방울 그림은 없음 (시스템 기획서 HUD) */
 #blood {
   inset: 0;

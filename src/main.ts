@@ -22,6 +22,7 @@ import type { Rig } from './rig.ts'
 import { banner, DUEL_LIMIT, dueling, formatTime, joins, locked, resultText, standingCount, stepIndex, timeLeft, TURN_MS, walking, type Schedule } from './round.ts'
 import { bountyRise, bubbleX, COPIED_MS, copyKeys, drawSaloon, SALOON_CAMERA, seatSlots, seatSpot, seatTag, startBartender, startChatter, stepBartender, stepChatter, STOOL, tally } from './saloon.ts'
 import { cut, replayWindow } from './replay.ts'
+import { irisOpen, walkerAt, walkoffAt, walkoffCamera } from './ceremony.ts'
 import { filming, motionMs, SCENE_MS, sceneCamera, SLOW } from './downscene.ts'
 // 지금 언어의 문구. 이 파일은 t를 시각 변수로 많이 써 문구는 copy로 부름
 import { copyOf, HTML_LANG, LANGUAGES, setLanguage, t as copy, textAt, type Language } from './i18n/index.ts'
@@ -557,6 +558,8 @@ function frame(now: number) {
   const view = r ? replayEyes(r.replay, r.t) : grid && placed ? eyes(now) : null
   const t = r ? r.t : now
   const scene = r ? r.replay : live()
+  // 승리 세레모니가 시작하고 지난 시간(ms). 승리 결과가 끝나는 시각에서 거꾸로 잼 (SHEEP-136). 그 전이거나 승리가 아니면 null
+  const walkoff = result?.outcome === 'win' && result.end !== undefined && clock ? walkoffAt(result.end, toServerTime(now, clock.offset)) : null
   const steadiness = view && (r || watch) ? imitate(`${r ? 'replay' : 'watch'}:${view.id}`, view, t) : unsteady
   const s = sway(t, scaleAt(steadiness, t))
   // 눈이 되는 사람의 마지막 발사와 남은 총알. 관전하는 사람의 불꽃은 INTERP_DELAY 뒤라 아직 보일 때가 아니면 없는 것으로 봄.
@@ -584,6 +587,20 @@ function frame(now: number) {
       const text = copy.saloon.bartender[chatter.line.kind][chatter.line.index] ?? ''
       if (bartenderLine.textContent !== text) bartenderLine.textContent = text
       bartenderLine.style.left = `${(bubbleX(bartender.x) * 100) / W}%`
+    }
+  } else if (grid && walkoff !== null && result) {
+    // 모두 이긴 사람 뒤에서 그 사람이 해 쪽으로 걸어가는 모습을 봄. 쓰러진 사람과 피 웅덩이는 그 자리에 남음 (SHEEP-136).
+    // 이긴 사람이 그사이 나갔으면 앞 화면을 그대로 둠
+    const winner = result.playerIds[0]
+    const samples = history.get(winner)
+    const look = characters.get(winner)
+    if (samples && look) {
+      const at = sampleAt(samples, now - INTERP_DELAY)
+      const body = characterBody(look.character, look.color, look.hand)
+      const walker = withWounds({ ...walkerAt(at.x, at.y, walkoff), ...body.walk(walkoff) }, body, hits.get(winner), now - INTERP_DELAY)
+      const things = [...othersAt(now - INTERP_DELAY, winner, live()), walker, ...bloodAt(now - INTERP_DELAY, live()), ...props]
+      renderFrame(pixels, W, H, grid, walkoffCamera(at.x, at.y, FOV), things, SKIES[timeOfDay(standing ?? history.size)])
+      ctx.putImageData(image, 0, 0)
     }
   } else if (grid && view && inScene) {
     // 내 앞 위에서 내 몸을 내려다보며 넘어지는 동작만 늦춤. 늘 카메라를 보는 소품 그림은 위에서 보면 납작해 빼고, 하늘은 화면 밖임 (SHEEP-119)
@@ -642,6 +659,10 @@ function frame(now: number) {
   // 다시 보기에서는 그 사람의 혈흔과 사격 결과를 몰라 숨김
   game.classList.toggle('replaying', r !== null)
   game.classList.toggle('filming', inScene && filming(sceneT, mine.reason))
+  // 세레모니 동안은 HUD를 숨기고 마지막에 화면을 동그랗게 닫음 (SHEEP-136)
+  game.classList.toggle('ceremony', walkoff !== null)
+  iris.hidden = walkoff === null
+  if (walkoff !== null && result?.end !== undefined && clock) iris.style.setProperty('--iris', String(irisOpen(result.end, toServerTime(now, clock.offset))))
   killCard.hidden = !inScene
   bloodView.hidden = r !== null || !(watch ? watch.wounded : blood.shown)
   replayButton.hidden = replay === null
@@ -658,7 +679,9 @@ function frame(now: number) {
   // 승리는 글자 대신 이긴 사람의 포스터를 띄움
   const shown = result && now - INTERP_DELAY >= result.at ? result : null
   // 내 쓰러짐 장면 동안은 포스터와 결과 글자를 미룸. 마지막 한 발이면 장면이 끝난 뒤 남은 결과 시간에 포스터가 뜸 (SHEEP-119)
-  if (shown?.outcome === 'win' && winView.hidden && !inScene) showWinner(shown.playerIds[0])
+  // 세레모니가 시작하면 포스터를 닫음 (SHEEP-136)
+  if (shown?.outcome === 'win' && winView.hidden && !inScene && walkoff === null) showWinner(shown.playerIds[0])
+  if (walkoff !== null) winView.hidden = true
   const text = inScene
     ? ''
     : r
@@ -789,6 +812,8 @@ const NO_WALLS = new Float64Array(W).fill(Infinity)
 const SALOON_LIGHT = [255, 255, 255] as const
 // 판 끝 포스터 (시스템 기획서 방 화면 M8 판 끝). HUD의 승리·패배 글자 대신 띄우고 결과 시간이 끝나면(endResult) 닫음
 const winView = document.querySelector<HTMLDivElement>('#win')!
+// 세레모니 끝에 화면을 동그랗게 닫는 검은 막. 구멍 크기는 --iris(0~1) (SHEEP-136)
+const iris = document.querySelector<HTMLDivElement>('#iris')!
 const winFace = document.querySelector<HTMLImageElement>('#win-face')!
 
 // 바랜 종이 질감 (paper.ts). 결과 카드와 포스터는 가장자리까지, 창은 얼룩만. 종이마다 seed가 달라 얼룩과 귀퉁이가 다름
