@@ -10,8 +10,11 @@ import {
   RAISE_MS,
   RECOIL_MS,
   RELOAD_AT,
+  RELOAD_END,
+  RELOAD_MS,
   RELOAD_SEATED,
   RELOAD_SHUT,
+  reloadSoundAt,
   revolverMesh,
   shade,
   transform,
@@ -200,15 +203,15 @@ describe('lift', () => {
   })
 
   test('장전하는 카운트다운에는 RAISE_MS 동안 겨눌 때보다 높이 들고, 장전 클립이 끝나면 내림', () => {
-    const s = { countdown: 1000, walk: 4000 }
-    const reloaded = 1000 + RELOAD_AT + revolver.clips.Reload.duration * 1000
+    const s = { countdown: 1000, walk: 5000 }
+    const reloaded = 1000 + RELOAD_AT + RELOAD_MS
     expect(lift(s, 1000, true).lower).toBe(1)
     const high = lift(s, 1000 + RAISE_MS, true).lower
     expect(high).toBeLessThan(0)
     expect(lift(s, reloaded, true).lower).toBe(high)
     expect(lift(s, reloaded + 100, true).lower).toBeGreaterThan(high)
-    // 걷기 전에 다 내림
-    expect(lift(s, 4000, true).lower).toBe(1)
+    // 권총집에 넣어 걷기 전에 다 내림
+    expect(lift(s, 1000 + RELOAD_END, true).lower).toBe(1)
   })
 
   test('장전하지 않는(재대결에 끼지 못한) 카운트다운에는 내린 채', () => {
@@ -222,13 +225,25 @@ describe('gunClips', () => {
     expect(gunClips({ countdown: 0, walk: 3000 }, 4000, false, -Infinity)).toEqual([])
   })
 
-  test('장전하는 카운트다운에는 RELOAD_AT부터 Reload 클립을 제 속도로 한 번', () => {
-    const s = { countdown: 1000, walk: 4000 }
+  test('장전하는 카운트다운에는 RELOAD_AT부터 Reload 클립을 RELOAD_MS(2.5초)에 걸쳐 느리게 한 번 (사용자 결정 2026-11-10, SHEEP-121)', () => {
+    expect(RELOAD_MS).toBe(2500)
+    const s = { countdown: 1000, walk: 5000 }
     const start = 1000 + RELOAD_AT
+    const length = revolver.clips.Reload.duration
     expect(gunClips(s, start - 1, true, -Infinity)).toEqual([])
-    expect(gunClips(s, start + 500, true, -Infinity)).toEqual([{ clip: 'Reload', t: 0.5 }])
-    expect(gunClips(s, start + revolver.clips.Reload.duration * 1000 + 1, true, -Infinity)).toEqual([])
+    const [half] = gunClips(s, start + RELOAD_MS / 2, true, -Infinity)
+    expect(half.clip).toBe('Reload')
+    expect(half.t).toBeCloseTo(length / 2, 6)
+    expect(gunClips(s, start + RELOAD_MS + 1, true, -Infinity)).toEqual([])
     expect(gunClips(s, start + 500, false, -Infinity)).toEqual([])
+  })
+
+  test('장전 소리 시각은 느린 클립에서 총알이 들어가고 실린더가 닫히는 때이고, 권총집에 넣기까지 카운트다운 4초 안에 끝남', () => {
+    const length = revolver.clips.Reload.duration
+    expect(reloadSoundAt(RELOAD_SEATED)).toBeCloseTo(RELOAD_AT + (RELOAD_SEATED / length) * RELOAD_MS, 6)
+    expect(reloadSoundAt(RELOAD_SHUT)).toBeLessThan(RELOAD_AT + RELOAD_MS)
+    expect(RELOAD_END).toBeGreaterThan(RELOAD_AT + RELOAD_MS)
+    expect(RELOAD_END).toBeLessThanOrEqual(4000)
   })
 
   test('RELOAD_SEATED에 총알이 칸에 다 들어가고 RELOAD_SHUT에 실린더가 다 닫힘', () => {

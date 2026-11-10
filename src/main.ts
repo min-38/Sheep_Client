@@ -6,7 +6,7 @@ import { best, measure, toLocalTime, toServerTime, type ClockSample } from './cl
 import { CYLINDER_TURN, cylinderSvg } from './cylinder.ts'
 import { makeProps, SKIES, timeOfDay } from './desert.ts'
 import { enhanceSelect } from './dropdown.ts'
-import { drawGun, gunClips, lift, RAISE_MS, RECOIL_MS, RELOAD_AT, RELOAD_SEATED, RELOAD_SHUT, revolverMesh } from './gun.ts'
+import { drawGun, gunClips, lift, RAISE_MS, RECOIL_MS, RELOAD_END, RELOAD_SEATED, RELOAD_SHUT, reloadSoundAt, revolverMesh } from './gun.ts'
 import { dotPosition, noBlood, onGameEnd, onRevived, onWalk, onWounded, resultLabel } from './hitcard.ts'
 import { record, sampleAt, type Sample } from './interpolate.ts'
 import { fireMessage, parseServerMessage, type ClientMessage, type HitPoint, type PlayerState, type RoundResult, type ShotResult } from './net.ts'
@@ -50,6 +50,8 @@ const FLASH_SHOWN = 100
 const TURN_INTERVAL = 50
 // ms. 다른 플레이어는 약 두 틱 전을 그려 늘 앞뒤 두 상태 사이에 있게 함 (기술 설계서 다른 플레이어 보여 주기)
 const INTERP_DELAY = 100
+// 다른 사람 장전 소리의 크기 몫. 내 장전보다 작게 들림 (사용자 결정 2026-11-10, SHEEP-121). ponytail: 임시 값. 들어 보며 정함
+const OTHER_RELOAD_GAIN = 0.35
 // 한 번 맞출 때 재는 횟수. 그중 왕복이 가장 짧은 값을 씀 (기술 설계서 시간 맞추기)
 const SYNC_COUNT = 5
 // ms. 쓰러져 쓰러짐 장면(SHEEP-119)을 보인 뒤 관전으로 넘어가기까지. 함께 쓰러짐으로 늦게 오는 내 shotResult(맞고 D 안에 쏜 발사)가
@@ -281,6 +283,9 @@ function othersAt(t: number, viewer: string, scene: Scene): Thing[] {
   // 걷기 시각부터 지난 시간(ms). 먼저 TURN_MS 동안 제자리에서 뒤돌며 발을 떼고(SHEEP-120), 그다음 걷는 동작이 발소리를 내는 걸음마다 한쪽 다리를 가장 앞에 둠
   const walked = clock !== null && scene.schedule.walk !== undefined ? toServerTime(t, clock.offset) - scene.schedule.walk : 0
   const stepping = (body: Body) => (walked < TURN_MS ? body.turn(walked) : body.walk(walked - TURN_MS))
+  // 카운트다운부터 지난 시간(ms). 서 있는 사람은 그동안 총을 꺼내 장전하고 권총집에 다시 넣음 (SHEEP-121). 카운트다운 밖이면 null
+  const counted = clock !== null && scene.schedule.countdown !== undefined ? toServerTime(t, clock.offset) - scene.schedule.countdown : null
+  const reloadingFor = counted !== null && counted >= 0 && !(scene.schedule.walk !== undefined && walked >= 0) ? counted : null
   return [...scene.history]
     .filter(([id]) => id !== viewer)
     .flatMap(([id, samples]): Thing[] => {
@@ -290,7 +295,7 @@ function othersAt(t: number, viewer: string, scene: Scene): Thing[] {
       const look = scene.characters.get(id)!
       const body = characterBody(look.character, look.color, look.hand)
       // "시작!"부터 서 있는 사람은 총을 겨눈 모습. 머리와 팔은 그 사람의 위아래 시선대로
-      const upright = duel ? body.aim(s.pitch) : s.pose === 'walk' ? stepping(body) : body.stand(t)
+      const upright = duel ? body.aim(s.pitch) : s.pose === 'walk' ? stepping(body) : reloadingFor !== null && reloadingFor < RELOAD_END ? body.reload(reloadingFor) : body.stand(t)
       // 불꽃 동안은 쏜 각도로 그림. 돌고 바로 쏘면 돌아간 각도는 다음 state로 늦게 옴
       const down = scene.downs.get(id)
       const fallen = down && { landed: t - down.at - fallDelay(down.reason), reason: down.reason }
@@ -1242,10 +1247,22 @@ function receive(data: string) {
       // 장전과 공이치기는 내 것만 들음. 장전은 이번 라운드에 끼는 나만, 공이치기는 "시작!"에 서서 총을 드는 나만
       if (audio && clock && myId !== null) {
         const when = toAudioTime(toLocalTime(m.at, clock.offset), stampOf(audio))
-        // 장전 소리는 Reload 클립에서 총알이 다 들어갈 때, 실린더 닫는 소리는 실린더가 다 닫힐 때 딸깍이 들리게 함 (gun.ts gunClips)
+        // 장전 소리는 느린 Reload 클립에서 총알이 다 들어갈 때, 실린더 닫는 소리는 실린더가 다 닫힐 때 딸깍이 들리게 함 (gun.ts gunClips)
         if (m.phase === 'countdown' && reloading) {
-          play(audio, 'load', when + RELOAD_AT / 1000 + RELOAD_SEATED)
-          play(audio, 'closeCylinder', when + RELOAD_AT / 1000 + RELOAD_SHUT)
+          play(audio, 'load', when + reloadSoundAt(RELOAD_SEATED) / 1000)
+          play(audio, 'closeCylinder', when + reloadSoundAt(RELOAD_SHUT) / 1000)
+        }
+        // 다른 사람의 장전 소리는 그 사람 쪽에서 작게 냄. 그림처럼 INTERP_DELAY 늦게 (사용자 결정 2026-11-10, SHEEP-121)
+        if (m.phase === 'countdown' && placed) {
+          const view = eyes(performance.now())
+          for (const [id, samples] of history) {
+            if (id === myId || !joins(result, id)) continue
+            const s = sampleAt(samples, performance.now())
+            const from = heardFrom(view.x, view.y, view.angle, s.x, s.y)
+            const later = when + INTERP_DELAY / 1000
+            play(audio, 'load', later + reloadSoundAt(RELOAD_SEATED) / 1000, from, OTHER_RELOAD_GAIN)
+            play(audio, 'closeCylinder', later + reloadSoundAt(RELOAD_SHUT) / 1000, from, OTHER_RELOAD_GAIN)
+          }
         }
         if (m.phase === 'duel') {
           playSignal(audio, when)

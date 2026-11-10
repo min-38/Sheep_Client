@@ -12,23 +12,18 @@ describe('banner', () => {
     expect(banner({ countdown: 10000 }, 9999)).toBe('')
   })
 
-  test('카운트다운부터 걷기 시각까지 3, 2, 1을 같은 간격으로 띄움', () => {
+  test('카운트다운부터 걷기 시각까지 남은 초를 1초마다 띄움. 카운트다운 4초면 4, 3, 2, 1 (SHEEP-121)', () => {
+    const s = { countdown: 10000, walk: 14000 }
+    expect(banner(s, 10000)).toBe('4')
+    expect(banner(s, 10999)).toBe('4')
+    expect(banner(s, 11000)).toBe('3')
+    expect(banner(s, 13000)).toBe('1')
+    expect(banner(s, 13999)).toBe('1')
     expect(banner(full, 10000)).toBe('3')
-    expect(banner(full, 10999)).toBe('3')
-    expect(banner(full, 11000)).toBe('2')
-    expect(banner(full, 12000)).toBe('1')
-    expect(banner(full, 12999)).toBe('1')
   })
 
-  test('간격은 걷기 시각으로 정해짐', () => {
-    const s = { countdown: 10000, walk: 11500 }
-    expect(banner(s, 10499)).toBe('3')
-    expect(banner(s, 10500)).toBe('2')
-    expect(banner(s, 11000)).toBe('1')
-  })
-
-  test('걷기 시각을 받기 전에는 3', () => {
-    expect(banner({ countdown: 10000 }, 10500)).toBe('3')
+  test('걷기 시각을 받기 전에는 띄우지 않음', () => {
+    expect(banner({ countdown: 10000 }, 10500)).toBe('')
   })
 
   test('걷는 동안은 아무것도 띄우지 않음', () => {
