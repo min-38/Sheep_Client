@@ -111,6 +111,7 @@ export const ko: Copy = {
       maxPlayers: '인원은 2~8명',
       character: '없는 캐릭터',
       color: '없는 색',
+      hand: '총 쥘 손이 아니구먼, 친구',
     },
   },
   create: {

@@ -111,6 +111,7 @@ export const ja: Copy = {
       maxPlayers: '人数は2〜8人です',
       character: 'そのキャラクターはいません',
       color: 'その色はありません',
+      hand: 'そいつは銃を握る手じゃねえな、相棒',
     },
   },
   create: {

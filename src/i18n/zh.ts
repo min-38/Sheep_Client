@@ -111,6 +111,7 @@ export const zh: Copy = {
       maxPlayers: '人数须为 2–8 人',
       character: '没有这个角色',
       color: '没有这个颜色',
+      hand: '这可不是握枪的手，伙计',
     },
   },
   create: {

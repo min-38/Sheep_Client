@@ -1,5 +1,6 @@
 import { CELL, type Box } from './character.ts'
 import type { PlayerState } from './net.ts'
+import type { Hand } from './settings.ts'
 import { makeCamera, type Camera } from './render.ts'
 
 // 술집 대기실 (시스템 기획서 방 화면 M8 대기실 짜임). 손님 등 뒤 위에서 바를 내려다본 한 장면을 게임 캔버스(480×270)에 그림.
@@ -16,14 +17,14 @@ export const bountyText = (wins: number) => (wins > 0 ? `$${wins * BOUNTY}` : ''
 export const bountyRise = (wins: number) => `${bountyText(wins - 1) || '$0'} → ${bountyText(wins)}`
 
 // 좌석 하나. color는 사람 색 번호이고 앉은 사람의 핵심 파츠를 칠함. wins는 이 방에서 이긴 횟수(최후의 1인)
-export type Seat = { nickname: string; character: number; color: number; ready: boolean; mine: boolean; wins: number }
+export type Seat = { nickname: string; character: number; color: number; hand: Hand; ready: boolean; mine: boolean; wins: number }
 
 // 좌석 수는 방 인원 제한(2~8)이고, 서버가 준 좌석 번호(seat)에 앉음. 나간 사람의 좌석은 비워 두고 다음 사람이 받으므로,
 // 누가 나가도 남은 사람은 제자리에 앉아 있고 새로 온 사람은 빈 좌석에 앉음. 색을 바꿔도 자리는 그대로임 (SHEEP-118).
 // 좌석 번호가 좌석 수를 넘는 사람은 없음(서버가 인원 제한까지만 받음)
 export function seatSlots(players: readonly PlayerState[], myId: string | null, seats: number): (Seat | null)[] {
   const slots: (Seat | null)[] = Array(seats).fill(null)
-  for (const p of players) if (p.seat < seats) slots[p.seat] = { nickname: p.nickname, character: p.character, color: p.color, ready: p.ready, mine: p.id === myId, wins: p.wins }
+  for (const p of players) if (p.seat < seats) slots[p.seat] = { nickname: p.nickname, character: p.character, color: p.color, hand: p.hand, ready: p.ready, mine: p.id === myId, wins: p.wins }
   return slots
 }
 
