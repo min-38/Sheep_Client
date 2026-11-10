@@ -38,20 +38,27 @@ export function formatTime(ms: number): string {
 // ponytail: 임시 값(시스템 기획서 판 흐름 시간). 플레이해 보며 정함
 export const TURN_MS = 1000
 
-// ms. 걸음 간격(발소리 간격). 서버 RoundFlow.StepInterval과 같아야 함 (사용자 결정 2026-11-10, SHEEP-120)
-export const STEP_MS = 500
+// ms. 다 돈 뒤 첫 걸음까지 바깥을 보고 서서 뜸을 들이는 시간. 서버 RoundFlow.TurnPause와 같아야 함 (사용자 결정 2026-11-10, SHEEP-141).
+// ponytail: 임시 값(1초). 플레이해 보며 정함
+export const TURN_PAUSE = 1000
+
+// ms. 걷기 시각부터 첫 걸음까지. 돌고 뜸을 들인 뒤
+export const STEPS_FROM = TURN_MS + TURN_PAUSE
+
+// ms. 걸음 간격(발소리 간격). 서버 RoundFlow.StepInterval과 같아야 함. 무거운 걸음으로 0.5초에서 늦춤 (사용자 결정 2026-11-10, SHEEP-120, SHEEP-141)
+export const STEP_MS = 700
 
 // 모두 멈추지 않고 걷는 걸음 수 (사용자 결정 2026-11-09, SHEEP-120)
 export const STEPS = 10
 
-// ms. 다 돈 뒤 걷는 시간. 서버 RoundFlow.WalkDuration과 같아야 발소리가 걸음과 맞음
+// ms. 뜸을 들인 뒤 걷는 시간. 서버 RoundFlow.WalkDuration과 같아야 발소리가 걸음과 맞음
 export const WALK_DURATION = STEPS * STEP_MS
 
-// now(서버 시계)에 걷는 중인지. 뒤도는 동안과, 다 걷고 결투 시각을 기다리는 동안은 아님
-export const walking = (s: Schedule, now: number) => s.walk !== undefined && now >= s.walk + TURN_MS && now < s.walk + TURN_MS + WALK_DURATION
+// now(서버 시계)에 걷는 중인지. 뒤도는 동안, 뜸을 들이는 동안, 다 걷고 결투 시각을 기다리는 동안은 아님
+export const walking = (s: Schedule, now: number) => s.walk !== undefined && now >= s.walk + STEPS_FROM && now < s.walk + STEPS_FROM + WALK_DURATION
 
-// 걷기 시각부터 t까지 몇 번째 걸음인지. 다 돈 뒤부터 셈. 걸음 번호가 늘 때 발소리를 냄
-export const stepIndex = (walkAt: number, t: number) => Math.floor((t - walkAt - TURN_MS) / STEP_MS)
+// 걷기 시각부터 t까지 몇 번째 걸음인지. 뜸을 들인 뒤부터 셈. 걸음 번호가 늘 때 발소리를 냄
+export const stepIndex = (walkAt: number, t: number) => Math.floor((t - walkAt - STEPS_FROM) / STEP_MS)
 
 // 카운트다운부터 "시작!"까지 내 돌기와 발사를 막음. 그동안은 서버가 나를 돌리고 걷게 함 (기술 설계서 서버/클라 역할 분리)
 export const locked = (s: Schedule, now: number) =>
