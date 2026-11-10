@@ -17,8 +17,8 @@ export function banner(s: Schedule, now: number): string {
 }
 
 // ms. 결투 시각("시작!")부터 쏠 수 있는 시간. 서버 RoundFlow.DuelLimit과 같은 값이어야 남은 시간이 0일 때 서버가 시간 초과를 정함.
-// ponytail: 임시 값(시스템 기획서 판 흐름 시간). 플레이해 보며 정함
-export const DUEL_LIMIT = 10000
+// 5초는 사용자 결정 (2026-11-10, SHEEP-127, 시스템 기획서 판 흐름 시간)
+export const DUEL_LIMIT = 5000
 
 // now(서버 시계)에 남은 시간(ms). 결투 시각 전에는 null, 제한 시각이 지나면 0
 export const timeLeft = (s: Schedule, now: number): number | null =>
