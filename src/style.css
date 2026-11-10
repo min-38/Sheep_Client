@@ -384,7 +384,7 @@ body {
   text-wrap: balance;
 }
 
-/* 총을 뽑으라는 안내 (SHEEP-138). "시작!" 바로 아래, 조준점 위. 말 순서가 언어마다 달라 키 앞뒤 글 중 빈 쪽은 숨김 */
+/* 총을 뽑으라는 안내 (SHEEP-138). "시작!" 바로 아래, 조준점 위 */
 #draw-hint {
   left: 50%;
   top: 36%;
@@ -400,8 +400,7 @@ body {
 }
 
 /* display: flex가 hidden을 덮어 다시 숨김 */
-#draw-hint[hidden],
-#draw-hint span:empty {
+#draw-hint[hidden] {
   display: none;
 }
 

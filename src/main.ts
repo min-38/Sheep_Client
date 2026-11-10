@@ -845,6 +845,7 @@ const readyButton = document.querySelector<HTMLButtonElement>('#ready')!
 const readyCount = document.querySelector<HTMLOutputElement>('#ready-count')!
 const bannerText = document.querySelector<HTMLOutputElement>('#banner')!
 const drawHint = document.querySelector<HTMLParagraphElement>('#draw-hint')!
+const drawHintKey = drawHint.querySelector('kbd')!
 const timer = document.querySelector<HTMLOutputElement>('#timer')!
 const alive = document.querySelector<HTMLOutputElement>('#alive')!
 const watching = document.querySelector<HTMLOutputElement>('#watching')!
@@ -1508,6 +1509,9 @@ function applyCopy() {
   for (const el of document.querySelectorAll<HTMLElement>('[data-i18n]')) el.textContent = textAt(copy, el.dataset.i18n!) ?? ''
   for (const el of document.querySelectorAll<HTMLElement>('[data-i18n-label]')) el.setAttribute('aria-label', textAt(copy, el.dataset.i18nLabel!) ?? '')
   for (const el of document.querySelectorAll<HTMLInputElement>('[data-i18n-placeholder]')) el.placeholder = textAt(copy, el.dataset.i18nPlaceholder!) ?? ''
+  // 키 자리가 언어마다 달라 키 자리에 표시를 넣어 문장을 만든 뒤, 그 앞뒤 글 사이에 D 키 모양을 둠 (SHEEP-138)
+  const [beforeKey, afterKey] = copy.hud.drawHint('\0').split('\0')
+  drawHint.replaceChildren(beforeKey, drawHintKey, afterKey)
   for (const v of seatViews) {
     v.star.setAttribute('aria-label', copy.saloon.mySeat)
     v.stamp.textContent = copy.saloon.readyStamp

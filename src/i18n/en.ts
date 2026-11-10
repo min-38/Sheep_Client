@@ -26,8 +26,8 @@ export const en = {
     down: 'You bit the dust',
     // "시작!" 신호
     go: 'Draw!',
-    // "시작!" 아래 총을 뽑으라는 안내 (SHEEP-138). [키 앞 글, 키 뒤 글]. 규칙 안내라 사투리 없이 바로 읽히게 씀
-    drawHint: ['Hit', 'to draw'],
+    // "시작!" 아래 총을 뽑으라는 안내 (SHEEP-138). key 자리에 D 키 모양이 들어감. 규칙 안내라 사투리 없이 바로 읽히게 씀
+    drawHint: (key: string) => `Hit ${key} to draw`,
     win: "Last one standin'!",
     lose: 'Not your day, partner',
     rematch: (n: number) => `${n} fellers go again`,
