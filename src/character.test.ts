@@ -1,6 +1,9 @@
 import { describe, expect, test } from 'vitest'
 import { CELL, CHARACTERS, characterBody, corners, drawFigure, FALL_LAND_MS, keyColor, PORTRAIT_SIZE, portraitPixels, savedCharacter, savedColor, SUICIDE_AIM, SUICIDE_FLASH, suicideStage, type Box, type Pose } from './character.ts'
+import revolverData from './assets/revolver-rig.json'
+import { RELOAD_AT, RELOAD_END, RELOAD_MS, revolverMesh } from './gun.ts'
 import { makeCamera, type RGB } from './render.ts'
+import type { Rig } from './rig.ts'
 import { STEP_MS } from './round.ts'
 
 type V = readonly [number, number, number]
@@ -250,6 +253,21 @@ describe('characterBody', () => {
     expect(front(pick(body.walk(STEP_MS), 'leftLeg', 3))).toBeGreaterThan(front(pick(body.walk(STEP_MS), 'rightLeg', 3)) + 2)
     same(body.walk(2 * STEP_MS), body.walk(0))
     same(body.walk(5 * STEP_MS + 120), body.walk(STEP_MS + 120))
+  })
+
+  test('카운트다운에 권총집에서 총을 꺼내 배 앞에서 한 발 넣고 다시 권총집에 넣음 (SHEEP-121)', () => {
+    const middle = body.reload(RELOAD_AT + RELOAD_MS / 2)
+    // 장전하는 동안 총은 몸 앞으로 나오고, 실린더 칸의 총알까지 그림
+    expect(gunSpan(middle, 2)[1]).toBeGreaterThan(gunSpan(rest, 2)[1] + 4)
+    expect(middle.faces!.length).toBeGreaterThan(revolverMesh(revolverData as Rig, [], 0).faces.length)
+    // 꺼내기 전과 다 넣은 뒤는 쉰 자세 그대로
+    same(body.reload(-1), rest)
+    same(body.reload(RELOAD_END), rest)
+    expect(body.reload(RELOAD_END).gun).toEqual(rest.gun)
+    // 꺼내고 넣는 동안 총이 몸 앞으로 나왔다 들어감
+    expect(gunSpan(body.reload(RELOAD_AT / 2), 2)[1]).toBeGreaterThan(gunSpan(rest, 2)[1])
+    expect(gunSpan(body.reload(RELOAD_END - 1), 2)[1]).toBeLessThan(gunSpan(middle, 2)[1])
+    for (let t = 0; t < RELOAD_END; t += 250) near(span(body.reload(t).boxes, 1)[0], 0)
   })
 
   test('걸으면 발이 바닥에 닿고 권총집의 총이 허벅지를 따라 움직임', () => {

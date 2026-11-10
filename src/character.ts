@@ -8,10 +8,11 @@ import rosa from './assets/characters/rosa.json'
 import silas from './assets/characters/silas.json'
 import motionData from './assets/motions.json'
 import revolverData from './assets/revolver-rig.json'
-import { revolverMesh } from './gun.ts'
+import { HOLSTER_MS, RELOAD_AT, RELOAD_END, RELOAD_MS, reloadTime, revolverMesh } from './gun.ts'
 import { HEAD } from './hitcard.ts'
 import { horizonY, pack, tint, type Camera } from './render.ts'
-import { slerp, type Rig } from './rig.ts'
+import { slerp, type Mesh, type Rig } from './rig.ts'
+import { ROUNDS } from './revolver.ts'
 import { BANDANA } from './roomlist.ts'
 import { STEP_MS } from './round.ts'
 import type { Hand } from './settings.ts'
@@ -25,7 +26,8 @@ type RGB = readonly [number, number, number]
 // 상자 하나. c는 가운데, axes는 세 변의 방향(단위 벡터), half는 그 방향의 반 길이
 export type Box = { c: V; axes: readonly [V, V, V]; half: V; rgb: RGB }
 // 동작 하나의 모습. gun은 리볼버 모델(revolver-rig.json) 꼭짓점을 모델 좌표로 옮긴 것이고, 면은 모델 그대로 (기술 설계서 렌더링 캐릭터)
-export type Pose = { boxes: Box[]; gun: readonly V[] }
+// faces는 총의 면. 없으면 쉰 자세의 면이고, 장전하는 동안은 실린더 칸의 총알까지 든 면 (SHEEP-121)
+export type Pose = { boxes: Box[]; gun: readonly V[]; faces?: Mesh['faces'] }
 
 // 동작별 모습. rest는 틀 그대로 선 모습. stand, walk, fall은 사람 동작 데이터(motions.json)로 그 동작을 시작하고 지난 시간(ms)의 모습을
 // 그때그때 만듦(stand는 되풀이라 아무 시각이나 됨). aim과 fire는 위아래 시선(라디안, 위가 +)으로 만들고, suicide는 [총을 머리에 댐, 불꽃] 두 단계
@@ -33,6 +35,8 @@ export type Body = {
   rest: Pose
   stand: (ms: number) => Pose
   walk: (ms: number) => Pose
+  // 카운트다운부터 ms 지난 모습 (SHEEP-121). 권총집에서 총을 꺼내 배 앞에 들고 다른 손으로 한 발 넣은 뒤 권총집에 다시 넣음. RELOAD_END부터는 rest와 같음
+  reload: (ms: number) => Pose
   aim: (pitch: number) => Pose
   fire: (pitch: number) => Pose
   suicide: Pose[]
@@ -256,14 +260,14 @@ const REVOLVER = revolverMesh(revolverData as Rig, [], 0)
 // 총의 면. 꼭짓점 번호 셋과 텍스처에서 구운 색
 const GUN_FACES = REVOLVER.faces
 
-// 총 손잡이(GRIP)를 grip에 두고 총열은 barrel, 총 위는 top 쪽으로 놓은 총의 꼭짓점과 총구
-function holdGun(grip: V, barrel: V, top: V): { gun: V[]; muzzle: V } {
+// 총 손잡이(GRIP)를 grip에 두고 총열은 barrel, 총 위는 top 쪽으로 놓은 총의 꼭짓점과 총구. vertices는 클립을 덮은 모델 꼭짓점
+function holdGun(grip: V, barrel: V, top: V, vertices: readonly V[] = REVOLVER.vertices): { gun: V[]; muzzle: V } {
   const side = cross(barrel, top)
   const place = (m: V): V => {
     const [x, y, z] = sub(m, GRIP)
     return add(add(add(grip, barrel, x * GUN_SCALE), top, y * GUN_SCALE), side, z * GUN_SCALE)
   }
-  return { gun: REVOLVER.vertices.map(place), muzzle: place(MUZZLE) }
+  return { gun: vertices.map(place), muzzle: place(MUZZLE) }
 }
 
 // 팔다리처럼 p에서 d쪽으로 뻗은 막대의 [from, to] 구간. 단면은 size×size
@@ -287,7 +291,7 @@ const lowest = (points: readonly V[]) => Math.min(...points.map((q) => q[1]))
 function ground(p: Pose): Pose {
   const bottom = lowest([...p.boxes.flatMap(corners), ...p.gun])
   const lift: Move = { from: [0, bottom, 0], to: [0, 0, 0], turn: (v) => v }
-  return { boxes: p.boxes.map((b) => moveBox(b, lift)), gun: p.gun.map((q) => movePoint(q, lift)) }
+  return { ...p, boxes: p.boxes.map((b) => moveBox(b, lift)), gun: p.gun.map((q) => movePoint(q, lift)) }
 }
 
 // hand는 총을 든 손. 왼손이면 권총집과 총 쥔 팔을 왼쪽으로 옮김. 서기, 걷기, 쓰러짐 동작 데이터는 좌우를 바꾸지 않음 (SHEEP-133)
@@ -332,6 +336,26 @@ function build(data: CharacterData, key: string | undefined, hand: Hand): Body {
     const { gun, muzzle } = holdGun(p.fist, [-side, 0, 0], Y)
     return { boxes: flash ? [...p.boxes, rod(muzzle, mirrored(X), -0.5, 4, 4, FLASH)] : p.boxes, gun }
   }
+  // 장전하는 팔과 총 (SHEEP-121). 총 쥔 팔은 팔꿈치를 굽혀 주먹을 배 앞에 두고, 다른 팔은 총 쪽으로 뻗어 실린더에 손을 댐.
+  // 총구는 앞 아래로 숙임. 꺼낼 때와 넣을 때는 팔을 내린 모습(주먹이 권총집 옆)과 이 모습 사이를 부드럽게 오감. ponytail: 임시 자세. 화면을 보며 맞춤
+  const otherArm = left ? 'rightArm' : 'leftArm'
+  const loadingGunArm: readonly [V, V] = [unit([0, -1, 0.35]), unit([-0.35 * side, 0.15, 1])]
+  const loadingOtherArm: readonly [V, V] = [unit([0.1 * side, -1, 0.5]), unit([0.55 * side, 0.2, 1])]
+  const loadingBarrel = unit([-0.3 * side, -0.4, 1])
+  const loading = (ms: number): Pose => {
+    if (ms < 0 || ms >= RELOAD_END) return holstered(moves(rest))
+    const end = RELOAD_AT + RELOAD_MS
+    const k = ms < RELOAD_AT ? ms / RELOAD_AT : ms < end ? 1 : 1 - (ms - end) / HOLSTER_MS
+    const u = k * k * (3 - 2 * k)
+    const toward = (from: V, to: V) => unit(add(from, sub(to, from), u))
+    const p = posed(moves({ ...rest, [gunArm]: [toward(DOWN, loadingGunArm[0]), toward(DOWN, loadingGunArm[1])], [otherArm]: [toward(DOWN, loadingOtherArm[0]), toward(DOWN, loadingOtherArm[1])] }))
+    const t = reloadTime(ms)
+    const mesh = revolverMesh(revolverData as Rig, t === null ? [] : [{ clip: 'Reload', t }], ROUNDS)
+    // 권총집에 꽂힌 총처럼 총열이 아래, 총 위가 앞인 데서 장전하는 방향으로 돎
+    const barrel = toward(DOWN, loadingBarrel)
+    const { gun } = holdGun(p.fist, barrel, across(toward(Z, across(Y, loadingBarrel)), barrel), mesh.vertices)
+    return ground({ boxes: p.boxes, gun, faces: mesh.faces })
+  }
   const { stand, walk, fall } = MOTIONS.clips
   // 맞아 쓰러져 바닥에 닿을 때 놓친 총. 그때 주먹 아래 모래 위에, 총열은 아래팔을 바닥에 눕힌 쪽으로 두고 옆으로 눕힘.
   // 그 뒤로 몸이 조금 더 움직여도 총은 그 자리에 있음
@@ -349,6 +373,7 @@ function build(data: CharacterData, key: string | undefined, hand: Hand): Body {
     stand: (ms) => play(stand, frames(ms)),
     // 걸음 두 번(발소리 두 번)에 한 바퀴
     walk: (ms) => play(walk, WALK_START + (ms / (2 * STEP_MS)) * walk.rot.length),
+    reload: loading,
     // 쏠 때는 반동으로 팔만 더 들림
     aim: (pitch) => aimed(pitch, ahead(pitch), false),
     fire: (pitch) => aimed(pitch, ahead(pitch + RECOIL), true),
@@ -579,7 +604,7 @@ export function drawFigure(pixels: Uint32Array, w: number, h: number, zbuf: Floa
   }
 
   // 총의 삼각형. 픽셀 가운데가 든 삼각형만 칠하고, 깊이는 화면에서 1/깊이를 섞어 구함
-  for (const f of GUN_FACES) {
+  for (const f of fig.faces ?? GUN_FACES) {
     const [i0, i1, i2] = f.v
     const a = gun[i0]
     const b = gun[i1]
