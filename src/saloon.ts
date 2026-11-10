@@ -28,9 +28,6 @@ export function seatSlots(players: readonly PlayerState[], myId: string | null, 
   return slots
 }
 
-// 이긴 횟수를 칼자국 눈금으로. 9번이 넘으면 숫자
-export const tally = (wins: number) => (wins > 9 ? String(wins) : '|'.repeat(wins))
-
 // 카메라 (블록 단위, 1블록 = 0.03칸). 눈높이 60블록에서 손님 등과 카운터 너머를 내려다봄. 위아래 시선은 결투처럼 화면을 미는 것(y-shearing)이라
 // 세로선이 곧게 서서 정면 2D 그림과 맞음. 깊이는 카메라에서 앞으로 간 거리
 const PROJ = 400
