@@ -1374,7 +1374,7 @@ body {
 #wanted {
   display: grid;
   grid-template-columns: repeat(4, auto);
-  gap: calc(3 * 100cqw / 480) calc(4 * 100cqw / 480);
+  gap: calc(2 * 100cqw / 480) calc(4 * 100cqw / 480);
 }
 
 #wardrobe button {
@@ -1426,9 +1426,11 @@ body {
   text-overflow: ellipsis;
 }
 
+/* 위 여백은 고른 칸의 금색 테가 칸 밖으로 캔버스 1.5px 나와도 이름 글자를 덮지 않게 비운 자리 */
 #swatches {
   display: flex;
   gap: calc(2 * 100cqw / 480);
+  margin-top: calc(1.5 * 100cqw / 480);
 }
 
 #swatches button {
@@ -1439,7 +1441,7 @@ body {
 }
 
 #swatches button[aria-pressed='true'] {
-  outline: calc(1.5 * 100cqw / 480) solid #f7d27a;
+  outline: calc(1 * 100cqw / 480) solid #f7d27a;
   outline-offset: calc(0.5 * 100cqw / 480);
 }
 
