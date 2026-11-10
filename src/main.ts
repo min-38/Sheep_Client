@@ -30,7 +30,7 @@ import { oneTab } from './tablock.ts'
 import { nextTarget } from './spectate.ts'
 import { drawSmoke, smoke, SMOKE_MS, SMOKE_PX } from './smoke.ts'
 import { along, bulletDots, bulletRange, EYE_HEIGHT, FLIGHT_MS } from './bullet.ts'
-import { burst, BURST_MS } from './blood.ts'
+import { burst, BURST_MS, pool } from './blood.ts'
 import { fallDelay, heardFrom, loadEffects, play, playFall, playSignal, playStep, setEffectsVolume, stampOf, toAudioTime } from './sound.ts'
 import type { Thing } from './sprite.ts'
 import { afterTurn, aimAt, crosshairOffset, scaleAt, steady, sway, type Unsteady } from './sway.ts'
@@ -291,7 +291,9 @@ function othersAt(t: number, viewer: string, scene: Scene): Thing[] {
       // "시작!"부터 서 있는 사람은 총을 겨눈 모습. 머리와 팔은 그 사람의 위아래 시선대로
       const upright = duel ? body.aim(s.pitch) : s.pose === 'walk' ? body.walk(walked) : body.stand(t)
       // 불꽃 동안은 쏜 각도로 그림. 돌고 바로 쏘면 돌아간 각도는 다음 state로 늦게 옴
-      const figure = withWounds({ x: s.x, y: s.y, facing: flashing ? shot.angle : s.angle, ...(flashing ? body.fire(s.pitch) : poseAt(body, scene.downs.get(id), t, upright)) }, body, scene.hits.get(id), t)
+      const down = scene.downs.get(id)
+      const fallen = down && { landed: t - down.at - fallDelay(down.reason), reason: down.reason }
+      const figure = withWounds({ x: s.x, y: s.y, facing: flashing ? shot.angle : s.angle, ...(flashing ? body.fire(s.pitch) : poseAt(body, down, t, upright)) }, body, scene.hits.get(id), t, fallen)
       if (shot === undefined || t < shot.at || t >= shot.at + SMOKE_MS) return [figure]
       // 연기는 쏜 쪽으로 겨눈 총구에서 나와 공중에 남음. 그 뒤 돌거나 쓰러져도 따라가지 않음 (SHEEP-124).
       // 반동으로 들린 총구(fire)가 아니라 겨눈 총구(aim)라야 0.1초 뒤 팔이 내려와도 연기가 총 위에 떠 보이지 않음
@@ -301,14 +303,20 @@ function othersAt(t: number, viewer: string, scene: Scene): Thing[] {
     })
 }
 
-// 그 사람 몸에 남은 상처를 작은 상자로 더함. 맞은 뒤 처음 그릴 때 그때 모습의 가장 가까운 상자에 붙여, 그 뒤로는 그 상자를 따라감 (SHEEP-126)
-function withWounds(fig: Figure, body: Body, list: Hit[] | undefined, t: number): Figure {
+// 그 사람 몸에 남은 상처를 작은 상자로 더함. 맞은 뒤 처음 그릴 때 그때 모습의 가장 가까운 상자에 붙여, 그 뒤로는 그 상자를 따라감 (SHEEP-126).
+// fallen이면 쓰러져 바닥에 닿은 뒤 지난 시간(landed, ms)만큼 번진 피 웅덩이를 몸 밑에 더함
+function withWounds(fig: Figure, body: Body, list: Hit[] | undefined, t: number, fallen?: { landed: number; reason: Down['reason'] }): Figure {
   const shown = (list ?? []).filter((h) => h.at <= t)
-  if (shown.length === 0) return fig
+  if (shown.length === 0 && (fallen?.landed ?? 0) <= 0) return fig
   // 불꽃 상자처럼 동작마다 더해지는 상자에는 붙이지 않음
   const own = fig.boxes.slice(0, body.rest.boxes.length)
   for (const h of shown) h.wound ??= pinWound(own, toModel(fig.x, fig.y, fig.facing, h.x, h.y, h.height))
-  return { ...fig, boxes: [...fig.boxes, ...shown.map((h) => woundBox(own, h.wound!))] }
+  const wounds = shown.map((h) => woundBox(own, h.wound!))
+  if (!fallen) return { ...fig, boxes: [...fig.boxes, ...wounds] }
+  // 웅덩이는 쓰러뜨린 상처 밑에. 시간 초과(자살)면 머리 밑에. 머리는 선 모습에서 가장 높은 상자
+  const head = own[body.rest.boxes.reduce((m, b, i, all) => (b.c[1] > all[m].c[1] ? i : m), 0)].c
+  const under = fallen.reason === 'shot' ? (wounds.at(-1)?.c ?? head) : head
+  return { ...fig, boxes: [...fig.boxes, ...pool([under[0], under[2]], fallen.landed), ...wounds] }
 }
 
 // 피 색. 튀는 조각은 상처보다 밝음
@@ -569,7 +577,8 @@ function frame(now: number) {
     const me = sampleAt(history.get(myId!)!, now - INTERP_DELAY)
     const look = characters.get(myId!)!
     const body = characterBody(look.character, look.color, look.hand)
-    const self = withWounds({ x: me.x, y: me.y, facing: me.angle, ...poseAt(body, { at: 0, reason: mine.reason }, motionMs(sceneT), body.rest) }, body, hits.get(myId!), now - INTERP_DELAY)
+    const fallen = { landed: motionMs(sceneT) - fallDelay(mine.reason), reason: mine.reason }
+    const self = withWounds({ x: me.x, y: me.y, facing: me.angle, ...poseAt(body, { at: 0, reason: mine.reason }, motionMs(sceneT), body.rest) }, body, hits.get(myId!), now - INTERP_DELAY, fallen)
     const things = [self, ...othersAt(now - INTERP_DELAY, myId!, scene), ...bulletsAt(now - INTERP_DELAY, myId!, scene, grid), ...bloodAt(now - INTERP_DELAY, scene)]
     renderFrame(pixels, W, H, grid, sceneCamera(me.x, me.y, me.angle, sceneT, FOV), things, SKIES[timeOfDay(standing ?? history.size)])
     ctx.putImageData(image, 0, 0)
