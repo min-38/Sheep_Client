@@ -30,7 +30,7 @@ import { copyOf, HTML_LANG, LANGUAGES, setLanguage, t as copy, textAt, type Lang
 import { readSettings, RADIANS_PER_PIXEL, type Crosshair, type Hand, type Settings } from './settings.ts'
 import { oneTab } from './tablock.ts'
 import { nextTarget } from './spectate.ts'
-import { drawSmoke, smoke, SMOKE_MS, SMOKE_PX } from './smoke.ts'
+import { drawSmoke, HALO_ALPHA, HALO_SIZE, smoke, SMOKE_MS, SMOKE_PX } from './smoke.ts'
 import { along, bulletDots, bulletRange, EYE_HEIGHT, FLIGHT_MS } from './bullet.ts'
 import { burst, BURST_MS, pool } from './blood.ts'
 import { fallDelay, heardFrom, loadEffects, play, playDoor, playFall, playSignal, playStep, playWhoosh, setEffectsVolume, stampOf, toAudioTime } from './sound.ts'
@@ -316,7 +316,16 @@ function othersAt(t: number, viewer: string, scene: Scene): Thing[] {
       // 반동으로 들린 총구(fire)가 아니라 겨눈 총구(aim)라야 0.1초 뒤 팔이 내려와도 연기가 총 위에 떠 보이지 않음
       const [mx, my, mz] = inWorld(s.x, s.y, shot.angle, body.aim(s.pitch).muzzle!)
       const right = [-Math.sin(shot.angle), Math.cos(shot.angle)]
-      return [figure, ...smoke(t - shot.at).map((p) => ({ x: mx + right[0] * p.drift, y: my + right[1] * p.drift, z: mz + p.rise, size: p.size, alpha: p.alpha }))]
+      const ahead = [Math.cos(shot.angle), Math.sin(shot.angle)]
+      // 덩이마다 옅은 테두리를 덧칠해 가장자리를 부드럽게 함 (SHEEP-155)
+      const puffs = smoke(t - shot.at).flatMap((p) => {
+        const at = { x: mx + right[0] * p.drift + ahead[0] * p.ahead, y: my + right[1] * p.drift + ahead[1] * p.ahead, z: mz + p.rise }
+        return [
+          { ...at, size: p.size * HALO_SIZE, alpha: p.alpha * HALO_ALPHA },
+          { ...at, size: p.size, alpha: p.alpha },
+        ]
+      })
+      return [figure, ...puffs]
     })
 }
 
@@ -684,7 +693,7 @@ function frame(now: number) {
     const kick = Math.max(hold.kick, 1 - (t - fired) / RECOIL_MS)
     const muzzle = drawGun(ctx, revolverMesh(revolver, plays, rounds ?? 0), { ...s, kick, lower: hold.lower }, W, H, PROJ, hand === 'left' ? -1 : 1)
     flash.style.transform = `translate(${(muzzle.x * 100) / W}cqw, ${(muzzle.y * 100) / W}cqw)`
-    drawSmoke(ctx, muzzle, t - fired, SMOKE_PX)
+    drawSmoke(ctx, muzzle, t - fired, SMOKE_PX, { x: W / 2, y: H / 2 })
     // 마우스 이벤트가 아니라 여기서 보내야 마지막으로 멈춘 각도도 빠지지 않고 감
     if ((angle !== sentAngle || pitch !== sentPitch) && now - sentAt >= TURN_INTERVAL && ws?.readyState === WebSocket.OPEN) {
       send({ type: 'turn', angle, pitch })
