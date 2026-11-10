@@ -23,6 +23,7 @@ export const de: Copy = {
     go: 'Zieh!',
     drawHint: (key) => `Drück ${key} zum Ziehen`,
     win: 'Nur du stehst noch!',
+    lastStanding: 'Der Letzte, der noch steht',
     lose: 'Nicht dein Tag, Partner',
     rematch: (n) => `${n} geh'n nochmal ran`,
     head: 'Kopfschuss',

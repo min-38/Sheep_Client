@@ -23,6 +23,7 @@ export const zh: Copy = {
     go: '拔枪！',
     drawHint: (key) => `按 ${key} 拔枪`,
     win: '站到最后的是你！',
+    lastStanding: '站到了最后',
     lose: '今儿不走运啊，伙计',
     rematch: (n) => `${n}个人再来一场`,
     head: '脑袋一枪',
