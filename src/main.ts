@@ -6,10 +6,10 @@ import { best, measure, toLocalTime, toServerTime, type ClockSample } from './cl
 import { CYLINDER_TURN, cylinderSvg } from './cylinder.ts'
 import { makeProps, SKIES, timeOfDay } from './desert.ts'
 import { enhanceSelect } from './dropdown.ts'
-import { drawGun, gunClips, lift, RAISE_MS, RECOIL_MS, RELOAD_END, RELOAD_SEATED, RELOAD_SHUT, reloadSoundAt, revolverMesh } from './gun.ts'
+import { DRAW_MS, drawGun, gunClips, lift, RECOIL_MS, RELOAD_END, RELOAD_SEATED, RELOAD_SHUT, reloadSoundAt, revolverMesh } from './gun.ts'
 import { dotPosition, noBlood, onGameEnd, onRevived, onWalk, onWounded, resultLabel } from './hitcard.ts'
 import { record, sampleAt, type Sample } from './interpolate.ts'
-import { fireMessage, parseServerMessage, type ClientMessage, type HitPoint, type PlayerState, type RoundResult, type ShotResult } from './net.ts'
+import { drawMessage, fireMessage, parseServerMessage, type ClientMessage, type HitPoint, type PlayerState, type RoundResult, type ShotResult } from './net.ts'
 import { normalizeNickname } from './nickname.ts'
 import { dressPaper, PAPER_GRAIN, PAPER_INK } from './paper.ts'
 import { BANDANA, joinable, memberText, roomStatus, type RoomInfo } from './roomlist.ts'
@@ -104,6 +104,8 @@ let roster: readonly PlayerState[] = []
 const revolver = revolverData as Rig
 // 이번 카운트다운에 내가 끼어 장전하는지. 카운트다운을 받을 때 장전 소리와 같은 조건으로 정함
 let reloading = false
+// 이번 결투에서 내가 D 키로 총을 뽑기 시작한 시각(ms, 내 시계). 안 뽑았으면 null. 카운트다운마다 비움 (SHEEP-123)
+let drawnAt: number | null = null
 // 다른 사람이 마지막으로 쏜 것과 쓰러진 것을 받은 시각(ms). state처럼 INTERP_DELAY 뒤에 보여 줘 돌기, 발사, 쓰러짐의 순서를 지킴.
 // ponytail: 사람마다 마지막 발사 하나만 둠. 발사 간격(250ms)이 불꽃(100ms)보다 길어 겹치지 않음. 지연이 크게 흔들려 둘이 붙어 오면 앞 불꽃이 빠짐
 const shots = new Map<string, Shot>()
@@ -294,8 +296,10 @@ function othersAt(t: number, viewer: string, scene: Scene): Thing[] {
       const flashing = shot !== undefined && t >= shot.at && t < shot.at + FLASH_SHOWN
       const look = scene.characters.get(id)!
       const body = characterBody(look.character, look.color, look.hand)
-      // "시작!"부터 서 있는 사람은 총을 겨눈 모습. 머리와 팔은 그 사람의 위아래 시선대로
-      const upright = duel ? body.aim(s.pitch) : s.pose === 'walk' ? stepping(body) : reloadingFor !== null && reloadingFor < RELOAD_END ? body.reload(reloadingFor) : body.stand(t)
+      // "시작!"부터 서 있는 사람은 D로 뽑으면 총을 들어 겨눈 모습, 뽑기 전에는 권총집에 넣은 채 (SHEEP-123). 머리와 팔은 그 사람의 위아래 시선대로
+      const drawn = s.drawnAt !== null && clock !== null ? toServerTime(t, clock.offset) - s.drawnAt : -1
+      // 결투 중 뽑기 전에는 곧게 선 틀 모습(rest). 서기 동작은 다리를 벌리고 있어 뽑기 시작할 때 다리가 튐
+      const upright = duel ? (drawn >= 0 ? body.draw(drawn, s.pitch) : body.rest) : s.pose === 'walk' ? stepping(body) : reloadingFor !== null && reloadingFor < RELOAD_END ? body.reload(reloadingFor) : body.stand(t)
       // 불꽃 동안은 쏜 각도로 그림. 돌고 바로 쏘면 돌아간 각도는 다음 state로 늦게 옴
       const down = scene.downs.get(id)
       const fallen = down && { landed: t - down.at - fallDelay(down.reason), reason: down.reason }
@@ -389,7 +393,7 @@ document.addEventListener('mousemove', (e) => {
   const sensitivity = radiansPerPixel(settings)
   angle = turn(angle, e.movementX, sensitivity)
   pitch = tilt(pitch, e.movementY, sensitivity)
-  unsteady = afterTurn(unsteady, Math.hypot(e.movementX, e.movementY) * sensitivity, e.timeStamp)
+  unsteady = afterTurn(unsteady, Math.hypot(e.movementX, e.movementY) * sensitivity, e.timeStamp, drawnAt !== null)
 })
 
 const ammo = document.querySelector<SVGSVGElement>('#ammo')!
@@ -491,6 +495,8 @@ function playSteps(now: number) {
 canvas.addEventListener('mousedown', (e) => {
   if (!grid || !clock || result || document.pointerLockElement !== canvas || e.button !== 0) return
   if (inputLocked(e.timeStamp) || !dueling(schedule, toServerTime(e.timeStamp, clock.offset))) return
+  // 총을 다 뽑기 전에는 쏘지 못함. 서버도 버림 (SHEEP-123)
+  if (drawnAt === null || e.timeStamp < drawnAt + DRAW_MS) return
   const next = pull(gun, e.timeStamp, FIRE_INTERVAL)
   if (!next) {
     // 빈 총은 서버에 알리지 않아 내 화면에서만 들림. 남이 들으면 누가 이미 쐈는지 알게 됨 (시스템 기획서 사운드)
@@ -505,6 +511,17 @@ canvas.addEventListener('mousedown', (e) => {
   send(fireMessage(aim.angle, aim.pitch, e.timeStamp, clock.offset))
   // 내 발사도 적어 둠. 내 총알과, 다시 보기에서 쓰러뜨린 사람 눈에 보이는 내 불꽃을 그림 (SHEEP-125)
   shots.set(myId!, { at: e.timeStamp, angle: aim.angle, pitch: aim.pitch })
+})
+
+// D 키로 총을 뽑음 (사용자 결정 2026-11-09, SHEEP-123). 한글 입력 중에도 되게 글자가 아니라 키 자리(code)로 받음.
+// "시작!" 전, 쓰러진 뒤, 판 결과가 정해진 뒤, 이미 뽑았으면 무시함. 포인터 잠금은 보지 않아 잠그기 전에도 뽑음
+document.addEventListener('keydown', (e) => {
+  if (e.code !== 'KeyD' || e.repeat || !grid || !clock || result || drawnAt !== null || myId === null || downs.has(myId)) return
+  if (!dueling(schedule, toServerTime(e.timeStamp, clock.offset))) return
+  drawnAt = e.timeStamp
+  send(drawMessage(e.timeStamp, clock.offset))
+  // 공이치기는 총을 다 들어 공이치기가 끝까지 젖혀지고 화면이 튀는 순간에 맞춤 (gun.ts lift, gunClips)
+  if (audio) play(audio, 'cockHammer', toAudioTime(e.timeStamp + DRAW_MS, stampOf(audio)))
 })
 
 // 관전 중 왼쪽 클릭은 다음 서 있는 사람 (컨셉 기획서 규칙 탈락한 뒤). 쓰러져 있어 멈추기와 쏘기는 받지 않음
@@ -599,8 +616,11 @@ function frame(now: number) {
     // 내 총은 설정의 손을 바로 따름. 다른 사람에게는 다음에 방에 들어갈 때 반영됨
     const loading = r || watch ? true : reloading
     const hand = (r || watch ? scene.characters.get(view.id)?.hand : undefined) ?? settings.hand
-    const hold = clock ? lift(scene.schedule, toServerTime(t, clock.offset), loading) : { lower: 1, kick: 0 }
-    const plays = clock ? gunClips(scene.schedule, toServerTime(t, clock.offset), loading, toServerTime(fired, clock.offset)) : []
+    // 뽑은 시각(서버 시계). 나는 내가 누른 시각을 바로 쓰고, 관전·다시 보기는 그 사람의 state를 씀 (SHEEP-123)
+    const viewSamples = r || watch ? scene.history.get(view.id) : undefined
+    const viewDrawn = !clock ? null : viewSamples ? sampleAt(viewSamples, t).drawnAt : drawnAt === null ? null : toServerTime(drawnAt, clock.offset)
+    const hold = clock ? lift(scene.schedule, toServerTime(t, clock.offset), loading, viewDrawn) : { lower: 1, kick: 0 }
+    const plays = clock ? gunClips(scene.schedule, toServerTime(t, clock.offset), loading, toServerTime(fired, clock.offset), viewDrawn) : []
     const kick = Math.max(hold.kick, 1 - (t - fired) / RECOIL_MS)
     const muzzle = drawGun(ctx, revolverMesh(revolver, plays, rounds ?? 0), { ...s, kick, lower: hold.lower }, W, H, PROJ, hand === 'left' ? -1 : 1)
     flash.style.transform = `translate(${(muzzle.x * 100) / W}cqw, ${(muzzle.y * 100) / W}cqw)`
@@ -1230,6 +1250,7 @@ function receive(data: string) {
         // 재대결이면 재대결하는 사람만, 새 판이면 방 사람 모두가 섬. 앞 판 결과는 이 시각에 끝나므로 아직 남아 있음
         standing = result?.outcome === 'rematch' ? result.playerIds.length : history.size
         reloading = myId !== null && joins(result, myId)
+        drawnAt = null
       }
       if (m.phase === 'walk') {
         // 걷기 시각은 다음 라운드 카운트다운이 시작한 뒤에 와 결과 시간은 이미 끝났음. 창이 숨어 그리기가 멈췄으면 결과를 여기서 먼저 끝내야
@@ -1264,12 +1285,8 @@ function receive(data: string) {
             play(audio, 'closeCylinder', later + reloadSoundAt(RELOAD_SHUT) / 1000, from, OTHER_RELOAD_GAIN)
           }
         }
-        if (m.phase === 'duel') {
-          playSignal(audio, when)
-          // 공이치기는 총을 다 들어 공이치기가 끝까지 젖혀지고 화면이 튀는 순간에 맞춤 (gun.ts lift, gunClips).
-          // ponytail: 총을 다 드는 RAISE_MS(0.2초) 안에 쏘면 공이치기 소리와 튐이 총소리 뒤에 남. 거슬리면 쏠 때 예약한 공이치기를 멈춤(AudioBufferSourceNode.stop)
-          if (!downs.has(myId)) play(audio, 'cockHammer', when + RAISE_MS / 1000)
-        }
+        // 공이치기 소리는 "시작!"이 아니라 D 키로 뽑은 때에 냄 (SHEEP-123)
+        if (m.phase === 'duel') playSignal(audio, when)
       }
       break
     case 'shot':

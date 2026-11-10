@@ -29,6 +29,7 @@ export type ClientMessage =
   // at은 쏜 시각(ms, 서버 시계). M4 서버는 발사 간격을 잴 때만 씀
   | { type: 'fire'; angle: number; pitch: number; at: number }
   // 걷다 멈추기. at은 누른 시각(ms, 서버 시계). 걷는 동안 한 번만 보냄
+  | { type: 'draw'; at: number }
   // 관전 대상 고르기. 쓰러진 뒤에 서 있는 사람의 id를 보냄. 답은 spectating
   | { type: 'spectate'; playerId: string }
 
@@ -51,6 +52,8 @@ export type PlayerState = {
   character: number
   seat: number
   hand: Hand
+  // D 키로 총을 뽑기 시작한 시각(ms, 서버 시계). 아직 안 뽑았으면 null (SHEEP-123)
+  drawnAt: number | null
 }
 
 // 서버가 알리는 판 단계. lobby는 판이 끝나 준비 중으로 돌아가는 시각임
@@ -101,6 +104,9 @@ export type ServerMessage =
   | { type: 'spectating'; playerId: string; wounds: number; ammo: number }
 
 // 쏜 순간 내 시각(ms, performance.now())을 서버 시계로 바꿔 보냄. 서버는 이 시각으로 발사 간격을 재고, M5부터 쏜 순서를 가림
+// D를 누른 순간 내 시각(ms)을 서버 시계로 바꿔 보냄. 서버는 이 시각부터 DRAW_MS 뒤의 발사만 받음 (기술 설계서 메시지 draw, SHEEP-123)
+export const drawMessage = (pressedAt: number, offset: number): ClientMessage => ({ type: 'draw', at: toServerTime(pressedAt, offset) })
+
 export const fireMessage = (angle: number, pitch: number, shotAt: number, offset: number): ClientMessage => ({ type: 'fire', angle, pitch, at: toServerTime(shotAt, offset) })
 
 // 서버가 보낸 JSON 하나를 읽음. 모양이 틀리면 null을 돌려주고 받는 쪽은 무시함 (서버와 같음)
@@ -211,7 +217,8 @@ const isPlayer = (p: any): p is PlayerState =>
   p.character < CHARACTERS.length &&
   isCount(p.seat) &&
   p.seat < 8 &&
-  (p.hand === 'right' || p.hand === 'left')
+  (p.hand === 'right' || p.hand === 'left') &&
+  (p.drawnAt === null || typeof p.drawnAt === 'number')
 
 // 레이캐스터는 칸이 다 숫자이고 모든 줄 길이가 같다고 봄
 function isGrid(cells: unknown, width: unknown, height: unknown): cells is Grid {

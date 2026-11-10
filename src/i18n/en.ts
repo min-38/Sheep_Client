@@ -82,6 +82,7 @@ export const en = {
         "Ever'body turns slow and walks ten paces. Ain't no stoppin' short, partner.",
         'Two fellers drop at once? Reckon they stand up and go again.',
         "Get shot and you can still watch through the eyes of them standin'. Click to switch.",
+        "Iron stays holstered 'til the word. Then hit D to draw, partner.",
       ],
       jokes: [
         'Feller paid his tab with a bullet once. Reckon it went right through.',

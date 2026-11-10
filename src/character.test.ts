@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest'
 import { CELL, CHARACTERS, characterBody, corners, drawFigure, FALL_LAND_MS, inWorld, pinWound, toModel, woundBox, keyColor, PORTRAIT_SIZE, portraitPixels, savedCharacter, savedColor, SUICIDE_AIM, SUICIDE_FLASH, suicideStage, type Box, type Pose } from './character.ts'
 import revolverData from './assets/revolver-rig.json'
-import { RELOAD_AT, RELOAD_END, RELOAD_MS, revolverMesh } from './gun.ts'
+import { DRAW_MS, RELOAD_AT, RELOAD_END, RELOAD_MS, revolverMesh } from './gun.ts'
 import { makeCamera, type RGB } from './render.ts'
 import type { Rig } from './rig.ts'
 import { STEP_MS, TURN_MS } from './round.ts'
@@ -253,6 +253,16 @@ describe('characterBody', () => {
     expect(front(pick(body.walk(STEP_MS), 'leftLeg', 3))).toBeGreaterThan(front(pick(body.walk(STEP_MS), 'rightLeg', 3)) + 2)
     same(body.walk(2 * STEP_MS), body.walk(0))
     same(body.walk(5 * STEP_MS + 120), body.walk(STEP_MS + 120))
+  })
+
+  test('D로 뽑으면 권총집 옆 손에서 DRAW_MS 동안 겨눈 모습으로 들고, 그 뒤로는 겨눈 모습 (SHEEP-123)', () => {
+    same(body.draw(DRAW_MS, 0.2), body.aim(0.2))
+    expect(body.draw(DRAW_MS + 500, 0.2).gun).toEqual(body.aim(0.2).gun)
+    // 처음에는 총이 권총집 높이에 있고(총구가 아래), 뽑는 동안 올라와 앞으로 나옴
+    const low = gunSpan(body.draw(0, 0), 1)[1]
+    expect(low).toBeLessThan(gunSpan(body.aim(0), 1)[0])
+    expect(gunSpan(body.draw(DRAW_MS / 2, 0), 2)[1]).toBeGreaterThan(gunSpan(body.draw(0, 0), 2)[1])
+    expect(gunSpan(body.draw(DRAW_MS / 2, 0), 2)[1]).toBeLessThan(gunSpan(body.aim(0), 2)[1])
   })
 
   test('카운트다운에 권총집에서 총을 꺼내 배 앞에서 한 발 넣고 다시 권총집에 넣음 (SHEEP-121)', () => {

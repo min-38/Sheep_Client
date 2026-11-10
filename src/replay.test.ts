@@ -3,7 +3,7 @@ import { FALL_LAND_MS } from './character.ts'
 import type { Sample } from './interpolate.ts'
 import { cut, REPLAY_AFTER, REPLAY_BEFORE, replayWindow } from './replay.ts'
 
-const at = (t: number): Sample => ({ at: t, x: t / 100, y: 0, angle: 0, pitch: 0, pose: 'stand' })
+const at = (t: number): Sample => ({ at: t, x: t / 100, y: 0, angle: 0, pitch: 0, pose: 'stand', drawnAt: null })
 
 describe('replayWindow', () => {
   test('쏜 시각 앞 REPLAY_BEFORE부터 내가 쓰러진 것을 받고 REPLAY_AFTER 뒤까지 (시스템 기획서 HUD 다시 보기)', () => {

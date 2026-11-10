@@ -8,7 +8,7 @@ import rosa from './assets/characters/rosa.json'
 import silas from './assets/characters/silas.json'
 import motionData from './assets/motions.json'
 import revolverData from './assets/revolver-rig.json'
-import { HOLSTER_MS, RELOAD_AT, RELOAD_END, RELOAD_MS, reloadTime, revolverMesh } from './gun.ts'
+import { DRAW_MS, HOLSTER_MS, RELOAD_AT, RELOAD_END, RELOAD_MS, reloadTime, revolverMesh } from './gun.ts'
 import { HEAD } from './hitcard.ts'
 import { horizonY, pack, tint, type Camera } from './render.ts'
 import { slerp, type Mesh, type Rig } from './rig.ts'
@@ -41,6 +41,8 @@ export type Body = {
   // 걷기 시각에 제자리에서 뒤도는 동안(round.ts TURN_MS) 발을 번갈아 조금 떼었다 놓는 모습. 몸 방향은 서버 각도대로 돌고 이건 팔다리만 (SHEEP-120)
   turn: (ms: number) => Pose
   aim: (pitch: number) => Pose
+  // D 키로 뽑기 시작하고 ms 지난 모습 (SHEEP-123). 권총집 옆으로 내린 팔에서 DRAW_MS 동안 겨눈 모습으로 듦. 그 뒤로는 aim과 같음
+  draw: (ms: number, pitch: number) => Pose
   fire: (pitch: number) => Pose
   suicide: Pose[]
   // drop이면 바닥에 닿을 때 총을 놓쳐 손 옆 모래 위에 눕힘(맞아 쓰러짐). 아니면 누운 뒤에도 쥠(자살) (사용자 결정 2026-11-10, SHEEP-119)
@@ -405,6 +407,17 @@ function build(data: CharacterData, key: string | undefined, hand: Hand): Body {
     },
     // 쏠 때는 반동으로 팔만 더 들림
     aim: (pitch) => aimed(pitch, ahead(pitch), false),
+    draw: (ms, pitch) => {
+      if (ms >= DRAW_MS) return aimed(pitch, ahead(pitch), false)
+      const k = Math.max(0, ms) / DRAW_MS
+      const u = k * k * (3 - 2 * k)
+      const d = ahead(pitch)
+      const toward = (from: V, to: V) => unit(add(from, sub(to, from), u))
+      const p = posed(moves({ ...rest, look: pitch * u, [gunArm]: [toward(DOWN, d), toward(DOWN, d)] }))
+      // 권총집에 꽂힌 총처럼 총열이 아래, 총 위가 앞인 데서 겨눈 방향으로 돎
+      const barrel = toward(DOWN, d)
+      return { boxes: p.boxes, gun: holdGun(p.fist, barrel, across(toward(Z, across(Y, d)), barrel)).gun }
+    },
     fire: (pitch) => aimed(pitch, ahead(pitch + RECOIL), true),
     suicide: [temple(false), temple(true)],
     // 맞거나 쏜 뒤라 총을 손에 쥔 채 넘어짐. 맞았으면 바닥에 닿을 때 놓침
