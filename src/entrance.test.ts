@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { DOOR_ZOOM, entranceAt, entranceTrack, ENTER_MS, SWING_REST, swingAngle } from './entrance.ts'
+import { DOOR_PUSH_AT, DOOR_ZOOM, entranceAt, entranceTrack, ENTER_MS, SWING_REST, swingAngle } from './entrance.ts'
 
 const countdown = 50000
 const at = (ms: number) => entranceAt(countdown, countdown - ENTER_MS + ms)!
@@ -73,5 +73,14 @@ describe('swingAngle', () => {
     expect(Math.min(...angles.slice(angles.indexOf(peak)))).toBeLessThan(SWING_REST)
     // 2초 뒤에는 거의 멈춤
     expect(Math.abs(swingAngle(2000) - SWING_REST)).toBeLessThan(1)
+  })
+})
+
+describe('DOOR_PUSH_AT (SHEEP-153)', () => {
+  test('나서는 장면을 시작하고 DOOR_PUSH_AT(ms) 지난 때가 문을 미는 때(pushed 0)라 문 소리를 거기에 맞춤', () => {
+    const countdownAt = 10000
+    expect(entranceAt(countdownAt, countdownAt - ENTER_MS + DOOR_PUSH_AT)?.pushed).toBeCloseTo(0)
+    expect(DOOR_PUSH_AT).toBeGreaterThan(0)
+    expect(DOOR_PUSH_AT).toBeLessThan(ENTER_MS)
   })
 })

@@ -24,7 +24,7 @@ import { bountyRise, bubbleX, COPIED_MS, copyKeys, drawSaloon, SALOON_CAMERA, se
 import { cut, replayWindow } from './replay.ts'
 import { irisOpen, walkerAt, walkoffAt, walkoffCamera } from './ceremony.ts'
 import { filming, motionMs, SCENE_MS, sceneCamera, SLOW } from './downscene.ts'
-import { drawEntrance, ENTER_FADE, ENTER_MS, entranceAt, entranceTrack, WHOOSH_AT, WHOOSH_MS } from './entrance.ts'
+import { DOOR_PUSH_AT, drawEntrance, ENTER_FADE, ENTER_MS, entranceAt, entranceTrack, WHOOSH_AT, WHOOSH_MS } from './entrance.ts'
 // 지금 언어의 문구. 이 파일은 t를 시각 변수로 많이 써 문구는 copy로 부름
 import { copyOf, HTML_LANG, LANGUAGES, setLanguage, t as copy, textAt, type Language } from './i18n/index.ts'
 import { readSettings, RADIANS_PER_PIXEL, type Crosshair, type Hand, type Settings } from './settings.ts'
@@ -33,7 +33,7 @@ import { nextTarget } from './spectate.ts'
 import { drawSmoke, smoke, SMOKE_MS, SMOKE_PX } from './smoke.ts'
 import { along, bulletDots, bulletRange, EYE_HEIGHT, FLIGHT_MS } from './bullet.ts'
 import { burst, BURST_MS, pool } from './blood.ts'
-import { fallDelay, heardFrom, loadEffects, play, playFall, playSignal, playStep, playWhoosh, setEffectsVolume, stampOf, toAudioTime } from './sound.ts'
+import { fallDelay, heardFrom, loadEffects, play, playDoor, playFall, playSignal, playStep, playWhoosh, setEffectsVolume, stampOf, toAudioTime } from './sound.ts'
 import { darkness, stepDip } from './tension.ts'
 import type { Thing } from './sprite.ts'
 import { afterTurn, aimAt, crosshairOffset, scaleAt, steady, sway, type Unsteady } from './sway.ts'
@@ -1367,6 +1367,8 @@ function receive(data: string) {
         // 술집을 나서 하얗게 번질 때 빨려 들어가는 소리. 술집에서 카운트다운을 받은 때에 미리 예약함 (SHEEP-145).
         // ponytail: 그사이 방을 나가도 예약한 소리는 남. 거슬리면 노드를 두었다 나갈 때 멈춤
         if (m.phase === 'countdown' && leaveSaloonAt !== null) playWhoosh(audio, when - (ENTER_MS - WHOOSH_AT) / 1000, WHOOSH_MS / 1000)
+        // 스윙 도어를 쾅 미는 소리. 문짝이 밀리는 그림(entrance.ts pushed 0)에 맞춤 (SHEEP-153)
+        if (m.phase === 'countdown' && leaveSaloonAt !== null) playDoor(audio, when - (ENTER_MS - DOOR_PUSH_AT) / 1000)
         // 장전 소리는 느린 Reload 클립에서 총알이 다 들어갈 때, 실린더 닫는 소리는 실린더가 다 닫힐 때 딸깍이 들리게 함 (gun.ts gunClips)
         if (m.phase === 'countdown' && reloading) {
           play(audio, 'load', when + reloadSoundAt(RELOAD_SEATED) / 1000)
