@@ -158,7 +158,6 @@ export const en = {
   },
   // 설정 창
   settings: {
-    sensitivity: 'Sensitivity',
     music: 'Music',
     effects: 'Sound effects',
     hand: 'Gun hand',

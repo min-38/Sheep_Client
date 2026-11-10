@@ -133,7 +133,6 @@ export const es: Copy = {
     cancel: 'Cancelar',
   },
   settings: {
-    sensitivity: 'Sensibilidad',
     music: 'Música',
     effects: 'Efectos de sonido',
     hand: 'Mano del arma',

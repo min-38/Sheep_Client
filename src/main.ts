@@ -27,7 +27,7 @@ import { filming, motionMs, SCENE_MS, sceneCamera, SLOW } from './downscene.ts'
 import { drawEntrance, ENTER_FADE, ENTER_MS, entranceAt, entranceTrack, WHOOSH_AT, WHOOSH_MS } from './entrance.ts'
 // 지금 언어의 문구. 이 파일은 t를 시각 변수로 많이 써 문구는 copy로 부름
 import { copyOf, HTML_LANG, LANGUAGES, setLanguage, t as copy, textAt, type Language } from './i18n/index.ts'
-import { readSettings, radiansPerPixel, type Crosshair, type Hand, type Settings } from './settings.ts'
+import { readSettings, RADIANS_PER_PIXEL, type Crosshair, type Hand, type Settings } from './settings.ts'
 import { oneTab } from './tablock.ts'
 import { nextTarget } from './spectate.ts'
 import { drawSmoke, smoke, SMOKE_MS, SMOKE_PX } from './smoke.ts'
@@ -406,10 +406,9 @@ document.addEventListener('keydown', (e) => {
 let unsteady = steady
 document.addEventListener('mousemove', (e) => {
   if (document.pointerLockElement !== canvas || inputLocked(e.timeStamp)) return
-  const sensitivity = radiansPerPixel(settings)
-  angle = turn(angle, e.movementX, sensitivity)
-  pitch = tilt(pitch, e.movementY, sensitivity)
-  unsteady = afterTurn(unsteady, Math.hypot(e.movementX, e.movementY) * sensitivity, e.timeStamp, drawnAt !== null)
+  angle = turn(angle, e.movementX, RADIANS_PER_PIXEL)
+  pitch = tilt(pitch, e.movementY, RADIANS_PER_PIXEL)
+  unsteady = afterTurn(unsteady, Math.hypot(e.movementX, e.movementY) * RADIANS_PER_PIXEL, e.timeStamp, drawnAt !== null)
 })
 
 const ammo = document.querySelector<SVGSVGElement>('#ammo')!
@@ -1520,7 +1519,6 @@ lobby.addEventListener('submit', (e) => {
 const settingsPanel = document.querySelector<HTMLDivElement>('#settings-panel')!
 const settingsForm = document.querySelector<HTMLFormElement>('#settings-form')!
 const sliders = {
-  sensitivity: document.querySelector<HTMLInputElement>('#sensitivity')!,
   music: document.querySelector<HTMLInputElement>('#music')!,
   effects: document.querySelector<HTMLInputElement>('#effects')!,
 }
@@ -1537,7 +1535,7 @@ const languageList = enhanceSelect(languageSelect, document.querySelector('#lang
 
 // 막대는 % 정수, 설정은 배율이라 100으로 나눔. 값 글자는 막대 옆에 %로
 function showSettings() {
-  for (const key of ['sensitivity', 'music', 'effects'] as const) {
+  for (const key of ['music', 'effects'] as const) {
     sliders[key].value = String(Math.round(settings[key] * 100))
     document.querySelector<HTMLOutputElement>(`#${key}-value`)!.value = `${sliders[key].value}%`
   }
@@ -1554,7 +1552,7 @@ settingsForm.addEventListener('input', () => {
   const percent = (key: keyof typeof sliders) => Number(sliders[key].value) / 100
   const language = languageSelect.value as Language
   const relabel = language !== settings.language
-  settings = { sensitivity: percent('sensitivity'), music: percent('music'), effects: percent('effects'), hand, language, crosshair: crosshairShape }
+  settings = { music: percent('music'), effects: percent('effects'), hand, language, crosshair: crosshairShape }
   crosshair.dataset.shape = settings.crosshair
   setEffectsVolume(settings.effects)
   setMusicVolume(settings.music)

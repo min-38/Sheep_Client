@@ -133,7 +133,6 @@ export const ru: Copy = {
     cancel: 'Отмена',
   },
   settings: {
-    sensitivity: 'Чувствительность',
     music: 'Музыка',
     effects: 'Звуковые эффекты',
     hand: 'Рука с оружием',
