@@ -46,7 +46,12 @@ describe('banner', () => {
 describe('locked', () => {
   test('판 전에는 돌 수 있음', () => {
     expect(locked({}, 0)).toBe(false)
-    expect(locked({ countdown: 10000 }, 9999)).toBe(false)
+  })
+
+  // 카운트다운은 술집을 나서는 장면(6초) 앞에 알려 옴. 그동안 돌면 결투장이 드러날 때 엉뚱한 곳을 보다가 카운트다운에 가운데로 튐 (SHEEP-167)
+  test('카운트다운을 알려 온 뒤 그 시각 전에도 막음', () => {
+    expect(locked({ countdown: 10000 }, 4000)).toBe(true)
+    expect(locked({ countdown: 10000 }, 9999)).toBe(true)
   })
 
   test('카운트다운과 걷기 동안은 막음', () => {
