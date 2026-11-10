@@ -1,24 +1,10 @@
 import { describe, expect, test } from 'vitest'
 import { STEP_MS, STEPS, STEPS_FROM, TURN_MS } from './round.ts'
-import { darkness, heartbeats, stepDip } from './tension.ts'
+import { darkness, stepDip } from './tension.ts'
 
 const walk = 10000
 // 마지막(10번째) 걸음을 내딛는 시각
 const lastStep = walk + STEPS_FROM + (STEPS - 1) * STEP_MS
-
-describe('heartbeats', () => {
-  test('다 돌고 뜸을 들이기 시작할 때부터 마지막 걸음 전까지 뜀 (사용자 결정 2026-11-10, SHEEP-141)', () => {
-    const beats = heartbeats(walk)
-    expect(beats[0]).toBe(walk + TURN_MS)
-    expect(beats.at(-1)!).toBeLessThan(lastStep)
-    expect(beats.length).toBeGreaterThan(5)
-  })
-
-  test('갈수록 빨라짐', () => {
-    const gaps = heartbeats(walk).slice(1).map((b, i, rest) => b - (i === 0 ? heartbeats(walk)[0] : rest[i - 1]))
-    for (let i = 1; i < gaps.length; i++) expect(gaps[i]).toBeLessThan(gaps[i - 1])
-  })
-})
 
 describe('darkness', () => {
   test('다 돌기 전과 "시작!"부터는 어둡지 않음', () => {
@@ -34,9 +20,14 @@ describe('darkness', () => {
     expect(darkness({ walk, duel: lastStep + 2000 }, lastStep + 1500)).toBeGreaterThan(early)
   })
 
-  test('박동 바로 뒤가 박동 사이보다 짙음', () => {
-    const [, second, third] = heartbeats(walk)
-    expect(darkness({ walk }, second + 20)).toBeGreaterThan(darkness({ walk }, (second + third) / 2))
+  test('박동처럼 뛰지 않고 고르게 짙어짐 (사용자 결정 2026-11-10, SHEEP-147)', () => {
+    const start = walk + TURN_MS
+    let before = darkness({ walk }, start)
+    for (let t = start + 50; t < lastStep; t += 50) {
+      const d = darkness({ walk }, t)
+      expect(d).toBeGreaterThan(before)
+      before = d
+    }
   })
 })
 
