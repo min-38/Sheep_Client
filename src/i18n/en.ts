@@ -64,6 +64,13 @@ export const en = {
     copyFailed: (keys: string) => `Press ${keys}, partner`,
     readyStamp: 'Ready',
     winStamp: 'Winner',
+    // 왼쪽 벽 현상금 게시판의 캐릭터·색 바꾸기 (SHEEP-118). keyParts는 캐릭터 번호 순서의 핵심 파츠 이름, colors는 사람 색 번호 순서의 색 이름
+    wardrobe: 'Character and color',
+    keyParts: ['Neckerchief', 'Sombrero', 'Shirt', 'Corset', 'Waistcoat', 'Coat', 'Hat', 'Poncho'],
+    partColor: (part: string) => `${part} color`,
+    colors: ['Red', 'Sky blue', 'Green', 'Yellow', 'Orange', 'Pink', 'White', 'Black'],
+    // 방 안 다른 사람이 쓰는 색. 서부 사투리 말투 (CLAUDE.md Language)
+    colorTaken: (color: string) => `${color}, spoken for`,
     // 술집 주인 말풍선 (SHEEP-116). 팁은 지금 규칙(시스템 기획서)을 알려 주고, 농담은 쓸데없는 말. 서부 사투리 말투 (CLAUDE.md Language)
     bartender: {
       tips: [
@@ -91,7 +98,6 @@ export const en = {
     nickname: 'Nickname',
     nicknameRule: '2–8 characters',
     ok: 'OK',
-    character: 'Character',
     // 캐릭터 번호 순서 (시스템 기획서 캐릭터 목록)
     characterNames: ['Charles', 'Rosa', 'Silas', 'Belle', 'Clayton', 'Jesse', 'Kate', 'Diego'],
     roomList: 'Room list',
@@ -124,6 +130,7 @@ export const en = {
       roomName: "That room name doesn't fit the rules",
       maxPlayers: 'Players must be 2–8',
       character: 'No such character',
+      color: 'No such color',
     },
   },
   // 방 만들기 창

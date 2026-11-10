@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { CELL, CHARACTERS, characterBody, corners, drawFigure, FALL_LAND_MS, PORTRAITS, savedCharacter, SUICIDE_AIM, SUICIDE_FLASH, suicideStage, type Box, type Pose } from './character.ts'
+import { CELL, CHARACTERS, characterBody, corners, drawFigure, FALL_LAND_MS, keyColor, PORTRAIT_SIZE, portraitPixels, savedCharacter, savedColor, SUICIDE_AIM, SUICIDE_FLASH, suicideStage, type Box, type Pose } from './character.ts'
 import { makeCamera, type RGB } from './render.ts'
 import { STEP_MS } from './round.ts'
 
@@ -95,10 +95,58 @@ describe('CHARACTERS 틀 검사 (시스템 기획서 캐릭터)', () => {
   }
 })
 
-describe('PORTRAITS', () => {
-  test('캐릭터마다 초상화가 하나씩 있음 (시스템 기획서 캐릭터 초상화)', () => {
-    expect(PORTRAITS).toHaveLength(CHARACTERS.length)
-    for (const url of PORTRAITS) expect(url).toMatch(/\.png/)
+// 사일러스(2번)는 셔츠, 찰스(0번)는 목수건, 로사(1번)는 솜브레로가 핵심 파츠 (시스템 기획서 캐릭터 핵심 파츠)
+const SILAS = 2
+const RED = 0
+const SKY = 1
+const GREEN = 2
+const hexRgb = (hex: string) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16))
+
+describe('keyColor', () => {
+  test('핵심 파츠는 사람 색으로 칠하고, 하늘은 몸통일 때만 짙은 파랑 (SHEEP-118)', () => {
+    expect(keyColor(SILAS, RED)).toBe('#d83a3a')
+    expect(keyColor(SILAS, SKY)).toBe('#2a6ab8')
+    expect(keyColor(0, SKY)).toBe('#4fb3e8')
+    expect(keyColor(1, SKY)).toBe('#4fb3e8')
+  })
+})
+
+describe('portraitPixels', () => {
+  test('64×64 RGBA이고 바깥은 투명', () => {
+    const px = portraitPixels(SILAS)
+    expect(px).toHaveLength(PORTRAIT_SIZE * PORTRAIT_SIZE * 4)
+    expect(px[3]).toBe(0)
+  })
+
+  test('색을 바꾸면 핵심 파츠 자리만 다시 칠하고 나머지는 그대로 (SHEEP-118)', () => {
+    const red = portraitPixels(SILAS, RED)
+    const green = portraitPixels(SILAS, GREEN)
+    let changed = 0
+    for (let p = 0; p < red.length; p += 4) {
+      if (red[p] === green[p] && red[p + 1] === green[p + 1] && red[p + 2] === green[p + 2]) continue
+      changed++
+      // 바뀐 칸은 빨강과 초록의 명암이라 그 색이 가장 셈
+      expect(red[p]).toBeGreaterThan(Math.max(red[p + 1], red[p + 2]))
+      expect(green[p + 1]).toBeGreaterThan(Math.max(green[p], green[p + 2]))
+    }
+    // 셔츠가 가슴 아래를 채움. 목수건(하늘)은 바뀌지 않음
+    expect(changed).toBeGreaterThan(100)
+  })
+
+  test('색을 주지 않으면 캐릭터 JSON의 핵심 파츠 색 그대로', () => {
+    expect(portraitPixels(SILAS)).toEqual(portraitPixels(SILAS, undefined))
+    expect(portraitPixels(SILAS)).not.toEqual(portraitPixels(SILAS, RED))
+  })
+})
+
+describe('characterBody 핵심 파츠 색', () => {
+  test('key 상자만 사람 색으로 칠하고, 색을 주지 않으면 JSON 색 그대로 (SHEEP-118)', () => {
+    const keys = CHARACTERS[SILAS].boxes.filter((b) => b.key).length
+    const red = hexRgb('#d83a3a')
+    const isRed = (b: { rgb: readonly number[] }) => b.rgb.every((v, i) => v === red[i])
+    expect(characterBody(SILAS, RED).rest.boxes.filter(isRed)).toHaveLength(keys)
+    expect(characterBody(SILAS).rest.boxes.filter(isRed)).toHaveLength(0)
+    expect(characterBody(SILAS, RED)).toBe(characterBody(SILAS, RED))
   })
 })
 
@@ -111,6 +159,18 @@ describe('savedCharacter', () => {
     expect(savedCharacter('0.5')).toBe(0)
     expect(savedCharacter('찰스')).toBe(0)
     expect(savedCharacter(String(CHARACTERS.length))).toBe(0)
+  })
+})
+
+describe('savedColor', () => {
+  test('기억한 번호가 사람 색 번호면 그 번호, 없거나 틀리면 null이라 보내지 않음 (SHEEP-118)', () => {
+    expect(savedColor('7')).toBe(7)
+    expect(savedColor('0')).toBe(0)
+    expect(savedColor(null)).toBeNull()
+    expect(savedColor('')).toBeNull()
+    expect(savedColor('8')).toBeNull()
+    expect(savedColor('-1')).toBeNull()
+    expect(savedColor('1.5')).toBeNull()
   })
 })
 
