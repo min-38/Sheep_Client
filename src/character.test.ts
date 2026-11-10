@@ -1,7 +1,10 @@
 import { describe, expect, test } from 'vitest'
-import { CELL, CHARACTERS, characterBody, corners, drawFigure, FALL_LAND_MS, keyColor, PORTRAIT_SIZE, portraitPixels, savedCharacter, savedColor, SUICIDE_AIM, SUICIDE_FLASH, suicideStage, type Box, type Pose } from './character.ts'
+import { CELL, CHARACTERS, characterBody, corners, drawFigure, FALL_LAND_MS, inWorld, pinWound, toModel, woundBox, keyColor, PORTRAIT_SIZE, portraitPixels, savedCharacter, savedColor, SUICIDE_AIM, SUICIDE_FLASH, suicideStage, type Box, type Pose } from './character.ts'
+import revolverData from './assets/revolver-rig.json'
+import { DRAW_MS, RELOAD_AT, RELOAD_END, RELOAD_MS, revolverMesh } from './gun.ts'
 import { makeCamera, type RGB } from './render.ts'
-import { STEP_MS } from './round.ts'
+import type { Rig } from './rig.ts'
+import { STEP_MS, TURN_MS } from './round.ts'
 
 type V = readonly [number, number, number]
 type Range = readonly [V, V]
@@ -252,6 +255,43 @@ describe('characterBody', () => {
     same(body.walk(5 * STEP_MS + 120), body.walk(STEP_MS + 120))
   })
 
+  test('D로 뽑으면 권총집 옆 손에서 DRAW_MS 동안 겨눈 모습으로 들고, 그 뒤로는 겨눈 모습 (SHEEP-123)', () => {
+    same(body.draw(DRAW_MS, 0.2), body.aim(0.2))
+    expect(body.draw(DRAW_MS + 500, 0.2).gun).toEqual(body.aim(0.2).gun)
+    // 처음에는 총이 권총집 높이에 있고(총구가 아래), 뽑는 동안 올라와 앞으로 나옴
+    const low = gunSpan(body.draw(0, 0), 1)[1]
+    expect(low).toBeLessThan(gunSpan(body.aim(0), 1)[0])
+    expect(gunSpan(body.draw(DRAW_MS / 2, 0), 2)[1]).toBeGreaterThan(gunSpan(body.draw(0, 0), 2)[1])
+    expect(gunSpan(body.draw(DRAW_MS / 2, 0), 2)[1]).toBeLessThan(gunSpan(body.aim(0), 2)[1])
+  })
+
+  test('카운트다운에 권총집에서 총을 꺼내 배 앞에서 한 발 넣고 다시 권총집에 넣음 (SHEEP-121)', () => {
+    const middle = body.reload(RELOAD_AT + RELOAD_MS / 2)
+    // 장전하는 동안 총은 몸 앞으로 나오고, 실린더 칸의 총알까지 그림
+    expect(gunSpan(middle, 2)[1]).toBeGreaterThan(gunSpan(rest, 2)[1] + 4)
+    expect(middle.faces!.length).toBeGreaterThan(revolverMesh(revolverData as Rig, [], 0).faces.length)
+    // 꺼내기 전과 다 넣은 뒤는 쉰 자세 그대로
+    same(body.reload(-1), rest)
+    same(body.reload(RELOAD_END), rest)
+    expect(body.reload(RELOAD_END).gun).toEqual(rest.gun)
+    // 꺼내고 넣는 동안 총이 몸 앞으로 나왔다 들어감
+    expect(gunSpan(body.reload(RELOAD_AT / 2), 2)[1]).toBeGreaterThan(gunSpan(rest, 2)[1])
+    expect(gunSpan(body.reload(RELOAD_END - 1), 2)[1]).toBeLessThan(gunSpan(middle, 2)[1])
+    for (let t = 0; t < RELOAD_END; t += 250) near(span(body.reload(t).boxes, 1)[0], 0)
+  })
+
+  test('뒤도는 동안 제자리에서 두 발을 번갈아 떼었다 놓고, 처음과 끝은 곧게 섬 (SHEEP-120)', () => {
+    const lowest = (boxes: readonly Box[]) => Math.min(...boxes.flatMap((b) => corners(b).map((p) => p[1])))
+    const lifted = (t: number) => [lowest(pick(body.turn(t), 'rightLeg', 3)), lowest(pick(body.turn(t), 'leftLeg', 3))]
+    for (const t of [0, TURN_MS]) same(body.turn(t), body.turn(0))
+    for (const t of [0, TURN_MS]) for (const y of lifted(t)) near(y * CELL, 0)
+    // 왼발은 앞 절반, 오른발은 뒤 절반에 1블록 넘게 뜸
+    const times = Array.from({ length: 17 }, (_, i) => (i * TURN_MS) / 16)
+    expect(Math.max(...times.filter((t) => t < TURN_MS / 2).map((t) => lifted(t)[1]))).toBeGreaterThan(1)
+    expect(Math.max(...times.filter((t) => t >= TURN_MS / 2).map((t) => lifted(t)[0]))).toBeGreaterThan(1)
+    for (const t of times) near(span(body.turn(t).boxes, 1)[0], 0)
+  })
+
   test('걸으면 발이 바닥에 닿고 권총집의 총이 허벅지를 따라 움직임', () => {
     for (let t = 0; t < 2 * STEP_MS; t += STEP_MS / 8) near(span(body.walk(t).boxes, 1)[0], 0)
     expect(body.walk(0).gun).not.toEqual(body.walk(STEP_MS).gun)
@@ -407,6 +447,55 @@ describe('characterBody 왼손 (SHEEP-133)', () => {
     // 놓친 총은 바닥에 닿기 직전 왼 주먹 아래 모래 위에 있음
     const before = fist(left.fall(FALL_LAND_MS - 1, true))
     expect(gap(left.fall(FALL_LAND_MS + 50, true), [before[0], 0, before[2]])).toBeLessThan(1.5)
+  })
+})
+
+describe('총구와 inWorld (SHEEP-124)', () => {
+  test('겨누거나 쏘면 총구 자리를 알려 주고, 그 자리는 가장 앞으로 나온 총 꼭짓점 언저리', () => {
+    const body = characterBody(0)
+    for (const pose of [body.aim(0), body.fire(0.2)]) {
+      const tip = pose.gun.reduce((a, b) => (b[2] > a[2] ? b : a))
+      expect(Math.hypot(...pose.muzzle!.map((v, i) => v - tip[i]))).toBeLessThan(1)
+    }
+  })
+
+  test('모델 좌표를 격자 좌표와 높이(칸)로 바꿈: 앞(z)은 바라보는 쪽, 오른쪽(x)은 시계 방향 90°, 위(y)는 높이', () => {
+    const near = (got: readonly number[], want: number[]) => got.forEach((v, i) => expect(v).toBeCloseTo(want[i], 9))
+    near(inWorld(2, 3, 0, [0, 0, 1 / CELL]), [3, 3, 0])
+    near(inWorld(2, 3, 0, [1 / CELL, 0, 0]), [2, 4, 0])
+    near(inWorld(2, 3, Math.PI / 2, [0, 10, 1 / CELL]), [2, 4, 10 * CELL])
+  })
+})
+
+describe('상처 (SHEEP-126)', () => {
+  const body = characterBody(0)
+
+  test('toModel은 inWorld를 되돌림', () => {
+    const p: [number, number, number] = [3, 20, 2.5]
+    const [x, y, h] = inWorld(7, 4, 1.1, p)
+    toModel(7, 4, 1.1, x, y, h).forEach((v, i) => expect(v).toBeCloseTo(p[i], 9))
+  })
+
+  test('맞은 자리를 가장 가까운 상자 겉면에 붙이고, 그 상자가 움직이면 상처도 따라감', () => {
+    // 몸통 앞(z) 바깥 1블록, 높이 20의 점 → 몸통 상자 앞면에 붙음
+    const wound = pinWound(body.rest.boxes, [0.5, 20, 2.5])
+    const onRest = woundBox(body.rest.boxes, wound)
+    const trunk = body.rest.boxes[wound.box]
+    expect(Math.abs(onRest.c[2] - (trunk.c[2] + trunk.half[2]))).toBeLessThan(1e-9)
+    expect(onRest.c[1]).toBeCloseTo(20, 9)
+    // 쓰러진 뒤에는 상자를 따라 낮게 누움
+    const fallen = body.fall(5000)
+    const onFallen = woundBox(fallen.boxes, wound)
+    expect(onFallen.c[1]).toBeLessThan(10)
+    expect(Math.hypot(...onFallen.c.map((v, i) => v - fallen.boxes[wound.box].c[i]))).toBeCloseTo(Math.hypot(...onRest.c.map((v, i) => v - trunk.c[i])), 9)
+  })
+
+  test('상자 안쪽에 든 점도 가장 가까운 겉면으로 밀어냄', () => {
+    const wound = pinWound(body.rest.boxes, [0, 20, 0.2])
+    const trunk = body.rest.boxes[wound.box]
+    const box = woundBox(body.rest.boxes, wound)
+    const faces = box.c.map((v, i) => Math.abs(Math.abs(v - trunk.c[i]) - trunk.half[i]) < 1e-9)
+    expect(faces.some(Boolean)).toBe(true)
   })
 })
 

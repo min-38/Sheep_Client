@@ -2,6 +2,7 @@ import { describe, expect, test } from 'vitest'
 import revolverData from './assets/revolver-rig.json'
 import {
   drawGun,
+  DRAW_MS,
   faceNormal,
   gunClips,
   GUN_POS,
@@ -10,8 +11,11 @@ import {
   RAISE_MS,
   RECOIL_MS,
   RELOAD_AT,
+  RELOAD_END,
+  RELOAD_MS,
   RELOAD_SEATED,
   RELOAD_SHUT,
+  reloadSoundAt,
   revolverMesh,
   shade,
   transform,
@@ -180,35 +184,42 @@ describe('lift', () => {
     expect(lift({ countdown: 0, walk: 1000, duel: 5000 }, 4999, true)).toEqual({ lower: 1, kick: 0 })
   })
 
-  test('"시작!"부터 RAISE_MS 동안 처음에 빨리 들어 올림', () => {
+  test('"시작!" 뒤에도 D로 뽑기 전에는 권총집에 넣은 채 (SHEEP-123)', () => {
     const s = { duel: 1000 }
-    expect(lift(s, 1000, false).lower).toBe(1)
-    const half = lift(s, 1000 + RAISE_MS / 2, false).lower
+    expect(lift(s, 3000, false, null)).toEqual({ lower: 1, kick: 0 })
+    expect(lift(s, 1100, false, 1200)).toEqual({ lower: 1, kick: 0 })
+  })
+
+  test('뽑은 때부터 DRAW_MS(0.35초) 동안 처음에 빨리 들어 올림 (사용자 결정 2026-11-10)', () => {
+    expect(DRAW_MS).toBe(350)
+    const s = { duel: 1000 }
+    expect(lift(s, 1500, false, 1500).lower).toBe(1)
+    const half = lift(s, 1500 + DRAW_MS / 2, false, 1500).lower
     expect(half).toBeGreaterThan(0)
     expect(half).toBeLessThan(0.5)
-    expect(lift(s, 1000 + RAISE_MS, false).lower).toBe(0)
+    expect(lift(s, 1500 + DRAW_MS, false, 1500).lower).toBe(0)
   })
 
   test('다 든 순간 쏠 때보다 작게 튀고 RECOIL_MS 뒤에는 든 채로 멈춤', () => {
     const s = { duel: 1000 }
-    expect(lift(s, 1000 + RAISE_MS - 1, false).kick).toBe(0)
-    const jolt = lift(s, 1000 + RAISE_MS, false).kick
+    expect(lift(s, 1000 + DRAW_MS - 1, false, 1000).kick).toBe(0)
+    const jolt = lift(s, 1000 + DRAW_MS, false, 1000).kick
     expect(jolt).toBeGreaterThan(0)
     expect(jolt).toBeLessThan(1)
-    expect(lift(s, 1000 + RAISE_MS + RECOIL_MS, false)).toEqual({ lower: 0, kick: 0 })
-    expect(lift(s, 60000, false)).toEqual({ lower: 0, kick: 0 })
+    expect(lift(s, 1000 + DRAW_MS + RECOIL_MS, false, 1000)).toEqual({ lower: 0, kick: 0 })
+    expect(lift(s, 60000, false, 1000)).toEqual({ lower: 0, kick: 0 })
   })
 
   test('장전하는 카운트다운에는 RAISE_MS 동안 겨눌 때보다 높이 들고, 장전 클립이 끝나면 내림', () => {
-    const s = { countdown: 1000, walk: 4000 }
-    const reloaded = 1000 + RELOAD_AT + revolver.clips.Reload.duration * 1000
+    const s = { countdown: 1000, walk: 5000 }
+    const reloaded = 1000 + RELOAD_AT + RELOAD_MS
     expect(lift(s, 1000, true).lower).toBe(1)
     const high = lift(s, 1000 + RAISE_MS, true).lower
     expect(high).toBeLessThan(0)
     expect(lift(s, reloaded, true).lower).toBe(high)
     expect(lift(s, reloaded + 100, true).lower).toBeGreaterThan(high)
-    // 걷기 전에 다 내림
-    expect(lift(s, 4000, true).lower).toBe(1)
+    // 권총집에 넣어 걷기 전에 다 내림
+    expect(lift(s, 1000 + RELOAD_END, true).lower).toBe(1)
   })
 
   test('장전하지 않는(재대결에 끼지 못한) 카운트다운에는 내린 채', () => {
@@ -222,13 +233,25 @@ describe('gunClips', () => {
     expect(gunClips({ countdown: 0, walk: 3000 }, 4000, false, -Infinity)).toEqual([])
   })
 
-  test('장전하는 카운트다운에는 RELOAD_AT부터 Reload 클립을 제 속도로 한 번', () => {
-    const s = { countdown: 1000, walk: 4000 }
+  test('장전하는 카운트다운에는 RELOAD_AT부터 Reload 클립을 RELOAD_MS(2.5초)에 걸쳐 느리게 한 번 (사용자 결정 2026-11-10, SHEEP-121)', () => {
+    expect(RELOAD_MS).toBe(2500)
+    const s = { countdown: 1000, walk: 5000 }
     const start = 1000 + RELOAD_AT
+    const length = revolver.clips.Reload.duration
     expect(gunClips(s, start - 1, true, -Infinity)).toEqual([])
-    expect(gunClips(s, start + 500, true, -Infinity)).toEqual([{ clip: 'Reload', t: 0.5 }])
-    expect(gunClips(s, start + revolver.clips.Reload.duration * 1000 + 1, true, -Infinity)).toEqual([])
+    const [half] = gunClips(s, start + RELOAD_MS / 2, true, -Infinity)
+    expect(half.clip).toBe('Reload')
+    expect(half.t).toBeCloseTo(length / 2, 6)
+    expect(gunClips(s, start + RELOAD_MS + 1, true, -Infinity)).toEqual([])
     expect(gunClips(s, start + 500, false, -Infinity)).toEqual([])
+  })
+
+  test('장전 소리 시각은 느린 클립에서 총알이 들어가고 실린더가 닫히는 때이고, 권총집에 넣기까지 카운트다운 4초 안에 끝남', () => {
+    const length = revolver.clips.Reload.duration
+    expect(reloadSoundAt(RELOAD_SEATED)).toBeCloseTo(RELOAD_AT + (RELOAD_SEATED / length) * RELOAD_MS, 6)
+    expect(reloadSoundAt(RELOAD_SHUT)).toBeLessThan(RELOAD_AT + RELOAD_MS)
+    expect(RELOAD_END).toBeGreaterThan(RELOAD_AT + RELOAD_MS)
+    expect(RELOAD_END).toBeLessThanOrEqual(4000)
   })
 
   test('RELOAD_SEATED에 총알이 칸에 다 들어가고 RELOAD_SHUT에 실린더가 다 닫힘', () => {
@@ -244,17 +267,19 @@ describe('gunClips', () => {
     expect(shut(RELOAD_SHUT - 0.03)).toBe(false)
   })
 
-  test('"시작!"부터 총을 다 드는 RAISE_MS 동안 공이치기를 끝까지 당김', () => {
+  test('뽑은 때부터 총을 다 드는 DRAW_MS 동안 공이치기를 끝까지 당김. 뽑기 전에는 쉰 자세 (SHEEP-123)', () => {
     const s = { countdown: 0, walk: 1000, duel: 5000 }
-    expect(gunClips(s, 5000, false, -Infinity)).toEqual([{ clip: 'Cock', t: 0 }])
-    const [cocked] = gunClips(s, 5000 + RAISE_MS, false, -Infinity)
+    expect(gunClips(s, 5100, false, -Infinity, null)).toEqual([])
+    expect(gunClips(s, 5100, false, -Infinity, 5200)).toEqual([])
+    expect(gunClips(s, 5200, false, -Infinity, 5200)).toEqual([{ clip: 'Cock', t: 0 }])
+    const [cocked] = gunClips(s, 5200 + DRAW_MS, false, -Infinity, 5200)
     expect(cocked.t).toBeCloseTo(revolver.clips.Cock.duration)
   })
 
   test('이번 결투에서 쏘면 쏜 때부터 Fire 클립을 덮음. 앞 판에 쏜 것은 셈하지 않음', () => {
     const s = { countdown: 0, walk: 1000, duel: 5000 }
-    expect(gunClips(s, 6100, false, 6000)[1]).toEqual({ clip: 'Fire', t: 0.1 })
-    expect(gunClips(s, 6100, false, 4000)).toHaveLength(1)
+    expect(gunClips(s, 6100, false, 6000, 5000)[1]).toEqual({ clip: 'Fire', t: 0.1 })
+    expect(gunClips(s, 6100, false, 4000, 5000)).toHaveLength(1)
   })
 })
 

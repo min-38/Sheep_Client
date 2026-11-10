@@ -9,8 +9,10 @@ export type GunPose = { yaw: number; pitch: number; kick: number; lower: number 
 
 // ms. ponytail: 임시 값. 플레이해 보며 정함
 export const RECOIL_MS = 150
-// ms. "시작!"부터 총을 다 들어 올리기까지. 다 들면 공이치기를 당김. ponytail: 임시 값. 플레이해 보며 정함
+// ms. 장전하려고 카운트다운에 총을 다 들어 올리기까지. ponytail: 임시 값. 플레이해 보며 정함
 export const RAISE_MS = 200
+// ms. D 키로 총을 뽑아 다 들기까지. 다 들면 공이치기를 당기고 그때부터 쏠 수 있음. 서버 Revolver.DrawDuration과 같아야 함 (사용자 결정 2026-11-10, SHEEP-123)
+export const DRAW_MS = 350
 // 공이치기를 당길 때 튀는 크기(쏠 때 반동을 1로). ponytail: 임시 값. 화면을 보며 맞춤
 const COCK_KICK = 0.25
 // ms. 카운트다운부터 장전 클립을 시작하기까지. 그 사이에 총을 들어 올림. ponytail: 임시 값. 플레이해 보며 정함
@@ -21,8 +23,21 @@ export const RELOAD_SHUT = 1.042
 // 초. Reload·Cock 클립 길이(revolver-rig.json). 클립을 다시 뽑으면 gun.test.ts가 어긋남을 잡음
 const RELOAD_LENGTH = 1.167
 const COCK_LENGTH = 0.125
-// ms. 장전을 마치고 총을 다 내리기까지. ponytail: 임시 값. 플레이해 보며 정함
-const LOWER_MS = 300
+// ms. 장전하는 시간. Reload 클립(약 1.2초)을 이 시간에 걸쳐 느리게 틀어 한 발 넣는 모습이 보임 (사용자 결정 2026-11-10, SHEEP-121)
+export const RELOAD_MS = 2500
+// ms. 장전을 마치고 총을 내려 권총집에 넣기까지. ponytail: 임시 값. 플레이해 보며 정함
+export const HOLSTER_MS = 500
+// ms. 카운트다운부터 장전하고 권총집에 다 넣기까지. 카운트다운(4초) 안에 끝나야 함
+export const RELOAD_END = RELOAD_AT + RELOAD_MS + HOLSTER_MS
+
+// 카운트다운부터 since(ms) 지난 때의 Reload 클립 시각(초). 장전 중이 아니면 null
+export const reloadTime = (since: number): number | null => {
+  const t = ((since - RELOAD_AT) / RELOAD_MS) * RELOAD_LENGTH
+  return t >= 0 && t <= RELOAD_LENGTH ? t : null
+}
+
+// Reload 클립 시각 clip(초)이 오는 때. 카운트다운부터 지난 ms. 장전 소리를 이때 예약함
+export const reloadSoundAt = (clip: number) => RELOAD_AT + (clip / RELOAD_LENGTH) * RELOAD_MS
 // 장전하는 동안 겨누는 자리보다 높이 드는 정도(LOWER_BY 배). 실린더가 왼쪽 아래로 열리고 총구도 숙여 그대로면 화면 밖으로 나감.
 // ponytail: 임시 값. 화면을 보며 맞춤
 const RELOAD_LIFT = 0.3
@@ -79,34 +94,37 @@ export function transform(mesh: Mesh, pose: GunPose, side: Side = 1): Vec3[] {
 }
 
 // now(서버 시계)에 총을 내린 정도와 공이치기 반동. "시작!" 전과 판 사이에는 내려 두어 결투가 시작됐음을 화면으로도 알림.
-// "시작!"부터 RAISE_MS 동안 처음에 빨리 들고(ease-out), 다 든 순간 공이치기 소리와 함께 작게 튐. 판 결과가 끝나 schedule을 비우면 다시 내림.
-// reloading(이번 카운트다운에 내가 장전함)이면 카운트다운에도 같이 들되 RELOAD_LIFT만큼 더 높이 들어 장전하고, 장전 클립이 끝나면 LOWER_MS 동안 내림(ease-in)
-export function lift(s: Schedule, now: number, reloading: boolean): { lower: number; kick: number } {
+// "시작!" 뒤 D 키로 뽑은 때(drawnAt, 서버 시계)부터 DRAW_MS 동안 처음에 빨리 들고(ease-out), 다 든 순간 공이치기 소리와 함께 작게 튐. 뽑기 전에는 내린 채 (SHEEP-123). 판 결과가 끝나 schedule을 비우면 다시 내림.
+// reloading(이번 카운트다운에 내가 장전함)이면 카운트다운에도 같이 들되 RELOAD_LIFT만큼 더 높이 들어 장전하고, 장전 클립이 끝나면 HOLSTER_MS 동안 내려 권총집에 넣음(ease-in)
+export function lift(s: Schedule, now: number, reloading: boolean, drawnAt: number | null = null): { lower: number; kick: number } {
   if (dueling(s, now)) {
-    const since = now - s.duel!
-    if (since < RAISE_MS) return { lower: raised(since), kick: 0 }
-    return { lower: 0, kick: COCK_KICK * Math.max(0, 1 - (since - RAISE_MS) / RECOIL_MS) }
+    // 뽑기 전에는 권총집에 넣은 채라 다 내림 (SHEEP-123)
+    if (drawnAt === null || now < drawnAt) return { lower: 1, kick: 0 }
+    const since = now - drawnAt
+    if (since < DRAW_MS) return { lower: Math.max(0, 1 - since / DRAW_MS) ** 3, kick: 0 }
+    return { lower: 0, kick: COCK_KICK * Math.max(0, 1 - (since - DRAW_MS) / RECOIL_MS) }
   }
   if (!reloading || s.countdown === undefined || now < s.countdown) return { lower: 1, kick: 0 }
   const since = now - s.countdown
-  const after = since - RELOAD_AT - RELOAD_LENGTH * 1000
-  const down = after < 0 ? raised(since) : Math.min(1, after / LOWER_MS) ** 3
+  const after = since - RELOAD_AT - RELOAD_MS
+  const down = after < 0 ? raised(since) : Math.min(1, after / HOLSTER_MS) ** 3
   return { lower: down * (1 + RELOAD_LIFT) - RELOAD_LIFT, kick: 0 }
 }
 
 const raised = (since: number) => Math.max(0, 1 - since / RAISE_MS) ** 3
 
 // now(서버 시계)에 총에 덮을 클립. 소리처럼 서버가 알린 단계 시각에서 재어 소리와 움직임이 맞음.
-// 카운트다운에는 Reload(실린더를 열어 총알을 넣고 닫음), "시작!"부터 RAISE_MS 동안 Cock(공이치기를 당김),
+// 카운트다운에는 Reload(실린더를 열어 총알을 넣고 닫음), 뽑은 때(drawnAt)부터 DRAW_MS 동안 Cock(공이치기를 당김),
 // 이번 결투에서 쏘면 Fire(공이치기가 떨어지고 실린더가 한 칸 돎). shotAt은 내가 마지막으로 쏜 시각(서버 시계, 안 쐈으면 -Infinity)
-export function gunClips(s: Schedule, now: number, reloading: boolean, shotAt: number): Play[] {
+export function gunClips(s: Schedule, now: number, reloading: boolean, shotAt: number, drawnAt: number | null = null): Play[] {
   if (dueling(s, now)) {
-    const cock = { clip: 'Cock', t: Math.min(1, (now - s.duel!) / RAISE_MS) * COCK_LENGTH }
+    if (drawnAt === null || now < drawnAt) return []
+    const cock = { clip: 'Cock', t: Math.min(1, (now - drawnAt) / DRAW_MS) * COCK_LENGTH }
     return shotAt >= s.duel! ? [cock, { clip: 'Fire', t: (now - shotAt) / 1000 }] : [cock]
   }
-  const t = s.countdown === undefined ? -1 : (now - s.countdown - RELOAD_AT) / 1000
+  const t = s.countdown === undefined ? null : reloadTime(now - s.countdown)
   // 클립 밖은 쉰 자세와 같아 덮지 않음. 그래야 닫힌 실린더 안의 총알도 그리지 않음 (revolverMesh)
-  return reloading && t >= 0 && t <= RELOAD_LENGTH ? [{ clip: 'Reload', t }] : []
+  return reloading && t !== null ? [{ clip: 'Reload', t }] : []
 }
 
 // 클립을 덮은 지금 모양. 총알은 실린더를 여는 Reload 동안만, 남은 총알 수(rounds)만큼 쏘는 차례가 앞인 칸에 그림.

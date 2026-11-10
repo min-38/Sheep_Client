@@ -368,14 +368,19 @@ body {
   text-shadow: 0 0.1cqw 0 #3d2412;
 }
 
-/* 카운트다운과 "시작!". 조준점을 가리지 않게 위로 올림 */
+/* 카운트다운과 "시작!". 조준점을 가리지 않게 위로 올림.
+   판 끝 문구는 서부 말투 문장이라 길어(SHEEP-135) 화면 폭까지 쓰고 두 줄이면 줄 길이를 고르게 나눔. left: 50%만 두면 폭이 화면 절반에 묶여 네 줄까지 접힘 */
 #banner {
   left: 50%;
   top: 25%;
   translate: -50% -50%;
+  width: max-content;
+  max-width: 92cqw;
   font-family: var(--display);
   font-size: 10cqw;
   letter-spacing: 0;
+  text-align: center;
+  text-wrap: balance;
 }
 
 /* 관전 중인 사람. 총과 실린더 사이 아래 가운데 (시스템 기획서 HUD 관전) */

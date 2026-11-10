@@ -29,7 +29,7 @@ export type ClientMessage =
   // at은 쏜 시각(ms, 서버 시계). M4 서버는 발사 간격을 잴 때만 씀
   | { type: 'fire'; angle: number; pitch: number; at: number }
   // 걷다 멈추기. at은 누른 시각(ms, 서버 시계). 걷는 동안 한 번만 보냄
-  | { type: 'stop'; at: number }
+  | { type: 'draw'; at: number }
   // 관전 대상 고르기. 쓰러진 뒤에 서 있는 사람의 id를 보냄. 답은 spectating
   | { type: 'spectate'; playerId: string }
 
@@ -52,6 +52,8 @@ export type PlayerState = {
   character: number
   seat: number
   hand: Hand
+  // D 키로 총을 뽑기 시작한 시각(ms, 서버 시계). 아직 안 뽑았으면 null (SHEEP-123)
+  drawnAt: number | null
 }
 
 // 서버가 알리는 판 단계. lobby는 판이 끝나 준비 중으로 돌아가는 시각임
@@ -59,6 +61,9 @@ export type Phase = 'countdown' | 'walk' | 'duel' | 'lobby'
 
 // 판 결과. playerIds는 이긴 사람 1명, 또는 재대결하는 사람들. rounds는 재대결 때 새로 장전하는 총알 수이고 승리면 0
 export type RoundResult = { outcome: 'win' | 'rematch'; playerIds: string[]; rounds: number }
+
+// 맞은 자리 (SHEEP-126). zone은 부위, height는 맞은 높이(칸, 바닥 0), x·y는 격자 좌표(state의 x·y와 같은 축)
+export type HitPoint = { zone: 'head' | 'body'; height: number; x: number; y: number }
 
 // 내 사격 결과. height는 맞은 높이(칸, 바닥 0), offset은 맞은 사람 중심에서 내 기준 오른쪽으로 떨어진 거리(칸).
 // 빗나가면 zone, height, offset이 모두 null. down은 이 발사로 맞은 사람이 쓰러졌는지
@@ -77,16 +82,17 @@ export type ServerMessage =
   | { type: 'serverTime'; t0: number; ts: number }
   // at은 그 단계가 시작하는 서버 시각(ms). serverTime의 ts와 같은 시계
   | { type: 'phase'; phase: Phase; at: number }
-  // 서버가 받아들인 발사. angle은 fire의 angle 그대로
-  | { type: 'shot'; playerId: string; angle: number }
-  // reason은 쓰러진 사유. shot은 머리나 두 번째 반샷을 맞음, timeout은 제한 시간 안에 쏘지 않아 자살함
-  | { type: 'eliminated'; playerId: string; reason: 'shot' | 'timeout' }
+  // 서버가 받아들인 발사. angle과 pitch는 fire의 것 그대로. pitch로 날아가는 총알을 그림 (SHEEP-125)
+  | { type: 'shot'; playerId: string; angle: number; pitch: number }
+  // reason은 쓰러진 사유. shot은 머리나 두 번째 반샷을 맞음, timeout은 제한 시간 안에 쏘지 않아 자살함.
+  // hit은 쓰러뜨린 발사가 맞은 자리이고 시간 초과면 null (SHEEP-126)
+  | { type: 'eliminated'; playerId: string; reason: 'shot' | 'timeout'; hit: HitPoint | null }
   // 결과 시간이 끝나는 시각은 바로 뒤의 phase로 옴 (승리면 lobby, 재대결이면 countdown)
   | ({ type: 'result' } & RoundResult)
   // 판정이 확정된 틱에 쏜 사람에게만 옴. 누구를 맞혔는지는 담지 않음
   | ({ type: 'shotResult' } & ShotResult)
-  // 몸을 맞았지만 쓰러지지 않았을 때 맞은 사람에게만 옴
-  | { type: 'wounded' }
+  // 반샷. 몸을 맞았지만 쓰러지지 않은 사람과 맞은 자리. 방 안 모두에게 옴 (SHEEP-126)
+  | { type: 'wounded'; playerId: string; hit: HitPoint }
   // listRooms의 답. 서버가 들어갈 수 있는 방부터 정렬해 보냄
   | { type: 'rooms'; rooms: RoomInfo[] }
   // leaveRoom의 답. 첫 화면으로 돌아감
@@ -98,10 +104,10 @@ export type ServerMessage =
   | { type: 'spectating'; playerId: string; wounds: number; ammo: number }
 
 // 쏜 순간 내 시각(ms, performance.now())을 서버 시계로 바꿔 보냄. 서버는 이 시각으로 발사 간격을 재고, M5부터 쏜 순서를 가림
-export const fireMessage = (angle: number, pitch: number, shotAt: number, offset: number): ClientMessage => ({ type: 'fire', angle, pitch, at: toServerTime(shotAt, offset) })
+// D를 누른 순간 내 시각(ms)을 서버 시계로 바꿔 보냄. 서버는 이 시각부터 DRAW_MS 뒤의 발사만 받음 (기술 설계서 메시지 draw, SHEEP-123)
+export const drawMessage = (pressedAt: number, offset: number): ClientMessage => ({ type: 'draw', at: toServerTime(pressedAt, offset) })
 
-// 누른 순간 내 시각(ms)을 서버 시계로 바꿔 보냄. 서버는 이 시각까지 걸은 자리에 세움 (기술 설계서 메시지 stop)
-export const stopMessage = (pressedAt: number, offset: number): ClientMessage => ({ type: 'stop', at: toServerTime(pressedAt, offset) })
+export const fireMessage = (angle: number, pitch: number, shotAt: number, offset: number): ClientMessage => ({ type: 'fire', angle, pitch, at: toServerTime(shotAt, offset) })
 
 // 서버가 보낸 JSON 하나를 읽음. 모양이 틀리면 null을 돌려주고 받는 쪽은 무시함 (서버와 같음)
 export function parseServerMessage(text: string): ServerMessage | null {
@@ -138,11 +144,14 @@ export function parseServerMessage(text: string): ServerMessage | null {
         ? { type: 'phase', phase: m.phase, at: m.at }
         : null
     case 'shot':
-      return typeof m.playerId === 'string' && Number.isFinite(m.angle) ? { type: 'shot', playerId: m.playerId, angle: m.angle } : null
-    case 'eliminated':
-      return typeof m.playerId === 'string' && (m.reason === 'shot' || m.reason === 'timeout')
-        ? { type: 'eliminated', playerId: m.playerId, reason: m.reason }
+      return typeof m.playerId === 'string' && Number.isFinite(m.angle) && Number.isFinite(m.pitch)
+        ? { type: 'shot', playerId: m.playerId, angle: m.angle, pitch: m.pitch }
         : null
+    case 'eliminated': {
+      if (typeof m.playerId !== 'string' || (m.reason !== 'shot' && m.reason !== 'timeout')) return null
+      const hit = hitPoint(m)
+      return hit !== undefined ? { type: 'eliminated', playerId: m.playerId, reason: m.reason, hit } : null
+    }
     case 'result':
       return (m.outcome === 'win' || m.outcome === 'rematch') &&
         Array.isArray(m.playerIds) &&
@@ -156,8 +165,10 @@ export function parseServerMessage(text: string): ServerMessage | null {
       const miss = m.zone === null && m.height === null && m.offset === null
       return (hit || miss) && typeof m.down === 'boolean' ? { type: 'shotResult', zone: m.zone, height: m.height, offset: m.offset, down: m.down } : null
     }
-    case 'wounded':
-      return { type: 'wounded' }
+    case 'wounded': {
+      const hit = hitPoint(m)
+      return typeof m.playerId === 'string' && hit?.zone === 'body' ? { type: 'wounded', playerId: m.playerId, hit } : null
+    }
     case 'rooms':
       return Array.isArray(m.rooms) && m.rooms.every(isRoom) ? { type: 'rooms', rooms: m.rooms } : null
     case 'left':
@@ -173,6 +184,12 @@ export function parseServerMessage(text: string): ServerMessage | null {
     default:
       return null
   }
+}
+
+// 메시지의 맞은 자리. zone이 없거나 null이면 null, 모양이 틀리면 undefined
+function hitPoint(m: any): HitPoint | null | undefined {
+  if (m.zone == null) return null
+  return (m.zone === 'head' || m.zone === 'body') && [m.height, m.x, m.y].every(Number.isFinite) ? { zone: m.zone, height: m.height, x: m.x, y: m.y } : undefined
 }
 
 const isCount = (n: unknown) => Number.isInteger(n) && (n as number) >= 0
@@ -200,7 +217,8 @@ const isPlayer = (p: any): p is PlayerState =>
   p.character < CHARACTERS.length &&
   isCount(p.seat) &&
   p.seat < 8 &&
-  (p.hand === 'right' || p.hand === 'left')
+  (p.hand === 'right' || p.hand === 'left') &&
+  (p.drawnAt === null || typeof p.drawnAt === 'number')
 
 // 레이캐스터는 칸이 다 숫자이고 모든 줄 길이가 같다고 봄
 function isGrid(cells: unknown, width: unknown, height: unknown): cells is Grid {

@@ -14,6 +14,8 @@ export const SCALE_MIN = 1
 export const SCALE_MAX = 4
 export const SCALE_RISE = 3
 export const SCALE_TAU = 600
+// 총을 든 채 돌 때 배율이 더 오르는 몫. ponytail: 임시 값. 플레이해 보며 정함
+export const HELD_RISE = 1.5
 
 // 마지막으로 돈 순간의 배율과 그 시각(ms). 그 뒤 값은 프레임마다 깎지 않고 필요할 때 지난 시간으로 구함
 export type Unsteady = { scale: number; at: number }
@@ -24,8 +26,9 @@ export const steady: Unsteady = { scale: SCALE_MIN, at: 0 }
 export const scaleAt = (u: Unsteady, t: number) => SCALE_MIN + (u.scale - SCALE_MIN) * Math.exp(-Math.max(0, t - u.at) / SCALE_TAU)
 
 // t(ms)에 radians만큼 돈 뒤의 배율. px가 아니라 각도로 재 감도와 상관없음
-export const afterTurn = (u: Unsteady, radians: number, t: number): Unsteady => ({
-  scale: Math.min(SCALE_MAX, scaleAt(u, t) + SCALE_RISE * radians),
+// held면 총을 든 채(뽑는 중 포함) 돈 것이라 HELD_RISE배 더 오름. 권총집에 넣은 채 돌면 그대로임 (사용자 결정 2026-11-10, SHEEP-123)
+export const afterTurn = (u: Unsteady, radians: number, t: number, held = false): Unsteady => ({
+  scale: Math.min(SCALE_MAX, scaleAt(u, t) + SCALE_RISE * (held ? HELD_RISE : 1) * radians),
   at: Math.max(t, u.at),
 })
 

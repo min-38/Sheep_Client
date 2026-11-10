@@ -7,18 +7,17 @@ export type Schedule = Partial<Record<Phase, number>>
 // ms. "시작!"을 띄워 두는 시간. ponytail: 임시 값. 시스템 기획서 HUD에서 정하면 그 값으로 바꿈
 export const GO_SHOWN = 1000
 
-// now(서버 시계)에 화면에 띄울 글자. 없으면 ''. 카운트다운은 걷기 시각까지 3, 2, 1을 같은 간격으로 (기술 설계서 메시지 phase)
+// now(서버 시계)에 화면에 띄울 글자. 없으면 ''. 카운트다운은 걷기 시각까지 남은 초를 1초마다 셈. 카운트다운 4초면 4, 3, 2, 1 (기술 설계서 메시지 phase, SHEEP-121)
 export function banner(s: Schedule, now: number): string {
   if (s.duel !== undefined && now >= s.duel) return now < s.duel + GO_SHOWN ? t.hud.go : ''
-  if (s.countdown === undefined || now < s.countdown || (s.walk !== undefined && now >= s.walk)) return ''
-  // 걷기 시각은 카운트다운이 시작할 때 오므로 그 전에는 3
-  if (s.walk === undefined) return '3'
-  return String(3 - Math.floor(((now - s.countdown) * 3) / (s.walk - s.countdown)))
+  // 걷기 시각은 카운트다운이 시작할 때 오므로 그 전에는 셀 수 없음
+  if (s.countdown === undefined || s.walk === undefined || now < s.countdown || now >= s.walk) return ''
+  return String(Math.ceil((s.walk - now) / 1000))
 }
 
 // ms. 결투 시각("시작!")부터 쏠 수 있는 시간. 서버 RoundFlow.DuelLimit과 같은 값이어야 남은 시간이 0일 때 서버가 시간 초과를 정함.
-// ponytail: 임시 값(시스템 기획서 판 흐름 시간). 플레이해 보며 정함
-export const DUEL_LIMIT = 10000
+// 5초는 사용자 결정 (2026-11-10, SHEEP-127, 시스템 기획서 판 흐름 시간)
+export const DUEL_LIMIT = 5000
 
 // now(서버 시계)에 남은 시간(ms). 결투 시각 전에는 null, 제한 시각이 지나면 0
 export const timeLeft = (s: Schedule, now: number): number | null =>
@@ -35,18 +34,24 @@ export function formatTime(ms: number): string {
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
 }
 
-// ms. 걷는 시간. 서버 RoundFlow.WalkDuration과 같은 값이어야 서버가 멈추기를 받는 동안만 클릭이 멈추기가 됨.
+// ms. 걷기 시각에 제자리에서 바깥으로 뒤도는 시간. 그 뒤에 걸음. 서버 RoundFlow.TurnDuration과 같아야 함 (SHEEP-120).
 // ponytail: 임시 값(시스템 기획서 판 흐름 시간). 플레이해 보며 정함
-export const WALK_DURATION = 3000
+export const TURN_MS = 1000
 
-// ms. 발소리 간격. ponytail: 임시 값(시스템 기획서 사운드). 플레이해 보며 정함
+// ms. 걸음 간격(발소리 간격). 서버 RoundFlow.StepInterval과 같아야 함 (사용자 결정 2026-11-10, SHEEP-120)
 export const STEP_MS = 500
 
-// now(서버 시계)에 걷는 중인지. 다 걷고 결투 시각을 기다리는 동안은 아님
-export const walking = (s: Schedule, now: number) => s.walk !== undefined && now >= s.walk && now < s.walk + WALK_DURATION
+// 모두 멈추지 않고 걷는 걸음 수 (사용자 결정 2026-11-09, SHEEP-120)
+export const STEPS = 10
 
-// 걷기 시각부터 t까지 몇 번째 걸음인지. 걸음 번호가 늘 때 발소리를 냄
-export const stepIndex = (walkAt: number, t: number) => Math.floor((t - walkAt) / STEP_MS)
+// ms. 다 돈 뒤 걷는 시간. 서버 RoundFlow.WalkDuration과 같아야 발소리가 걸음과 맞음
+export const WALK_DURATION = STEPS * STEP_MS
+
+// now(서버 시계)에 걷는 중인지. 뒤도는 동안과, 다 걷고 결투 시각을 기다리는 동안은 아님
+export const walking = (s: Schedule, now: number) => s.walk !== undefined && now >= s.walk + TURN_MS && now < s.walk + TURN_MS + WALK_DURATION
+
+// 걷기 시각부터 t까지 몇 번째 걸음인지. 다 돈 뒤부터 셈. 걸음 번호가 늘 때 발소리를 냄
+export const stepIndex = (walkAt: number, t: number) => Math.floor((t - walkAt - TURN_MS) / STEP_MS)
 
 // 카운트다운부터 "시작!"까지 내 돌기와 발사를 막음. 그동안은 서버가 나를 돌리고 걷게 함 (기술 설계서 서버/클라 역할 분리)
 export const locked = (s: Schedule, now: number) =>
