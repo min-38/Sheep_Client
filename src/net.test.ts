@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest'
 import { CHARACTERS } from './character.ts'
-import { fireMessage, parseServerMessage, stopMessage } from './net.ts'
+import { fireMessage, parseServerMessage } from './net.ts'
 
 describe('parseServerMessage', () => {
   test('방 만들기와 입장 응답은 내 플레이어 id를 받음', () => {
@@ -289,13 +289,6 @@ describe('fireMessage', () => {
 
   test('위아래 각도를 함께 보냄', () => {
     expect(fireMessage(1, 0.2, 100, 5)).toEqual({ type: 'fire', angle: 1, pitch: 0.2, at: 105 })
-  })
-})
-
-describe('stopMessage', () => {
-  test('누른 순간 내 시각을 서버 시계로 바꿔 보냄', () => {
-    expect(stopMessage(1000, 4000)).toEqual({ type: 'stop', at: 5000 })
-    expect(stopMessage(1000, -500)).toEqual({ type: 'stop', at: 500 })
   })
 })
 
