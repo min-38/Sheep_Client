@@ -13,7 +13,7 @@ export const BOUNTY = 100
 export const bountyText = (wins: number) => (wins > 0 ? `$${wins * BOUNTY}` : '')
 
 // 판 끝 포스터 아래의 오르는 현상금. wins는 이번 승리까지 센 이긴 횟수. 첫 승리는 적힌 현상금이 없어 $0에서 오름.
-// ponytail: 임시 문구. 게임 안 문구 스타일이 정해지면 바꿈
+// 말 없이 금액과 화살표만이라 언어 파일에 두지 않음
 export const bountyRise = (wins: number) => `${bountyText(wins - 1) || '$0'} → ${bountyText(wins)}`
 
 // 좌석 하나. color는 사람 색 번호이고 앉은 사람의 핵심 파츠를 칠함. wins는 이 방에서 이긴 횟수(최후의 1인)

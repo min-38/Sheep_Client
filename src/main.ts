@@ -1,25 +1,25 @@
 import './style.css'
 import revolverData from './assets/revolver-rig.json'
 import { orbit } from './backdrop.ts'
-import { CHARACTERS, characterBody, drawFigure, keyColor, portraitUrl, savedCharacter, savedColor, SUICIDE_AIM, SUICIDE_FLASH, suicideStage, type Body, type Pose } from './character.ts'
+import { CHARACTERS, characterBody, drawFigure, inWorld, keyColor, pinWound, portraitUrl, savedCharacter, savedColor, SUICIDE_AIM, SUICIDE_FLASH, suicideStage, toModel, woundBox, type Body, type Figure, type Pose, type Wound } from './character.ts'
 import { best, measure, toLocalTime, toServerTime, type ClockSample } from './clock.ts'
 import { CYLINDER_TURN, cylinderSvg } from './cylinder.ts'
 import { makeProps, SKIES, timeOfDay } from './desert.ts'
 import { enhanceSelect } from './dropdown.ts'
-import { DRAW_MS, drawGun, gunClips, lift, RECOIL_MS, RELOAD_AT, RELOAD_SEATED, RELOAD_SHUT, revolverMesh } from './gun.ts'
+import { DRAW_MS, drawGun, gunClips, lift, RECOIL_MS, RELOAD_END, RELOAD_SEATED, RELOAD_SHUT, reloadSoundAt, revolverMesh } from './gun.ts'
 import { dotPosition, noBlood, onGameEnd, onRevived, onWalk, onWounded, resultLabel } from './hitcard.ts'
 import { record, sampleAt, type Sample } from './interpolate.ts'
-import { drawMessage, fireMessage, parseServerMessage, stopMessage, type ClientMessage, type PlayerState, type RoundResult, type ShotResult } from './net.ts'
+import { drawMessage, fireMessage, parseServerMessage, type ClientMessage, type HitPoint, type PlayerState, type RoundResult, type ShotResult } from './net.ts'
 import { normalizeNickname } from './nickname.ts'
 import { dressPaper, PAPER_GRAIN, PAPER_INK } from './paper.ts'
 import { BANDANA, joinable, memberText, roomStatus, type RoomInfo } from './roomlist.ts'
 import { normalizeRoomName, randomRoomName } from './roomname.ts'
-import type { Grid } from './raycast.ts'
+import { castRay, type Grid } from './raycast.ts'
 import { MUSIC_FADE, playMusic, setMusicVolume, trackAt } from './music.ts'
 import { makeCamera, renderFrame } from './render.ts'
 import { loaded, pull, ROUNDS } from './revolver.ts'
 import type { Rig } from './rig.ts'
-import { banner, DUEL_LIMIT, dueling, formatTime, joins, locked, resultText, standingCount, stepIndex, timeLeft, walking, type Schedule } from './round.ts'
+import { banner, DUEL_LIMIT, dueling, formatTime, joins, locked, resultText, standingCount, stepIndex, timeLeft, TURN_MS, walking, type Schedule } from './round.ts'
 import { bountyRise, bubbleX, COPIED_MS, copyKeys, drawSaloon, SALOON_CAMERA, seatSlots, seatSpot, seatTag, startBartender, startChatter, stepBartender, stepChatter, STOOL, tally } from './saloon.ts'
 import { cut, replayWindow } from './replay.ts'
 import { filming, motionMs, SCENE_MS, sceneCamera, SLOW } from './downscene.ts'
@@ -28,6 +28,9 @@ import { copyOf, HTML_LANG, LANGUAGES, setLanguage, t as copy, textAt, type Lang
 import { readSettings, radiansPerPixel, type Crosshair, type Hand, type Settings } from './settings.ts'
 import { oneTab } from './tablock.ts'
 import { nextTarget } from './spectate.ts'
+import { drawSmoke, smoke, SMOKE_MS, SMOKE_PX } from './smoke.ts'
+import { along, bulletDots, bulletRange, EYE_HEIGHT, FLIGHT_MS } from './bullet.ts'
+import { burst, BURST_MS, pool } from './blood.ts'
 import { fallDelay, heardFrom, loadEffects, play, playFall, playSignal, playStep, setEffectsVolume, stampOf, toAudioTime } from './sound.ts'
 import type { Thing } from './sprite.ts'
 import { afterTurn, aimAt, crosshairOffset, scaleAt, steady, sway, type Unsteady } from './sway.ts'
@@ -47,6 +50,8 @@ const FLASH_SHOWN = 100
 const TURN_INTERVAL = 50
 // ms. 다른 플레이어는 약 두 틱 전을 그려 늘 앞뒤 두 상태 사이에 있게 함 (기술 설계서 다른 플레이어 보여 주기)
 const INTERP_DELAY = 100
+// 다른 사람 장전 소리의 크기 몫. 내 장전보다 작게 들림 (사용자 결정 2026-11-10, SHEEP-121). ponytail: 임시 값. 들어 보며 정함
+const OTHER_RELOAD_GAIN = 0.35
 // 한 번 맞출 때 재는 횟수. 그중 왕복이 가장 짧은 값을 씀 (기술 설계서 시간 맞추기)
 const SYNC_COUNT = 5
 // ms. 쓰러져 쓰러짐 장면(SHEEP-119)을 보인 뒤 관전으로 넘어가기까지. 함께 쓰러짐으로 늦게 오는 내 shotResult(맞고 D 안에 쏜 발사)가
@@ -103,10 +108,15 @@ let reloading = false
 let drawnAt: number | null = null
 // 다른 사람이 마지막으로 쏜 것과 쓰러진 것을 받은 시각(ms). state처럼 INTERP_DELAY 뒤에 보여 줘 돌기, 발사, 쓰러짐의 순서를 지킴.
 // ponytail: 사람마다 마지막 발사 하나만 둠. 발사 간격(250ms)이 불꽃(100ms)보다 길어 겹치지 않음. 지연이 크게 흔들려 둘이 붙어 오면 앞 불꽃이 빠짐
-const shots = new Map<string, { at: number; angle: number }>()
+const shots = new Map<string, Shot>()
 // 쓰러진 사람마다 탈락을 받은 시각(ms)과 사유. 시간 초과면 쓰러진 그림 전에 자살 모습을 보여 줌
 const downs = new Map<string, { at: number; reason: 'shot' | 'timeout' }>()
 const isDown = (id: string, t: number) => (downs.get(id)?.at ?? Infinity) <= t
+// 사람마다 맞은 자리. 판이 끝나면 비우고, 함께 쓰러졌다 다시 서는 사람은 그 라운드에 맞은 것을 지움 (SHEEP-126)
+const hits = new Map<string, Hit[]>()
+// 이번 라운드 걷기를 받은 시각(ms, 내 시계). 다시 서는 사람의 상처를 되돌리는 데 씀
+let roundStartAt = -Infinity
+const addHit = (id: string, hit: HitPoint) => hits.set(id, [...(hits.get(id) ?? []), { ...hit, at: performance.now() }])
 // 서버가 알린 판 결과와 받은 시각(ms). 탈락처럼 INTERP_DELAY 뒤에 띄움.
 // end는 결과 바로 뒤에 오는 phase의 시각(서버 시계, 승리면 lobby, 재대결이면 countdown)이고 이때 endResult로 끝냄
 let result: (RoundResult & { at: number; end?: number }) | null = null
@@ -116,14 +126,19 @@ type Watch = { id: string; wounded: boolean; rounds: number | null; lastShot: nu
 let watch: Watch | null = null
 // 그릴 장면. 지금 판이거나, 다시 보기로 떠 둔 기록
 type Down = { at: number; reason: 'shot' | 'timeout' }
+// 발사 하나. at은 받은 시각(ms, 내 시계, 내 발사는 쏜 시각), angle과 pitch는 쏜 각도와 위아래 각도
+type Shot = { at: number; angle: number; pitch: number }
+// 맞은 자리 하나 (SHEEP-126). at은 받은 시각(ms, 내 시계). wound는 맞은 뒤 처음 그릴 때 그때 모습의 가장 가까운 상자에 붙인 상처
+type Hit = HitPoint & { at: number; wound?: Wound }
 type Scene = {
   history: Map<string, Sample[]>
-  shots: Map<string, { at: number; angle: number }>
+  shots: Map<string, Shot>
   downs: Map<string, Down>
   schedule: Schedule
   characters: Map<string, Look>
+  hits: Map<string, Hit[]>
 }
-const live = (): Scene => ({ history, shots, downs, schedule, characters })
+const live = (): Scene => ({ history, shots, downs, schedule, characters, hits })
 // 다시 보기 (컨셉 기획서 규칙 탈락한 뒤). 쓰러지면 누구의 눈으로 어느 구간(ms, 내 시계)을 볼지 정하고 그때의 판 시각을 떠 둠(replayPlan).
 // 그 구간이 다 지나면 기록을 떠 둬(replay) 버튼이 보임. replayFrom은 다시 보는 중일 때 누른 시각(ms)
 type Replay = Scene & { viewer: string; start: number; end: number }
@@ -204,7 +219,7 @@ function saveReplay() {
   const plan = replayPlan!
   replayPlan = null
   const kept = new Map([...history].map(([id, samples]) => [id, cut(samples, plan.start, plan.end)]))
-  if (kept.has(plan.viewer)) replay = { ...plan, history: kept, shots: new Map(shots), downs: new Map(downs), characters: new Map(characters) }
+  if (kept.has(plan.viewer)) replay = { ...plan, history: kept, shots: new Map(shots), downs: new Map(downs), characters: new Map(characters), hits: new Map([...hits].map(([id, list]) => [id, [...list]])) }
 }
 
 // 다시 보는 중이면 떠 둔 기록과 그 안의 시각(ms, 내 시계). 같은 빠르기로 흐르고, 끝까지 보면 관전으로 돌아감
@@ -235,9 +250,9 @@ function imitate(key: string, view: { angle: number; pitch: number }, t: number)
 
 // 다른 사람의 발사. 불꽃과 총소리 모두 state처럼 INTERP_DELAY 뒤에 내어 돌기, 발사, 쓰러짐의 순서를 지킴.
 // ponytail: 총소리 방향은 받은 순간의 내 시선으로 정함. 소리가 나기까지 0.1초와 나는 동안 돌면 그만큼 어긋남. 거슬리면 프레임마다 AudioListener를 내 시선으로 돌림
-function showShot(id: string, shotAngle: number) {
+function showShot(id: string, shotAngle: number, shotPitch: number) {
   const now = performance.now()
-  shots.set(id, { at: now, angle: shotAngle })
+  shots.set(id, { at: now, angle: shotAngle, pitch: shotPitch })
   // 관전 중인 사람이 쏘면 그 사람 화면의 불꽃, 반동, 실린더도 다른 사람의 불꽃처럼 INTERP_DELAY 뒤에 보임
   if (watch?.id === id) {
     watch.lastShot = now + INTERP_DELAY
@@ -267,11 +282,15 @@ function playFallOf(id: string, reason: 'shot' | 'timeout') {
 // viewer는 눈이 되는 사람이라 그리지 않음. 관전이나 다시 보기면 쓰러진 나도 보임
 function othersAt(t: number, viewer: string, scene: Scene): Thing[] {
   const duel = clock !== null && dueling(scene.schedule, toServerTime(t, clock.offset))
-  // 걷기 시각부터 지난 시간(ms). 걷는 동작이 발소리를 내는 걸음마다 한쪽 다리를 가장 앞에 둠
+  // 걷기 시각부터 지난 시간(ms). 먼저 TURN_MS 동안 제자리에서 뒤돌며 발을 떼고(SHEEP-120), 그다음 걷는 동작이 발소리를 내는 걸음마다 한쪽 다리를 가장 앞에 둠
   const walked = clock !== null && scene.schedule.walk !== undefined ? toServerTime(t, clock.offset) - scene.schedule.walk : 0
+  const stepping = (body: Body) => (walked < TURN_MS ? body.turn(walked) : body.walk(walked - TURN_MS))
+  // 카운트다운부터 지난 시간(ms). 서 있는 사람은 그동안 총을 꺼내 장전하고 권총집에 다시 넣음 (SHEEP-121). 카운트다운 밖이면 null
+  const counted = clock !== null && scene.schedule.countdown !== undefined ? toServerTime(t, clock.offset) - scene.schedule.countdown : null
+  const reloadingFor = counted !== null && counted >= 0 && !(scene.schedule.walk !== undefined && walked >= 0) ? counted : null
   return [...scene.history]
     .filter(([id]) => id !== viewer)
-    .map(([id, samples]) => {
+    .flatMap(([id, samples]): Thing[] => {
       const s = sampleAt(samples, t)
       const shot = scene.shots.get(id)
       const flashing = shot !== undefined && t >= shot.at && t < shot.at + FLASH_SHOWN
@@ -280,10 +299,78 @@ function othersAt(t: number, viewer: string, scene: Scene): Thing[] {
       // "시작!"부터 서 있는 사람은 D로 뽑으면 총을 들어 겨눈 모습, 뽑기 전에는 권총집에 넣은 채 (SHEEP-123). 머리와 팔은 그 사람의 위아래 시선대로
       const drawn = s.drawnAt !== null && clock !== null ? toServerTime(t, clock.offset) - s.drawnAt : -1
       // 결투 중 뽑기 전에는 곧게 선 틀 모습(rest). 서기 동작은 다리를 벌리고 있어 뽑기 시작할 때 다리가 튐
-      const upright = duel ? (drawn >= 0 ? body.draw(drawn, s.pitch) : body.rest) : s.pose === 'walk' ? body.walk(walked) : body.stand(t)
+      const upright = duel ? (drawn >= 0 ? body.draw(drawn, s.pitch) : body.rest) : s.pose === 'walk' ? stepping(body) : reloadingFor !== null && reloadingFor < RELOAD_END ? body.reload(reloadingFor) : body.stand(t)
       // 불꽃 동안은 쏜 각도로 그림. 돌고 바로 쏘면 돌아간 각도는 다음 state로 늦게 옴
-      return { x: s.x, y: s.y, facing: flashing ? shot.angle : s.angle, ...(flashing ? body.fire(s.pitch) : poseAt(body, scene.downs.get(id), t, upright)) }
+      const down = scene.downs.get(id)
+      const fallen = down && { landed: t - down.at - fallDelay(down.reason), reason: down.reason }
+      const figure = withWounds({ x: s.x, y: s.y, facing: flashing ? shot.angle : s.angle, ...(flashing ? body.fire(s.pitch) : poseAt(body, down, t, upright)) }, body, scene.hits.get(id), t, fallen)
+      if (shot === undefined || t < shot.at || t >= shot.at + SMOKE_MS) return [figure]
+      // 연기는 쏜 쪽으로 겨눈 총구에서 나와 공중에 남음. 그 뒤 돌거나 쓰러져도 따라가지 않음 (SHEEP-124).
+      // 반동으로 들린 총구(fire)가 아니라 겨눈 총구(aim)라야 0.1초 뒤 팔이 내려와도 연기가 총 위에 떠 보이지 않음
+      const [mx, my, mz] = inWorld(s.x, s.y, shot.angle, body.aim(s.pitch).muzzle!)
+      const right = [-Math.sin(shot.angle), Math.cos(shot.angle)]
+      return [figure, ...smoke(t - shot.at).map((p) => ({ x: mx + right[0] * p.drift, y: my + right[1] * p.drift, z: mz + p.rise, size: p.size, alpha: p.alpha }))]
     })
+}
+
+// 그 사람 몸에 남은 상처를 작은 상자로 더함. 맞은 뒤 처음 그릴 때 그때 모습의 가장 가까운 상자에 붙여, 그 뒤로는 그 상자를 따라감 (SHEEP-126).
+// fallen이면 쓰러져 바닥에 닿은 뒤 지난 시간(landed, ms)만큼 번진 피 웅덩이를 몸 밑에 더함
+function withWounds(fig: Figure, body: Body, list: Hit[] | undefined, t: number, fallen?: { landed: number; reason: Down['reason'] }): Figure {
+  const shown = (list ?? []).filter((h) => h.at <= t)
+  if (shown.length === 0 && (fallen?.landed ?? 0) <= 0) return fig
+  // 불꽃 상자처럼 동작마다 더해지는 상자에는 붙이지 않음
+  const own = fig.boxes.slice(0, body.rest.boxes.length)
+  for (const h of shown) h.wound ??= pinWound(own, toModel(fig.x, fig.y, fig.facing, h.x, h.y, h.height))
+  const wounds = shown.map((h) => woundBox(own, h.wound!))
+  if (!fallen) return { ...fig, boxes: [...fig.boxes, ...wounds] }
+  // 웅덩이는 쓰러뜨린 상처 밑에. 시간 초과(자살)면 머리 밑에. 머리는 선 모습에서 가장 높은 상자
+  const head = own[body.rest.boxes.reduce((m, b, i, all) => (b.c[1] > all[m].c[1] ? i : m), 0)].c
+  const under = fallen.reason === 'shot' ? (wounds.at(-1)?.c ?? head) : head
+  return { ...fig, boxes: [...fig.boxes, ...pool([under[0], under[2]], fallen.landed), ...wounds] }
+}
+
+// 피 색. 튀는 조각은 상처보다 밝음
+const BLOOD_RGB: readonly [number, number, number] = [150, 15, 15]
+
+// 맞은 자리에서 튀는 피 (SHEEP-126). 몸 가운데에서 맞은 자리 쪽(바깥)으로 부채꼴로 퍼지며 떨어짐. 바닥 아래로는 내려가지 않음
+function bloodAt(t: number, scene: Scene): Thing[] {
+  return [...scene.hits].flatMap(([id, list]): Thing[] => {
+    const samples = scene.history.get(id)
+    if (!samples) return []
+    return list
+      .filter((h) => t >= h.at && t < h.at + BURST_MS)
+      .flatMap((h) => {
+        const c = sampleAt(samples, h.at)
+        const len = Math.hypot(h.x - c.x, h.y - c.y) || 1
+        const nx = (h.x - c.x) / len
+        const ny = (h.y - c.y) / len
+        return burst(t - h.at).map((d) => ({ x: h.x + nx * d.out - ny * d.side, y: h.y + ny * d.out + nx * d.side, z: Math.max(0.01, h.height + d.up), size: 0.03, alpha: d.alpha, rgb: BLOOD_RGB }))
+      })
+  })
+}
+
+// 총알 색과 크기(칸). 머리는 어두운 납, 잔상은 달군 빛. 실제보다 크게 둬 결투 거리에서도 1~2px로 보임. ponytail: 화면을 보며 맞출 값
+const BULLET_RGB: readonly [number, number, number] = [55, 50, 45]
+const TRAIL_RGB: readonly [number, number, number] = [250, 235, 190]
+
+// 날아가는 총알 (SHEEP-125). viewer를 포함해 쏜 사람마다 겨눈 총구에서, 서버 판정 광선이 벽·바닥·서 있던 사람에 닿는 곳까지 날아감.
+// 쏜 순간의 자리로 길을 정함. 눈이 되는 사람의 총알은 눈앞을 가리지 않게 총구에서 0.8칸 안의 점은 빼고 그림
+function bulletsAt(t: number, viewer: string, scene: Scene, map: Grid): Thing[] {
+  return [...scene.shots].flatMap(([id, shot]): Thing[] => {
+    const samples = scene.history.get(id)
+    const look = scene.characters.get(id)
+    if (t < shot.at || t > shot.at + FLIGHT_MS || !samples || !look) return []
+    const s = sampleAt(samples, shot.at)
+    const ray = { x: s.x, y: s.y, z: EYE_HEIGHT, angle: shot.angle, pitch: shot.pitch }
+    const people = [...scene.history]
+      .filter(([pid]) => pid !== id && (scene.downs.get(pid)?.at ?? Infinity) > shot.at)
+      .map(([, ps]) => sampleAt(ps, shot.at))
+    const wall = castRay(map, s.x, s.y, Math.cos(shot.angle), Math.sin(shot.angle))?.dist ?? Infinity
+    const [x, y, z] = inWorld(s.x, s.y, shot.angle, characterBody(look.character, look.color, look.hand).aim(shot.pitch).muzzle!)
+    return bulletDots({ x, y, z }, along(ray, bulletRange(ray, wall, people)), t - shot.at)
+      .filter((d) => id !== viewer || Math.hypot(d.x - x, d.y - y) > 0.8)
+      .map((d, k) => ({ ...d, size: k === 0 ? 0.045 : 0.035, rgb: k === 0 ? BULLET_RGB : TRAIL_RGB }))
+  })
 }
 
 // 탈락하면 뒤로 넘어짐. 시간 초과는 자살 모습(총을 댐, 불꽃)을 보인 뒤 넘어짐
@@ -381,21 +468,11 @@ function showHitCard(r: ShotResult) {
   hitHole.setAttribute('cy', String(dot.y))
 }
 
-// 이번 라운드에 내가 걷다 멈춘 시각(ms, 내 시계). 안 멈췄으면 null. 한 라운드에 한 번만 멈추고, 멈춘 뒤로는 내 발소리를 내지 않음
-let stoppedAt: number | null = null
 // 사람마다 마지막으로 발소리를 낸 걸음 번호. 걷기 시각을 받을 때 비움
 const lastStep = new Map<string, number>()
 
-// 걷는 동안 왼쪽 클릭은 멈추기 (시스템 기획서 조작). 도는 것과 상관없어 포인터 잠금이 없어도 받음. 그래야 잠그는 첫 클릭으로도 멈춤
-canvas.addEventListener('mousedown', (e) => {
-  if (!clock || e.button !== 0 || stoppedAt !== null || myId === null || downs.has(myId)) return
-  if (!walking(schedule, toServerTime(e.timeStamp, clock.offset))) return
-  stoppedAt = e.timeStamp
-  send(stopMessage(e.timeStamp, clock.offset))
-})
-
-// 걷는 사람마다 걸음 번호가 늘면 그 사람 쪽에서 발소리를 냄. 그래서 누가 멈췄는지 귀로 앎 (컨셉 기획서 아트와 사운드 효과음).
-// 다른 사람은 그림처럼 INTERP_DELAY 전의 동작으로 가르고, 나는 서버 동작을 기다리지 않고 내가 멈춘 시각으로 가름
+// 걷는 사람마다 걸음 번호가 늘면 그 사람 쪽에서 발소리를 냄 (컨셉 기획서 아트와 사운드 효과음).
+// 다른 사람은 그림처럼 INTERP_DELAY 전의 동작으로 가름. 뒤도는 동안은 발소리를 내지 않음 (SHEEP-120)
 function playSteps(now: number) {
   if (!audio || !clock || schedule.walk === undefined) return
   const t = now - INTERP_DELAY
@@ -406,7 +483,7 @@ function playSteps(now: number) {
   for (const [id, samples] of history) {
     const s = sampleAt(samples, t)
     // 다음 라운드에 끼지 못해 쓰러진 채인 나는 걷지 않음
-    const going = id === myId ? !downs.has(id) && (stoppedAt === null || t < stoppedAt) : s.pose === 'walk'
+    const going = id === myId ? !downs.has(id) : s.pose === 'walk'
     if (!going || step <= (lastStep.get(id) ?? -1)) continue
     lastStep.set(id, step)
     playStep(audio, audio.currentTime, id === myId ? undefined : heardFrom(view.x, view.y, view.angle, s.x, s.y))
@@ -432,6 +509,8 @@ canvas.addEventListener('mousedown', (e) => {
   // 총알은 시선이 아니라 흔들린 총이 가리키는 쪽으로 감. 조준점도 같은 식으로 그려 둘이 맞음
   const aim = aimAt(angle, pitch, e.timeStamp, scaleAt(unsteady, e.timeStamp))
   send(fireMessage(aim.angle, aim.pitch, e.timeStamp, clock.offset))
+  // 내 발사도 적어 둠. 내 총알과, 다시 보기에서 쓰러뜨린 사람 눈에 보이는 내 불꽃을 그림 (SHEEP-125)
+  shots.set(myId!, { at: e.timeStamp, angle: aim.angle, pitch: aim.pitch })
 })
 
 // D 키로 총을 뽑음 (사용자 결정 2026-11-09, SHEEP-123). 한글 입력 중에도 되게 글자가 아니라 키 자리(code)로 받음.
@@ -511,8 +590,9 @@ function frame(now: number) {
     const me = sampleAt(history.get(myId!)!, now - INTERP_DELAY)
     const look = characters.get(myId!)!
     const body = characterBody(look.character, look.color, look.hand)
-    const self = { x: me.x, y: me.y, facing: me.angle, ...poseAt(body, { at: 0, reason: mine.reason }, motionMs(sceneT), body.rest) }
-    const things = [self, ...othersAt(now - INTERP_DELAY, myId!, scene)]
+    const fallen = { landed: motionMs(sceneT) - fallDelay(mine.reason), reason: mine.reason }
+    const self = withWounds({ x: me.x, y: me.y, facing: me.angle, ...poseAt(body, { at: 0, reason: mine.reason }, motionMs(sceneT), body.rest) }, body, hits.get(myId!), now - INTERP_DELAY, fallen)
+    const things = [self, ...othersAt(now - INTERP_DELAY, myId!, scene), ...bulletsAt(now - INTERP_DELAY, myId!, scene, grid), ...bloodAt(now - INTERP_DELAY, scene)]
     renderFrame(pixels, W, H, grid, sceneCamera(me.x, me.y, me.angle, sceneT, FOV), things, SKIES[timeOfDay(standing ?? history.size)])
     ctx.putImageData(image, 0, 0)
     // 바닥에 닿을 때까지 옛 영화처럼 위아래에 검은 띠
@@ -524,7 +604,7 @@ function frame(now: number) {
     playSteps(now)
   } else if (grid && view) {
     // 내 자리도 다른 사람처럼 INTERP_DELAY 전을 그림. 받은 그대로 그리면 걷는 동안 20Hz로 끊겨 보임
-    const things = [...othersAt(r ? t : now - INTERP_DELAY, view.id, scene), ...props]
+    const things = [...othersAt(r ? t : now - INTERP_DELAY, view.id, scene), ...bulletsAt(r ? t : now - INTERP_DELAY, view.id, scene, grid), ...bloodAt(r ? t : now - INTERP_DELAY, scene), ...props]
     renderFrame(pixels, W, H, grid, makeCamera(view.x, view.y, view.angle, FOV, view.pitch), things, SKIES[timeOfDay(standing ?? history.size)])
     ctx.putImageData(image, 0, 0)
     playSteps(now)
@@ -544,6 +624,7 @@ function frame(now: number) {
     const kick = Math.max(hold.kick, 1 - (t - fired) / RECOIL_MS)
     const muzzle = drawGun(ctx, revolverMesh(revolver, plays, rounds ?? 0), { ...s, kick, lower: hold.lower }, W, H, PROJ, hand === 'left' ? -1 : 1)
     flash.style.transform = `translate(${(muzzle.x * 100) / W}cqw, ${(muzzle.y * 100) / W}cqw)`
+    drawSmoke(ctx, muzzle, t - fired, SMOKE_PX)
     // 마우스 이벤트가 아니라 여기서 보내야 마지막으로 멈춘 각도도 빠지지 않고 감
     if ((angle !== sentAngle || pitch !== sentPitch) && now - sentAt >= TURN_INTERVAL && ws?.readyState === WebSocket.OPEN) {
       send({ type: 'turn', angle, pitch })
@@ -1056,6 +1137,8 @@ function endResult(r: RoundResult) {
   } else {
     // 쓰러졌다 다시 서는 나(함께 쓰러짐)는 혈흔을 그 라운드 전으로 되돌림. 서버가 반샷을 되돌리는 것과 같음. 일으키기 전에 봐야 가를 수 있음
     if (myId !== null && downs.has(myId) && r.playerIds.includes(myId)) blood = onRevived(blood)
+    // 함께 쓰러졌다 다시 서는 사람의 상처도 그 라운드 전으로 되돌림. 서 있던 사람은 그대로 남음
+    for (const id of r.playerIds) if (downs.has(id)) hits.set(id, (hits.get(id) ?? []).filter((h) => h.at < roundStartAt))
     for (const id of r.playerIds) downs.delete(id)
     if (myId !== null && r.playerIds.includes(myId)) gun = loaded(r.rounds)
     // 관전하던 사람은 다시 장전하고, 내가 다시 서면 관전이 풀림. 서버도 이때 관전을 풂
@@ -1070,6 +1153,7 @@ function clearMatch() {
   standing = null
   pitch = 0
   downs.clear()
+  hits.clear()
   gun = loaded(ROUNDS)
   blood = onGameEnd()
   watch = null
@@ -1131,6 +1215,7 @@ function receive(data: string) {
       history.clear()
       shots.clear()
       downs.clear()
+      hits.clear()
       watch = replay = replayPlan = replayFrom = null
       schedule = {}
       standing = null
@@ -1175,7 +1260,7 @@ function receive(data: string) {
           result = null
         }
         blood = onWalk(blood)
-        stoppedAt = null
+        roundStartAt = performance.now()
         lastStep.clear()
       }
       schedule[m.phase] = m.at
@@ -1183,10 +1268,22 @@ function receive(data: string) {
       // 장전과 공이치기는 내 것만 들음. 장전은 이번 라운드에 끼는 나만, 공이치기는 "시작!"에 서서 총을 드는 나만
       if (audio && clock && myId !== null) {
         const when = toAudioTime(toLocalTime(m.at, clock.offset), stampOf(audio))
-        // 장전 소리는 Reload 클립에서 총알이 다 들어갈 때, 실린더 닫는 소리는 실린더가 다 닫힐 때 딸깍이 들리게 함 (gun.ts gunClips)
+        // 장전 소리는 느린 Reload 클립에서 총알이 다 들어갈 때, 실린더 닫는 소리는 실린더가 다 닫힐 때 딸깍이 들리게 함 (gun.ts gunClips)
         if (m.phase === 'countdown' && reloading) {
-          play(audio, 'load', when + RELOAD_AT / 1000 + RELOAD_SEATED)
-          play(audio, 'closeCylinder', when + RELOAD_AT / 1000 + RELOAD_SHUT)
+          play(audio, 'load', when + reloadSoundAt(RELOAD_SEATED) / 1000)
+          play(audio, 'closeCylinder', when + reloadSoundAt(RELOAD_SHUT) / 1000)
+        }
+        // 다른 사람의 장전 소리는 그 사람 쪽에서 작게 냄. 그림처럼 INTERP_DELAY 늦게 (사용자 결정 2026-11-10, SHEEP-121)
+        if (m.phase === 'countdown' && placed) {
+          const view = eyes(performance.now())
+          for (const [id, samples] of history) {
+            if (id === myId || !joins(result, id)) continue
+            const s = sampleAt(samples, performance.now())
+            const from = heardFrom(view.x, view.y, view.angle, s.x, s.y)
+            const later = when + INTERP_DELAY / 1000
+            play(audio, 'load', later + reloadSoundAt(RELOAD_SEATED) / 1000, from, OTHER_RELOAD_GAIN)
+            play(audio, 'closeCylinder', later + reloadSoundAt(RELOAD_SHUT) / 1000, from, OTHER_RELOAD_GAIN)
+          }
         }
         // 공이치기 소리는 "시작!"이 아니라 D 키로 뽑은 때에 냄 (SHEEP-123)
         if (m.phase === 'duel') playSignal(audio, when)
@@ -1194,10 +1291,11 @@ function receive(data: string) {
       break
     case 'shot':
       // 내 불꽃과 총소리는 쏠 때 이미 냄
-      if (m.playerId !== myId) showShot(m.playerId, m.angle)
+      if (m.playerId !== myId) showShot(m.playerId, m.angle, m.pitch)
       break
     case 'eliminated':
       downs.set(m.playerId, { at: performance.now(), reason: m.reason })
+      if (m.hit) addHit(m.playerId, m.hit)
       playFallOf(m.playerId, m.reason)
       if (m.playerId !== myId) break
       // 맞아 쓰러졌으면 바로 뒤에 downedBy가 와 카드를 다시 채움
@@ -1223,12 +1321,13 @@ function receive(data: string) {
       showHitCard(m)
       break
     case 'wounded':
-      // 쓰러진 나는 맞지 않아, 관전 중에 오는 것은 관전 대상의 복사본임
-      if (watch) watch.wounded = true
-      else blood = onWounded(blood)
+      // 반샷은 모두에게 옴. 나면 혈흔을, 관전 대상이면 그 사람 화면의 혈흔을 띄움 (SHEEP-126)
+      addHit(m.playerId, m.hit)
+      if (m.playerId === myId) blood = onWounded(blood)
+      if (watch?.id === m.playerId) watch.wounded = true
       break
     case 'spectating':
-      // 관전을 시작할 때 그 사람의 혈흔과 실린더. 그 뒤로는 복사된 wounded와 그 사람의 shot으로 바꿈
+      // 관전을 시작할 때 그 사람의 혈흔과 실린더. 그 뒤로는 모두에게 오는 wounded와 그 사람의 shot으로 바꿈
       if (watch?.id === m.playerId) {
         watch.wounded ||= m.wounds > 0
         watch.rounds = m.ammo
