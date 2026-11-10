@@ -79,11 +79,14 @@
   mask: var(--paper-ink) 0 0 / 3cqw;
 }
 
+/* 페이지는 창에 꼭 맞고 스크롤되지 않음. 맥 트랙패드의 탄성 밀림도 막음 (SHEEP-151) */
 html,
 body {
   margin: 0;
   height: 100%;
   background: #000;
+  overflow: hidden;
+  overscroll-behavior: none;
 }
 
 body {
@@ -97,6 +100,8 @@ body {
   aspect-ratio: 16 / 9;
   /* HUD 크기를 cqw로 잡아 화면 폭에 따라 같이 커지게 함 */
   container-type: inline-size;
+  /* 흔들리는 조준점이나 기울인 카드가 화면 밖으로 나가도 페이지를 늘리지 않음. hidden과 달리 코드로도 스크롤되지 않음 */
+  overflow: clip;
 }
 
 #screen {
