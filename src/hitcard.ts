@@ -21,6 +21,13 @@ export function dotPosition(offset: number, height: number): { x: number; y: num
   return { x: 50 + offset * scale, y: 100 - height * scale }
 }
 
+// 내 몸 HUD(시스템 기획서 HUD 내 몸, SHEEP-207)의 몸 그림에서 맞은 자리. (x, y)와 facing은 맞을 때 선 자리와 보던 각도,
+// (hx, hy)와 height는 맞은 점. 앞에서 본 몸이라 내 오른쪽(보던 쪽에서 각도가 커지는 쪽)은 그림 왼쪽이고, 뒤에서 맞아도 같은 쪽에 찍음
+export function bodyDot(x: number, y: number, facing: number, hx: number, hy: number, height: number): { x: number; y: number } {
+  const right = -Math.sin(facing) * (hx - x) + Math.cos(facing) * (hy - y)
+  return dotPosition(-right, height)
+}
+
 // 반샷 혈흔. atRoundStart는 이번 라운드 걷기가 시작할 때 켜져 있었는지임.
 // 함께 쓰러져 다시 서면 서버가 반샷을 그 라운드 전으로 되돌리므로 혈흔도 그 값으로 되돌림 (컨셉 기획서 규칙 함께 쓰러짐)
 export type Blood = { shown: boolean; atRoundStart: boolean }

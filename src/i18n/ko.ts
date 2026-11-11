@@ -18,7 +18,6 @@ export const ko: Copy = {
     replayWho: (name) => `${name} 눈으로 다시 보는 중`,
     replay: '다시 보기',
     leave: '나가기',
-    roomCode: '방 코드',
     down: '흙먼지를 먹었구먼',
     go: '시작!',
     drawHint: (key) => `${key} 키로 총을 뽑아`,

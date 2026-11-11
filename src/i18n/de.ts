@@ -18,7 +18,6 @@ export const de: Copy = {
     replayWho: (name) => `Nochmal durch die Augen von ${name}`,
     replay: 'Wiederholung',
     leave: 'Verlassen',
-    roomCode: 'Raumcode',
     down: 'Ins Gras gebissen',
     go: 'Zieh!',
     drawHint: (key) => `Drück ${key} zum Ziehen`,

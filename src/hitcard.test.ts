@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest'
 import { CELL } from './character.ts'
 import { en } from './i18n/en.ts'
-import { BODY, dotPosition, HEAD, noBlood, onGameEnd, onRevived, onWalk, onWounded, resultLabel } from './hitcard.ts'
+import { BODY, bodyDot, dotPosition, HEAD, noBlood, onGameEnd, onRevived, onWalk, onWounded, resultLabel } from './hitcard.ts'
 
 describe('resultLabel', () => {
   test('머리는 즉사, 몸은 반샷이거나 쓰러짐, 못 맞히면 빗나감', () => {
@@ -40,6 +40,32 @@ describe('dotPosition', () => {
     const edge = dotPosition(BODY.radius, BODY.top)
     expect(edge.x).toBeLessThan(100)
     expect(edge.y).toBeGreaterThan(0)
+  })
+})
+
+describe('bodyDot (내 몸 HUD, SHEEP-207)', () => {
+  // (10, 10)에 서서 +x 쪽(facing 0)을 봄. 화면 오른쪽은 각도가 커지는 쪽이라 내 오른쪽은 +y
+  const at = (dx: number, dy: number, h: number) => bodyDot(10, 10, 0, 10 + dx, 10 + dy, h)
+
+  test('앞에서 본 몸이라 내 오른쪽에 맞으면 그림 왼쪽, 왼쪽에 맞으면 그림 오른쪽', () => {
+    expect(at(BODY.radius, 0, 0.5).x).toBeCloseTo(50)
+    expect(at(0.05, 0.1, 0.5).x).toBeLessThan(50)
+    expect(at(0.05, -0.1, 0.5).x).toBeGreaterThan(50)
+  })
+
+  test('뒤에서 맞아도 같은 높이·같은 쪽', () => {
+    expect(at(-0.05, 0.1, 0.5)).toEqual(at(0.05, 0.1, 0.5))
+  })
+
+  test('높이와 가로 배율은 사격 결과 카드와 같음', () => {
+    const dot = at(0.05, 0.1, 0.5)
+    expect(dot.x).toBeCloseTo(dotPosition(-0.1, 0.5).x)
+    expect(dot.y).toBeCloseTo(dotPosition(-0.1, 0.5).y)
+  })
+
+  test('보던 각도를 따라 돎', () => {
+    // π/2(+y)를 보면 내 오른쪽은 -x
+    expect(bodyDot(10, 10, Math.PI / 2, 9.9, 10, 0.5).x).toBeCloseTo(dotPosition(-0.1, 0.5).x)
   })
 })
 

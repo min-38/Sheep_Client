@@ -18,7 +18,6 @@ export const es: Copy = {
     replayWho: (name) => `Otra vez, por los ojos de ${name}`,
     replay: 'Repetición',
     leave: 'Salir',
-    roomCode: 'Código de sala',
     down: 'Mordiste el polvo',
     go: '¡Desenfunda!',
     drawHint: (key) => `Pulsa ${key} para desenfundar`,
