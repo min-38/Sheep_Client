@@ -4,6 +4,7 @@ import dryFireUrl from './assets/audio/dry-fire.mp3'
 import loadUrl from './assets/audio/load.mp3'
 import shotUrl from './assets/audio/shot.mp3'
 import { FALL_LAND_MS, SUICIDE_AIM, SUICIDE_FLASH } from './character.ts'
+import type { DownReason } from './net.ts'
 
 // AudioContext 시계(초)와 내 시계(ms, performance.now())를 잇는 한 쌍. contextTime에 나간 소리가 스피커에서 들리는 순간이 performanceTime임
 export type AudioStamp = { contextTime: number; performanceTime: number }
@@ -82,12 +83,14 @@ export function loadEffects(audio: AudioContext) {
 // 효과음의 딸깍(CLICK)이 when(AudioContext 시각, 초)에 들리게 냄. from이 있으면 그 자리에서 들리고(HRTF), 없으면 내 소리라 가운데서 들림.
 // 듣는 사람(AudioListener)은 기본값 그대로 원점에서 -z를 보므로 오른쪽이 +x, 앞이 -z임.
 // 4칸(걷기를 마친 자리의 반지름) 안에서는 같은 크기, 더 멀면 거리에 반비례해 줄어듦. gain은 효과음 크기에 더 곱하는 몫. 아직 풀지 못한 소리는 건너뜀
-export function play(audio: AudioContext, name: Effect, when: number, from?: { right: number; front: number }, gain = 1) {
+// 낸 소리를 돌려줘, 아직 나지 않았으면 멈추고 다른 때로 다시 낼 수 있음
+export function play(audio: AudioContext, name: Effect, when: number, from?: { right: number; front: number }, gain = 1): AudioScheduledSourceNode | undefined {
   const buffer = buffers[name]
   if (!buffer) return
   const source = new AudioBufferSourceNode(audio, { buffer })
   place(audio, source.connect(new GainNode(audio, { gain: VOLUME[name] * gain })), from)
   source.start(when - CLICK[name])
+  return source
 }
 
 // 발소리 한 걸음을 when(AudioContext 시각, 초)에 냄. 방향과 거리는 총소리와 같음.
@@ -212,8 +215,94 @@ export function playStamp(audio: AudioContext, when: number) {
   slap.start(when)
 }
 
-// 탈락을 보여 주기 시작한 때부터 뒤로 넘어지는 동작이 바닥에 닿기까지(ms). 시간 초과는 자살 모습(총을 댐, 불꽃)이 끝난 뒤에 넘어짐
-export const fallDelay = (reason: 'shot' | 'timeout') => (reason === 'timeout' ? SUICIDE_AIM + SUICIDE_FLASH : 0) + FALL_LAND_MS
+// 단추를 누르는 소리를 when(AudioContext 시각, 초)에 냄 (시스템 기획서 사운드 클릭 소리, SHEEP-209 시안 A).
+// 나무 판을 손가락 마디로 톡 두드림: 결이 있는 잡음을 1.7kHz 언저리로 걸러 짧게 줄이고, 낮게 떨어지는 판 울림을 더함
+export function playClick(audio: AudioContext, when: number) {
+  const out = effectsOut(audio)
+  const noise = new AudioBuffer({ length: Math.round(audio.sampleRate * 0.06), sampleRate: audio.sampleRate })
+  const data = noise.getChannelData(0)
+  for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1
+  const grain = new AudioBufferSourceNode(audio, { buffer: noise })
+  const wood = new BiquadFilterNode(audio, { type: 'bandpass', frequency: 1700, Q: 2.5 })
+  const tap = new GainNode(audio, { gain: 0.0001 })
+  tap.gain.exponentialRampToValueAtTime(0.5, when + 0.002)
+  tap.gain.exponentialRampToValueAtTime(0.0001, when + 0.05)
+  grain.connect(wood).connect(tap).connect(out)
+  grain.start(when)
+  const ring = new OscillatorNode(audio, { type: 'sine', frequency: 240 })
+  ring.frequency.setValueAtTime(240, when)
+  ring.frequency.exponentialRampToValueAtTime(140, when + 0.06)
+  const body = new GainNode(audio, { gain: 0.0001 })
+  body.gain.exponentialRampToValueAtTime(0.35, when + 0.002)
+  body.gain.exponentialRampToValueAtTime(0.0001, when + 0.08)
+  ring.connect(body).connect(out)
+  ring.start(when)
+  ring.stop(when + 0.1)
+}
+
+// 술집 준비 단추로 준비할 때 위스키 잔을 바 카운터에 탁 내려놓는 소리 (시스템 기획서 사운드 클릭 소리, SHEEP-211 시안 A).
+// 나무 카운터의 둔한 탁(낮은 대역 잡음과 떨어지는 울림)에 유리잔이 짧게 쨍(어긋난 배음 셋)
+export function playGlass(audio: AudioContext, when: number) {
+  const out = effectsOut(audio)
+  const decay = (start: number, peak: number, seconds: number) => {
+    const g = new GainNode(audio, { gain: 0.0001 })
+    g.gain.setValueAtTime(0.0001, start)
+    g.gain.exponentialRampToValueAtTime(peak, start + 0.003)
+    g.gain.exponentialRampToValueAtTime(0.0001, start + seconds)
+    g.connect(out)
+    return g
+  }
+  const noise = new AudioBuffer({ length: Math.round(audio.sampleRate * 0.09), sampleRate: audio.sampleRate })
+  const data = noise.getChannelData(0)
+  for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1
+  const knock = new AudioBufferSourceNode(audio, { buffer: noise })
+  knock.connect(new BiquadFilterNode(audio, { type: 'bandpass', frequency: 420, Q: 1.4 })).connect(decay(when, 0.7, 0.09))
+  knock.start(when)
+  const counter = new OscillatorNode(audio, { type: 'sine', frequency: 170 })
+  counter.frequency.setValueAtTime(170, when)
+  counter.frequency.exponentialRampToValueAtTime(95, when + 0.1)
+  counter.connect(decay(when, 0.45, 0.12))
+  counter.start(when)
+  counter.stop(when + 0.15)
+  for (const [frequency, peak, seconds] of [
+    [2350, 0.12, 0.35],
+    [3720, 0.07, 0.25],
+    [5480, 0.04, 0.18],
+  ]) {
+    const ring = new OscillatorNode(audio, { type: 'sine', frequency })
+    ring.connect(decay(when + 0.008, peak, seconds))
+    ring.start(when + 0.008)
+    ring.stop(when + 0.008 + seconds + 0.02)
+  }
+}
+
+// 금속 종을 친 듯한 맑은 소리. 배음 몇 개를 같이 울려 짧게 줄임. gain은 크기, seconds는 줄어드는 시간
+function bell(audio: AudioContext, when: number, partials: readonly number[], gain: number, seconds: number) {
+  const out = effectsOut(audio)
+  for (const [i, frequency] of partials.entries()) {
+    const tone = new OscillatorNode(audio, { type: 'sine', frequency })
+    const volume = new GainNode(audio, { gain: 0 })
+    volume.gain.setValueAtTime(gain / (i + 1), when)
+    volume.gain.exponentialRampToValueAtTime(0.001, when + seconds / (i + 1))
+    tone.connect(volume).connect(out)
+    tone.start(when)
+    tone.stop(when + seconds)
+  }
+}
+
+// 내 한 발로 마지막 사람을 쓰러뜨린 순간의 확인음 (SHEEP-187). 화면이 멈추는 때 맑게 한 번
+export function playDing(audio: AudioContext, when: number) {
+  bell(audio, when, [1318, 2637, 3951], 0.35, 0.9)
+}
+
+// 잔고가 $10 오를 때마다 내는 동전 소리 (SHEEP-187). 마지막 하나는 조금 크고 길게. 음원 파일 없이 만듦
+export function playCoin(audio: AudioContext, when: number, last = false) {
+  const pitch = 1 + (Math.random() - 0.5) * 0.08
+  bell(audio, when, [2093 * pitch, 2794 * pitch], last ? 0.22 : 0.12, last ? 0.5 : 0.14)
+}
+
+// 탈락을 보여 주기 시작한 때부터 뒤로 넘어지는 동작이 바닥에 닿기까지(ms). 시간 초과와 나가기는 자살 모습(총을 댐, 불꽃)이 끝난 뒤에 넘어짐
+export const fallDelay = (reason: DownReason) => (reason !== 'shot' ? SUICIDE_AIM + SUICIDE_FLASH : 0) + FALL_LAND_MS
 
 // 쓰러지는 소리 한 번을 when(AudioContext 시각, 초)에 냄. 방향과 거리는 총소리와 같음.
 // ponytail: 낮은 잡음으로 합성한 임시음(약 0.3초). CC0 효과음을 찾으면 소리 부분만 고침 (시스템 기획서 사운드)

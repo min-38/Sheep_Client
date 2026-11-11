@@ -4,8 +4,9 @@ import { skin, type Mesh, type Play, type RGB, type Rig, type Vec3 } from './rig
 // 1인칭 리볼버를 Canvas 2D 경로로 직접 그림. 먼 면부터 칠하는 화가 알고리즘 (기술 설계서 렌더링 무기)
 
 // yaw·pitch는 팔 흔들림(sway.ts, 라디안). kick은 반동이고 쏜 순간 1에서 RECOIL_MS 동안 0으로 줄어듦.
-// lower는 총을 내린 정도(0 듦 ~ 1 화면 아래로 다 내림). 음수면 겨누는 자리보다 높이 듦
-export type GunPose = { yaw: number; pitch: number; kick: number; lower: number }
+// lower는 총을 내린 정도(0 듦 ~ 1 화면 아래로 다 내림). 음수면 겨누는 자리보다 높이 듦.
+// shift는 GUN_POS에서 더 옮긴 자리(눈 좌표, x는 총 든 손 쪽이 +). 자살할 때 총을 옆머리로 가져감 (SHEEP-190)
+export type GunPose = { yaw: number; pitch: number; kick: number; lower: number; shift?: Vec3 }
 
 // ms. ponytail: 임시 값. 플레이해 보며 정함
 export const RECOIL_MS = 150
@@ -17,8 +18,11 @@ export const DRAW_MS = 350
 export const aimed = (drawnAt: number | null, now: number) => drawnAt !== null && now >= drawnAt + DRAW_MS
 // 공이치기를 당길 때 튀는 크기(쏠 때 반동을 1로). ponytail: 임시 값. 화면을 보며 맞춤
 const COCK_KICK = 0.25
-// ms. 카운트다운부터 장전 클립을 시작하기까지. 그 사이에 총을 들어 올림. ponytail: 임시 값. 플레이해 보며 정함
-export const RELOAD_AT = 300
+// ms. 카운트다운부터 총을 꺼내기 시작하기까지 정면을 보고 선 채로 있음. 시작하자마자 고개를 숙이고 장전하면 화면이 위에서
+// 떨어지는 듯해 둠 (사용자 결정 2026-11-12, SHEEP-206). ponytail: 임시 값. 플레이해 보며 정함
+export const STAND_MS = 1000
+// ms. 카운트다운부터 장전 클립을 시작하기까지. 선 채로 있은 뒤 0.3초 동안 총을 들어 올림. ponytail: 임시 값. 플레이해 보며 정함
+export const RELOAD_AT = STAND_MS + 300
 // 초. Reload 클립에서 총알이 칸에 다 들어간 때와 실린더가 다 닫힌 때. 장전 소리와 실린더 닫는 소리의 딸깍을 여기에 맞춤
 export const RELOAD_SEATED = 0.833
 export const RELOAD_SHUT = 1.042
@@ -29,22 +33,25 @@ const COCK_LENGTH = 0.125
 export const RELOAD_MS = 2500
 // ms. 장전을 마치고 총을 내려 권총집에 넣기까지. ponytail: 임시 값. 플레이해 보며 정함
 export const HOLSTER_MS = 500
-// ms. 카운트다운부터 장전하고 권총집에 다 넣기까지. 카운트다운(4초) 안에 끝나야 함
+// ms. 카운트다운부터 장전하고 권총집에 다 넣기까지. 카운트다운(4.5초) 안에 끝나야 함
 export const RELOAD_END = RELOAD_AT + RELOAD_MS + HOLSTER_MS
 // 라디안. 장전하는 동안 총을 보려고 고개를 숙이는 각도와, 카운트다운부터 다 숙이기까지(ms). 다 넣으면 권총집에 넣는 동안(HOLSTER_MS) 다시 듦.
 // 서두르지 않게 장전 클립 시작(RELOAD_AT)보다 늦게 다 숙임 (사용자 결정 2026-11-11, SHEEP-177). ponytail: 임시 값. 화면을 보며 맞춤
 const NOD = 0.32
-const NOD_IN_MS = 600
+const NOD_IN_MS = 900
+// 라디안. 1인칭 시선은 약 7°만 숙임. 화면은 위아래 시선을 그림을 밀어 보여 줘(y-shearing) 18°면 화면이 30% 밀려 떨어지듯 보임.
+// 총은 장전할 때 높이 들어 화면에 보여, 실제 총잡이처럼 눈을 조금만 내리면 됨 (사용자 결정 2026-11-11, SHEEP-191 (가))
+export const VIEW_NOD = 0.12
 
-// 카운트다운부터 since(ms) 지난 때 고개를 숙인 각도(라디안, 아래가 +). 1인칭 시선과 남이 보는 머리가 같이 씀.
-// 서버는 카운트다운 동안 시선을 정면으로 두므로 그림에서만 숙임
-export function reloadNod(since: number): number {
-  if (since <= 0 || since >= RELOAD_END) return 0
+// 카운트다운부터 since(ms) 지난 때 고개를 숙인 각도(라디안, 아래가 +). depth는 다 숙인 각도로 남이 보는 머리는 NOD,
+// 1인칭 시선은 VIEW_NOD. 서버는 카운트다운 동안 시선을 정면으로 두므로 그림에서만 숙임. 선 채로 있는 동안(STAND_MS)은 정면
+export function reloadNod(since: number, depth = NOD): number {
+  if (since <= STAND_MS || since >= RELOAD_END) return 0
   const smooth = (k: number) => {
     const u = Math.min(1, Math.max(0, k))
     return u * u * (3 - 2 * u)
   }
-  return NOD * smooth(since / NOD_IN_MS) * (1 - smooth((since - RELOAD_AT - RELOAD_MS) / HOLSTER_MS))
+  return depth * smooth((since - STAND_MS) / NOD_IN_MS) * (1 - smooth((since - RELOAD_AT - RELOAD_MS) / HOLSTER_MS))
 }
 
 // 카운트다운부터 since(ms) 지난 때의 Reload 클립 시각(초). 장전 중이 아니면 null
@@ -103,10 +110,11 @@ export function transform(mesh: Mesh, pose: GunPose, side: Side = 1): Vec3[] {
     // 총구를 위로 든 뒤(x축) 오른쪽으로 돌림(y축)
     const y1 = y * cosUp + z * sinUp
     const z1 = z * cosUp - y * sinUp
+    const [sx, sy, sz] = pose.shift ?? [0, 0, 0]
     return [
-      x * cosYaw + z1 * sinYaw + side * GUN_POS[0],
-      y1 + GUN_POS[1] - pose.lower * LOWER_BY,
-      z1 * cosYaw - x * sinYaw + GUN_POS[2] - pose.kick * KICK_BACK,
+      x * cosYaw + z1 * sinYaw + side * (GUN_POS[0] + sx),
+      y1 + GUN_POS[1] + sy - pose.lower * LOWER_BY,
+      z1 * cosYaw - x * sinYaw + GUN_POS[2] + sz - pose.kick * KICK_BACK,
     ]
   })
 }
@@ -123,17 +131,35 @@ export function lift(s: Schedule, now: number, reloading: boolean, drawnAt: numb
     if (since < DRAW_MS) return { lower: Math.max(0, 1 - since / DRAW_MS) ** 3, kick: 0 }
     return { lower: 0, kick: COCK_KICK * Math.max(0, 1 - (since - DRAW_MS) / RECOIL_MS) }
   }
-  if (s.countdown === undefined || now < s.countdown) return { lower: held ? 0 : 1, kick: 0 }
+  // 카운트다운 처음 STAND_MS 동안은 선 채로 있어 재대결 결과 그대로 둠 (SHEEP-206)
+  if (s.countdown === undefined || now < s.countdown + STAND_MS) return { lower: held ? 0 : 1, kick: 0 }
   if (!reloading) return { lower: 1, kick: 0 }
   const since = now - s.countdown
   const after = since - RELOAD_AT - RELOAD_MS
   // 든 채면 lower 0(겨누던 자리)에서 시작하는 몫
   const from = held ? RELOAD_LIFT / (1 + RELOAD_LIFT) : 1
-  const down = after < 0 ? raised(since) * from : Math.min(1, after / HOLSTER_MS) ** 3
+  const down = after < 0 ? raised(since - STAND_MS) * from : Math.min(1, after / HOLSTER_MS) ** 3
   return { lower: down * (1 + RELOAD_LIFT) - RELOAD_LIFT, kick: 0 }
 }
 
 const raised = (since: number) => Math.max(0, 1 - since / RAISE_MS) ** 3
+
+// 시간 초과로 자살할 때 1인칭 총 (SHEEP-190). 총구를 내 머리 쪽으로 돌리며(TEMPLE_YAW, 오른손이면 왼쪽으로) 조금 들고,
+// 총을 총 든 손 쪽 옆머리 가까이(TEMPLE_SHIFT)로 가져가 화면 가장자리에 걸림. since는 자살 모습을 보이기 시작하고 지난 시간(ms)이고
+// aim(character.ts SUICIDE_AIM) 동안 다 가져간 뒤 쏨. 뽑지 않았으면 앞 절반 동안 권총집에서 꺼내 올림. ponytail: 임시 값. 화면을 보며 맞춤
+export const TEMPLE_YAW = -1.45
+export const TEMPLE_PITCH = 0.25
+export const TEMPLE_SHIFT: Vec3 = [0.12, 0.17, -0.25]
+export function templeAim(since: number, aim: number, drawn: boolean): { yaw: number; pitch: number; lower: number; shift: Vec3 } {
+  const k = Math.min(1, Math.max(0, since / aim))
+  const u = k * k * (3 - 2 * k)
+  return {
+    yaw: TEMPLE_YAW * u,
+    pitch: TEMPLE_PITCH * u,
+    lower: drawn ? 0 : Math.max(0, 1 - 2 * k) ** 2,
+    shift: [TEMPLE_SHIFT[0] * u, TEMPLE_SHIFT[1] * u, TEMPLE_SHIFT[2] * u],
+  }
+}
 
 // now(서버 시계)에 총에 덮을 클립. 소리처럼 서버가 알린 단계 시각에서 재어 소리와 움직임이 맞음.
 // 카운트다운에는 Reload(실린더를 열어 총알을 넣고 닫음), 뽑은 때(drawnAt)부터 DRAW_MS 동안 Cock(공이치기를 당김),

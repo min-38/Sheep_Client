@@ -18,8 +18,14 @@ import {
   RELOAD_SHUT,
   reloadNod,
   reloadSoundAt,
+  reloadTime,
+  STAND_MS,
+  VIEW_NOD,
   revolverMesh,
   shade,
+  templeAim,
+  TEMPLE_SHIFT,
+  TEMPLE_YAW,
   transform,
   type GunPose,
 } from './gun.ts'
@@ -225,11 +231,11 @@ describe('lift', () => {
     expect(lift(s, 60000, false, 1000)).toEqual({ lower: 0, kick: 0 })
   })
 
-  test('장전하는 카운트다운에는 RAISE_MS 동안 겨눌 때보다 높이 들고, 장전 클립이 끝나면 내림', () => {
-    const s = { countdown: 1000, walk: 5000 }
+  test('장전하는 카운트다운에는 선 채로 있은 뒤 RAISE_MS 동안 겨눌 때보다 높이 들고, 장전 클립이 끝나면 내림', () => {
+    const s = { countdown: 1000, walk: 5500 }
     const reloaded = 1000 + RELOAD_AT + RELOAD_MS
-    expect(lift(s, 1000, true).lower).toBe(1)
-    const high = lift(s, 1000 + RAISE_MS, true).lower
+    expect(lift(s, 1000 + STAND_MS, true).lower).toBe(1)
+    const high = lift(s, 1000 + STAND_MS + RAISE_MS, true).lower
     expect(high).toBeLessThan(0)
     expect(lift(s, reloaded, true).lower).toBe(high)
     expect(lift(s, reloaded + 100, true).lower).toBeGreaterThan(high)
@@ -246,12 +252,37 @@ describe('lift', () => {
     const s = { countdown: 7000 }
     expect(lift(s, 2000, true, null, true)).toEqual({ lower: 0, kick: 0 })
     expect(lift(s, 2000, true, null, false)).toEqual({ lower: 1, kick: 0 })
-    // 장전은 내려 둔 자리가 아니라 겨누던 자리에서 시작해 튀지 않음
-    expect(lift(s, 7000, true, null, true).lower).toBeCloseTo(0)
-    const rising = lift(s, 7000 + RAISE_MS / 2, true, null, true).lower
+    // 장전은 내려 둔 자리가 아니라 겨누던 자리에서 시작해 튀지 않음. 선 채로 있는 동안(STAND_MS)은 든 채 (SHEEP-206)
+    const start = 7000 + STAND_MS
+    expect(lift(s, start, true, null, true).lower).toBeCloseTo(0)
+    const rising = lift(s, start + RAISE_MS / 2, true, null, true).lower
     expect(rising).toBeLessThan(0)
-    expect(rising).toBeGreaterThan(lift(s, 7000 + RAISE_MS, true, null, true).lower)
-    expect(lift(s, 7000 + RAISE_MS, true, null, true).lower).toBe(lift(s, 7000 + RAISE_MS, true).lower)
+    expect(rising).toBeGreaterThan(lift(s, start + RAISE_MS, true, null, true).lower)
+    expect(lift(s, start + RAISE_MS, true, null, true).lower).toBe(lift(s, start + RAISE_MS, true).lower)
+  })
+})
+
+describe('카운트다운 처음에 선 채로 있음 (SHEEP-206)', () => {
+  // 서버 RoundFlow.CountdownDuration. 걷기 시각에는 권총집에 다 넣었어야 함
+  const COUNTDOWN_MS = 4500
+
+  test('STAND_MS(1초) 동안은 총을 꺼내지 않고 정면을 봄', () => {
+    expect(STAND_MS).toBe(1000)
+    const s = { countdown: 1000, walk: 1000 + COUNTDOWN_MS }
+    expect(lift(s, 1000 + STAND_MS - 1, true)).toEqual({ lower: 1, kick: 0 })
+    expect(reloadNod(STAND_MS - 1)).toBe(0)
+    expect(reloadNod(STAND_MS - 1, VIEW_NOD)).toBe(0)
+    expect(reloadTime(STAND_MS)).toBeNull()
+    expect(lift(s, 1000 + STAND_MS + RAISE_MS, true).lower).toBeLessThan(0)
+  })
+
+  test('재대결 결과 동안 든 총은 서 있는 동안 든 채 둠', () => {
+    expect(lift({ countdown: 7000 }, 7000 + STAND_MS - 1, true, null, true)).toEqual({ lower: 0, kick: 0 })
+  })
+
+  test('서 있고 장전하고 권총집에 넣는 것이 카운트다운 안에 끝남', () => {
+    expect(RELOAD_AT).toBe(STAND_MS + 300)
+    expect(RELOAD_END).toBeLessThanOrEqual(COUNTDOWN_MS - 200)
   })
 })
 
@@ -274,6 +305,17 @@ describe('reloadNod (SHEEP-177)', () => {
     expect(holstering).toBeGreaterThan(0)
     expect(holstering).toBeLessThan(loading)
   })
+
+  test('1인칭 시선은 화면이 떨어지듯 밀리지 않게 약 7°만, 0.9초에 걸쳐 숙임 (SHEEP-191)', () => {
+    const full = reloadNod(RELOAD_AT + RELOAD_MS / 2, VIEW_NOD)
+    expect(full).toBeCloseTo(VIEW_NOD)
+    expect(VIEW_NOD).toBeLessThanOrEqual(0.13)
+    // 시야 90°(투영 거리 240px)에서 화면을 밀어 올리는 양이 화면 높이(270px)의 12% 아래
+    expect(240 * Math.tan(VIEW_NOD)).toBeLessThan(270 * 0.12)
+    // 선 채로 있은 뒤 0.6초에는 아직 다 숙이지 않음
+    expect(reloadNod(STAND_MS + 600, VIEW_NOD)).toBeLessThan(VIEW_NOD * 0.9)
+    expect(reloadNod(STAND_MS + 900, VIEW_NOD)).toBeCloseTo(VIEW_NOD)
+  })
 })
 
 describe('gunClips', () => {
@@ -295,12 +337,12 @@ describe('gunClips', () => {
     expect(gunClips(s, start + 500, false, -Infinity)).toEqual([])
   })
 
-  test('장전 소리 시각은 느린 클립에서 총알이 들어가고 실린더가 닫히는 때이고, 권총집에 넣기까지 카운트다운 4초 안에 끝남', () => {
+  test('장전 소리 시각은 느린 클립에서 총알이 들어가고 실린더가 닫히는 때이고, 권총집에 넣기까지 카운트다운 4.5초 안에 끝남', () => {
     const length = revolver.clips.Reload.duration
     expect(reloadSoundAt(RELOAD_SEATED)).toBeCloseTo(RELOAD_AT + (RELOAD_SEATED / length) * RELOAD_MS, 6)
     expect(reloadSoundAt(RELOAD_SHUT)).toBeLessThan(RELOAD_AT + RELOAD_MS)
     expect(RELOAD_END).toBeGreaterThan(RELOAD_AT + RELOAD_MS)
-    expect(RELOAD_END).toBeLessThanOrEqual(4000)
+    expect(RELOAD_END).toBeLessThanOrEqual(4500)
   })
 
   test('RELOAD_SEATED에 총알이 칸에 다 들어가고 RELOAD_SHUT에 실린더가 다 닫힘', () => {
@@ -366,5 +408,31 @@ describe('revolverMesh', () => {
 
   test('꼭짓점은 클립을 덮은 자리', () => {
     expect(revolverMesh(revolver, [{ clip: 'Reload', t: 0.5 }], 1).vertices).toEqual(skin(revolver, [{ clip: 'Reload', t: 0.5 }]))
+  })
+})
+
+describe('templeAim (SHEEP-190)', () => {
+  const rig = revolverData as Rig
+  const mesh = revolverMesh(rig, [], 1)
+  const centre = (vs: number[][]) => vs.reduce((s, v) => [s[0] + v[0] / vs.length, s[1] + v[1] / vs.length, s[2] + v[2] / vs.length], [0, 0, 0])
+
+  test('처음에는 겨누던 그대로, 다 가져가면 총구가 머리 쪽(오른손이면 왼쪽)으로 돌고 총은 옆머리 가까이 위로 옴', () => {
+    const start = templeAim(0, 600, true)
+    for (const v of [start.yaw, start.pitch, start.lower, ...start.shift]) expect(v).toBeCloseTo(0)
+    const done = templeAim(600, 600, true)
+    expect(done.yaw).toBeCloseTo(TEMPLE_YAW)
+    expect(done.shift).toEqual(TEMPLE_SHIFT)
+    const before = centre(transform(mesh, STILL))
+    const after = centre(transform(mesh, { ...STILL, ...done }))
+    // 오른쪽으로, 위로, 눈 가까이 옴
+    expect(after[0]).toBeGreaterThan(before[0])
+    expect(after[1]).toBeGreaterThan(before[1])
+    expect(after[2]).toBeLessThan(before[2])
+  })
+
+  test('뽑지 않았으면 앞 절반 동안 권총집에서 꺼내 올림', () => {
+    expect(templeAim(0, 600, false).lower).toBe(1)
+    expect(templeAim(150, 600, false).lower).toBeGreaterThan(0)
+    expect(templeAim(300, 600, false).lower).toBe(0)
   })
 })

@@ -21,7 +21,6 @@ export const en = {
     replayWho: (name: string) => `Seein' it through ${name}'s eyes`,
     replay: 'Replay',
     leave: 'Leave',
-    roomCode: 'Room code',
     // 내가 쓰러졌을 때 가운데에 띄움
     down: 'You bit the dust',
     // "시작!" 신호
@@ -31,10 +30,10 @@ export const en = {
     // 판 도중 포인터가 잠기지 않아 돌 수 없을 때 조준점 아래에 띄움 (SHEEP-152)
     lockHint: 'Click the screen to take aim, partner',
     win: "Last one standin'!",
-    // 세레모니 동안 이긴 사람 이름 아래에 적는 한 줄 (SHEEP-142). 이름은 위에 따로 크게 적음
-    lastStanding: "Last one standin'",
-    // 세레모니 끝 검은 화면의 받은 돈 자막 (SHEEP-150). 윗줄, 가운데 큰 금액(바꾸지 않음), 아랫줄의 이긴 사람 이름
-    paidTo: (name: string) => `to ${name}, fair an' square`,
+    // 판 끝 결과 보드 (SHEEP-187). 화면 낭독기가 읽는 이름, 오른쪽 위의 서부 문구(이긴 사람에게, 진 사람에게는 이긴 사람 이름을 넣어), 킬 수
+    endBoard: 'How it all shook out',
+    winnerLine: "Fastest iron this side o' the Pecos.",
+    loserLine: (winner: string) => `${winner} rides off with the bounty.`,
     kills: (n: number) => (n === 1 ? '1 kill' : `${n} kills`),
     lose: 'Not your day, partner',
     rematch: (n: number) => `${n} fellers go again`,
@@ -47,6 +46,8 @@ export const en = {
     killCard: 'Who brought you down',
     downedBy: 'Downed by',
     outtaTime: 'Outta time',
+    // 판 도중 나가 자살로 쓰러진 사람 (SHEEP-200). 판 끝 마지막 쓰러짐 보기에만 씀
+    litOut: 'Lit out',
     killLine: {
       head: (name: string) => `${name}'s bullet found your hat, partner.`,
       body: (name: string) => `${name}'s second slug laid you low, partner.`,
@@ -59,6 +60,7 @@ export const en = {
       head: (shooter: string, fallen: string) => `${shooter}'s bullet found ${fallen}'s hat.`,
       body: (shooter: string, fallen: string) => `${shooter}'s second slug laid ${fallen} low.`,
       timeout: (fallen: string) => `${fallen} ran outta time and turned the iron on their own self.`,
+      left: (fallen: string) => `${fallen} lit out 'fore the smoke cleared.`,
     },
   },
   // 술집 대기실과 판 끝 포스터
@@ -121,9 +123,10 @@ export const en = {
     roomList: 'Room list',
     code: 'Room code',
     join: 'Join',
-    // 첫 화면 메뉴와 입장 게시판 (시스템 기획서 방 화면 M8 첫 화면). 연습은 아직 없어 막아 둠
+    // 첫 화면 메뉴와 입장 게시판 (시스템 기획서 방 화면 M8 첫 화면, 연습)
     play: 'Play',
     practice: 'Practice',
+    help: 'Help',
     rooms: 'Rooms',
     back: 'Back',
     doubleClick: 'Double-click a room to mosey in',
@@ -168,7 +171,47 @@ export const en = {
     cancel: 'Cancel',
   },
   // 설정 창
+  // 판과 연습의 Esc 메뉴 (시스템 기획서 HUD Esc 메뉴, SHEEP-199). menu는 화면 낭독기가 읽는 이름. 설정·나가기는 lobby.settings·hud.leave를 씀. 버튼이라 말투 없이
+  pause: {
+    menu: 'Game menu',
+    resume: 'Back to game',
+  },
+  // 첫 화면 메뉴의 도움말 창 (시스템 기획서 방 화면 도움말, SHEEP-196). 창 이름은 lobby.help, 닫기는 settings.close.
+  // pages는 장마다 한 줄이고 그림(src/assets/help/)과 같은 차례. 서부 말투 없이 바로 알아듣게, 창에서 한 줄에 들어가게 씀 (사용자 결정 2026-11-11, CLAUDE.md Language)
+  help: {
+    prev: 'Back',
+    next: 'Next',
+    pages: [
+      'Create a room, or join one by code.',
+      'The duel starts when all are Ready.',
+      'One bullet. Back to back, ten paces.',
+      'At "Draw!", turn and press D.',
+      'Turning shakes your aim. Hold still.',
+      'Head: 1 shot. Body: 2 shots.',
+      'Fire within 5 seconds of "Draw!".',
+      'Last one standing wins. Ties go again.',
+    ],
+  },
+  // 첫 화면 오른쪽 위 크레딧·후원 단추와 크레딧 (시스템 기획서 방 화면 크레딧과 후원, SHEEP-203). 서부 말투 없이 씀 (사용자 결정 2026-11-12).
+  // entries는 맨 앞에 만든 사람과 만든 도구(SHEEP-208), 그 뒤 CREDITS.md의 외부 에셋과 같게 둠: 역할, 만든 사람, 작품·라이선스·받은 곳.
+  // 이름과 작품 이름은 옮기지 않음
+  credits: {
+    open: 'Credits',
+    support: 'Support',
+    title: 'Credits',
+    hint: 'Click to close',
+    entries: [
+      { role: 'Game by', who: 'minbape', detail: 'Developed with Claude Code' },
+      { role: 'Tools', who: 'Claude Code · Blender', detail: 'TypeScript · Vite · ASP.NET Core' },
+      { role: 'Revolver model', who: 'Loafbrr', detail: 'Revolver pack · CC BY 1.0 · loafbrr.itch.io' },
+      { role: 'Gun sounds', who: 'f8studios', detail: "Snake's SECOND Authentic Gun Sounds Pack · Public domain · f8studios.itch.io" },
+      { role: 'Motions', who: 'Quaternius', detail: 'Universal Animation Library · CC0 1.0 · quaternius.itch.io' },
+      { role: 'Fonts', who: 'Holtwood One SC · Rokkitt · Kelly Slab · Podkova · Zen Antique · Zen Old Mincho · ZCOOL XiaoWei · Noto Serif SC · Hahmlet · Song Myung · Nanum Myeongjo', detail: 'SIL Open Font License 1.1 · fonts.google.com' },
+      { role: 'Music', who: 'Made with Suno', detail: 'Last One Standing · Dusty Saloon · High Noon Standoff · Quickest Hand in Town' },
+    ],
+  },
   settings: {
+    // 배경음악과 효과음 크기 칸 이름. 모든 언어가 이 영어를 그대로 씀 (사용자 결정 2026-11-11, SHEEP-201)
     music: 'Music',
     effects: 'SFX',
     hand: 'Gun hand',

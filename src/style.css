@@ -1,6 +1,6 @@
 /* 서부 목판 글꼴 (시스템 기획서 방 화면 글꼴, CREDITS.md). 받는 동안은 기본 글꼴로 먼저 보임.
    글꼴마다 굵기가 하나뿐이라 모든 굵기에 같은 파일을 써 브라우저가 가짜 굵게를 덧입히지 않게 함.
-   한글 글꼴은 한글만 남겨 한글이 보일 때만 받음 */
+   다른 문자 글꼴은 unicode-range로 그 글자가 보일 때만 받음 */
 @font-face {
   font-family: 'Holtwood One SC';
   src: url('./assets/fonts/holtwood-one-sc.woff2') format('woff2');
@@ -16,8 +16,32 @@
 }
 
 @font-face {
-  font-family: 'Gasoek One';
-  src: url('./assets/fonts/gasoek-one.woff2') format('woff2');
+  font-family: 'Kelly Slab';
+  src: url('./assets/fonts/kelly-slab.woff2') format('woff2');
+  font-weight: 100 900;
+  font-display: swap;
+  unicode-range: U+0400-04FF;
+}
+
+@font-face {
+  font-family: 'Podkova';
+  src: url('./assets/fonts/podkova-medium.woff2') format('woff2');
+  font-weight: 100 900;
+  font-display: swap;
+  unicode-range: U+0400-04FF;
+}
+
+@font-face {
+  font-family: 'Hahmlet';
+  src: url('./assets/fonts/hahmlet-semibold.woff2') format('woff2');
+  font-weight: 100 900;
+  font-display: swap;
+  unicode-range: U+3131-318E, U+AC00-D7A3;
+}
+
+@font-face {
+  font-family: 'Song Myung';
+  src: url('./assets/fonts/song-myung.woff2') format('woff2');
   font-weight: 100 900;
   font-display: swap;
   unicode-range: U+3131-318E, U+AC00-D7A3;
@@ -31,11 +55,44 @@
   unicode-range: U+3131-318E, U+AC00-D7A3;
 }
 
-/* 제목·포스터·도장·칠판·남은 시간·"시작!"은 큰 글자, 버튼·창·나머지 글은 작은 글자.
-   Gasoek One에 없는 드문 한글은 명조로, 일본어·중국어·러시아어는 브라우저 기본 글꼴로 보임 */
+@font-face {
+  font-family: 'Zen Antique';
+  src: url('./assets/fonts/zen-antique.woff2') format('woff2');
+  font-weight: 100 900;
+  font-display: swap;
+  unicode-range: U+3000-30FF, U+31F0-31FF, U+4E00-9FFF, U+FF00-FFEF;
+}
+
+@font-face {
+  font-family: 'Zen Old Mincho';
+  src: url('./assets/fonts/zen-old-mincho-medium.woff2') format('woff2');
+  font-weight: 100 900;
+  font-display: swap;
+  unicode-range: U+3000-30FF, U+31F0-31FF, U+4E00-9FFF, U+FF00-FFEF;
+}
+
+@font-face {
+  font-family: 'ZCOOL XiaoWei';
+  src: url('./assets/fonts/zcool-xiaowei.woff2') format('woff2');
+  font-weight: 100 900;
+  font-display: swap;
+  unicode-range: U+3000-30FF, U+31F0-31FF, U+4E00-9FFF, U+FF00-FFEF;
+}
+
+@font-face {
+  font-family: 'Noto Serif SC';
+  src: url('./assets/fonts/noto-serif-sc-medium.woff2') format('woff2');
+  font-weight: 100 900;
+  font-display: swap;
+  unicode-range: U+3000-30FF, U+31F0-31FF, U+4E00-9FFF, U+FF00-FFEF;
+}
+
+/* 제목·포스터·도장·칠판·남은 시간·"시작!"은 큰 글자, 버튼·창·나머지 글은 작은 글자 (시안 A, SHEEP-202).
+   키릴 문자와 한글은 어느 언어에서든 닉네임에 나와 늘 넣고, 두 한글 글꼴에 없는 드문 한글은 명조로 보임.
+   일본어·중국어는 한자가 겹쳐 그 언어일 때만 넣음. 문구에 쓰인 글자만 있어 닉네임에만 쓰인 글자는 기본 글꼴로 보임 */
 :root {
-  --display: 'Holtwood One SC', 'Gasoek One', 'Sheep Myeongjo', serif;
-  --text: 'Rokkitt', 'Sheep Myeongjo', serif;
+  --display: 'Holtwood One SC', 'Kelly Slab', 'Hahmlet', 'Sheep Myeongjo', serif;
+  --text: 'Rokkitt', 'Podkova', 'Song Myung', 'Sheep Myeongjo', serif;
   /* 나무 판 무늬와 양 끝 못 머리. 버튼과 선택 칸이 같이 씀 */
   --planks: repeating-linear-gradient(180deg, #8a5a32 0 1.1cqw, #7a4c28 1.1cqw 1.4cqw);
   --nails:
@@ -45,6 +102,16 @@
   --brass: radial-gradient(circle at 35% 30%, #fff3c0, #e2b23c 45%, #a07818 100%);
   /* 누렇게 바랜 종이 바탕. 결과 카드, 포스터, 창이 같이 씀. 결·얼룩·탄 가장자리는 paper.ts가 --paper-* 변수로 넣음 */
   --paper: radial-gradient(ellipse closest-side, #ecd5a0 55%, #c2964f 120%);
+}
+
+:root:lang(ja) {
+  --display: 'Holtwood One SC', 'Kelly Slab', 'Zen Antique', 'Hahmlet', 'Sheep Myeongjo', serif;
+  --text: 'Rokkitt', 'Podkova', 'Zen Old Mincho', 'Song Myung', 'Sheep Myeongjo', serif;
+}
+
+:root:lang(zh) {
+  --display: 'Holtwood One SC', 'Kelly Slab', 'ZCOOL XiaoWei', 'Hahmlet', 'Sheep Myeongjo', serif;
+  --text: 'Rokkitt', 'Podkova', 'Noto Serif SC', 'Song Myung', 'Sheep Myeongjo', serif;
 }
 
 /* 바랜 종이 (시스템 기획서 HUD 사격 결과 카드, 방 화면 포스터). 종이는 ::after 한 겹에만 그리고 깎는 마스크도
@@ -124,7 +191,7 @@ body {
 #draw-hint,
 #lock-hint,
 #watching,
-#room {
+#body-hud {
   position: absolute;
   pointer-events: none;
 }
@@ -143,98 +210,104 @@ body {
   pointer-events: none;
 }
 
-/* 자막 카드. 술집 주인 말풍선과 같은 검은 판에 흰 이중 테. 왼쪽 초상화, 가운데 쓰러뜨린 사람, 오른쪽 맞은 자리, 아래 한 줄 */
+/* 쓰러짐 장면 (시안 B, SHEEP-193). 서부 영화처럼 위아래에 검은 띠가 밀려 들어오고 아래 띠 안에 자막을 띄움. 화면 가운데는 가리지 않음.
+   왼쪽 초상화, 가운데 위 쓰러뜨린 사람, 그 아래 한 줄, 오른쪽 맞은 자리. 판 끝 마지막 쓰러짐 보기(SHEEP-180)도 같은 띠를 씀.
+   키프레임 애니메이션은 hidden이 풀려 다시 보일 때마다 처음부터 돎 */
 #kill-card {
   position: absolute;
-  left: 50%;
-  bottom: 4cqw;
-  translate: -50% 0;
+  inset: 0;
   margin: 0;
-  display: grid;
-  grid-template-columns: auto auto auto;
-  grid-template-areas: 'face who fig' 'line line line';
-  align-items: center;
-  gap: 0.6cqw 1.6cqw;
-  padding: 1.2cqw 2cqw 1cqw;
-  background: #111;
-  color: #f4efe2;
-  border: 0.2cqw solid #f4efe2;
-  outline: 0.35cqw solid #111;
-  box-shadow: inset 0 0 0 0.35cqw #111, inset 0 0 0 0.5cqw #f4efe2aa;
   pointer-events: none;
 }
 
-/* display: grid가 hidden을 덮어 다시 숨김 */
-#kill-card[hidden],
-#win-card[hidden] {
-  display: none;
-}
-
-/* 세레모니 동안 화면 위쪽에 띄우는 이긴 사람 이름 (SHEEP-142). 자막 카드와 같은 검은 판에 흰 이중 테. 걸어가는 사람을 가리지 않게 위에 둠 */
-#win-card {
+#kill-card::before,
+#kill-card .band {
   position: absolute;
-  left: 50%;
-  top: 6cqw;
-  translate: -50% 0;
-  margin: 0;
-  display: grid;
-  justify-items: center;
-  gap: 0.6cqw;
-  max-width: 80cqw;
-  padding: 1.2cqw 3cqw 1cqw;
-  background: #111;
-  color: #f4efe2;
-  border: 0.2cqw solid #f4efe2;
-  outline: 0.35cqw solid #111;
-  box-shadow: inset 0 0 0 0.35cqw #111, inset 0 0 0 0.5cqw #f4efe2aa;
-  font: 1.8cqw / 1.2 var(--text);
-  letter-spacing: 0.1cqw;
-  text-align: center;
-  pointer-events: none;
+  left: 0;
+  right: 0;
+  background: #000;
+  animation: 0.4s ease-out both;
 }
 
-#win-card b {
-  font: 3.6cqw / 1.1 var(--display);
-  overflow-wrap: anywhere;
+#kill-card::before {
+  content: '';
+  top: 0;
+  height: 13%;
+  animation-name: bar-down;
+}
+
+#kill-card .band {
+  bottom: 0;
+  min-height: 21%;
+  box-sizing: border-box;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  grid-template-areas: 'face who fig' 'face line fig';
+  align-content: center;
+  align-items: center;
+  gap: 0.6cqw 2cqw;
+  padding: 1cqw 6cqw;
+  color: #f4efe2;
+  animation-name: bar-up;
+}
+
+@keyframes bar-down {
+  from {
+    translate: 0 -100%;
+  }
+}
+
+@keyframes bar-up {
+  from {
+    translate: 0 100%;
+  }
 }
 
 #kill-face {
   grid-area: face;
-  width: 7cqw;
+  width: 6.5cqw;
   aspect-ratio: 1;
   image-rendering: pixelated;
-  filter: sepia(0.6);
-  border: 0.25cqw solid #f4efe2;
+  border: 0.2cqw solid #cfc6b2;
 }
 
 #kill-card .who {
   grid-area: who;
-  display: grid;
-  gap: 0.3cqw;
+  align-self: end;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.3cqw 1cqw;
 }
 
 #kill-kicker {
-  font: italic 1.5cqw / 1 Georgia, 'Times New Roman', serif;
-  letter-spacing: 0.1cqw;
-  color: #d8cfb8;
+  font: 1.5cqw / 1 var(--text);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: #cfc6b2;
 }
 
 #kill-name {
-  font: 3.6cqw / 1 var(--display);
+  font: 2.6cqw / 1 var(--display);
+  letter-spacing: 0.04em;
+  overflow-wrap: anywhere;
+}
+
+#kill-line {
+  grid-area: line;
+  align-self: start;
+  margin: 0;
+  font: 2.2cqw / 1.2 var(--text);
 }
 
 #kill-card svg {
   grid-area: fig;
-  width: 5.4cqw;
-  height: 6.8cqw;
-  background: #f4efe2;
-  border-radius: 0.2cqw;
-  padding: 0.3cqw;
-  box-sizing: border-box;
+  width: 6.5cqw;
+  height: 6.5cqw;
 }
 
 #kill-card .figure {
-  fill: #2a2420;
+  fill: #8d8578;
 }
 
 #kill-hole {
@@ -245,17 +318,8 @@ body {
   fill: #c0262d66;
 }
 
-#kill-line {
-  grid-area: line;
-  font: italic 1.7cqw / 1.25 Georgia, 'Times New Roman', serif;
-  text-align: center;
-  border-top: 0.15cqw solid #f4efe255;
-  padding-top: 0.5cqw;
-}
-
-/* 모두 준비해 술집을 나서는 동안(SHEEP-137)은 술집 위에 얹은 좌석 꼬리표, 버튼, 고르기 판, 말풍선을 숨김. 그림은 캔버스가 돌림.
-   간판과 칠판 글자는 그림의 일부라 남기고, 캔버스가 뒤돌며 술집 그림을 미는 만큼(--bar-shift, 내부 px) 같이 밂 (SHEEP-173) */
-#saloon.leaving > :not(#saloon-sign, #chalkboard) {
+/* 쓰러짐 장면 동안 실린더는 아래 띠의 초상화를 가려 숨김. 쓰러져 쏠 수도 없음 */
+#kill-card:not([hidden]) ~ #ammo {
   visibility: hidden;
 }
 
@@ -264,60 +328,14 @@ body {
   pointer-events: none;
 }
 
-/* 승리 세레모니 (SHEEP-136). 이긴 사람이 해 쪽으로 걸어가는 동안 HUD를 숨김. 자막 카드는 마지막 쓰러짐 보기에 띄워 main.ts가 숨김 (SHEEP-180) */
-#game.ceremony :is(#blood, #crosshair, #flash, #hit-card, #ammo, #timer, #alive, #banner, #watching, #replay, #leave-down, #room) {
+/* 술집을 나서는 동안 좌석 꼬리표, 칠판 아래 버튼, 캐릭터 고르기 판, 술집 주인 말풍선은 숨김 (시스템 기획서 방 화면 술집 나서기, SHEEP-189) */
+#saloon.leaving > :is(#seats, #board-buttons, #wardrobe, #bartender-line) {
   visibility: hidden;
 }
 
-/* 옛 영화처럼 화면이 걸어가는 사람 쪽으로 동그랗게 닫힘(아이리스). 구멍 반지름은 --iris(1 다 열림 ~ 0 다 닫힘)에 화면 대각선 반을 곱함 */
-#iris {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background: radial-gradient(circle at 50% 58%, #0000 calc(var(--iris, 1) * 60cqw), #000 calc(var(--iris, 1) * 60cqw + 0.3cqw));
-}
-
-/* 판 끝 자막 카드 (SHEEP-150, SHEEP-169 시안 B). 다 닫힌 검은 화면 가운데에 무성 영화 자막처럼 흰 겹테 카드.
-   이긴 사람의 돈은 놋쇠 빛으로 크게, 그 아래 킬 수, 맨 아래 한 줄 */
-#paid-card {
-  position: absolute;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  background: #000;
-  pointer-events: none;
-}
-
-#paid-card[hidden] {
-  display: none;
-}
-
-#paid-card p {
-  margin: 0;
-  display: grid;
-  justify-items: center;
-  gap: 1cqw;
-  padding: 3cqw 8cqw;
-  border: 0.3cqw double #f3ead5;
-  outline: 0.6cqw solid #000;
-  outline-offset: -1.4cqw;
-  color: #f3ead5;
-  font: 2.4cqw / 1.3 var(--text);
-  text-align: center;
-}
-
-#paid-card b {
-  color: #f6dc8f;
-  font: 6cqw / 1 var(--display);
-}
-
-#paid-card [hidden] {
-  display: none;
-}
-
-/* 킬 수. 제목 글꼴은 숫자 0이 동그란 점처럼 보여 본문 글꼴로 씀 */
-#paid-kills {
-  font: bold 3.4cqw / 1.2 var(--text);
+/* 승리 세레모니 (SHEEP-136). 이긴 사람이 해 쪽으로 걸어가는 동안 HUD를 숨김. 자막 카드는 마지막 쓰러짐 보기에 띄워 main.ts가 숨김 (SHEEP-180) */
+#game.ceremony :is(#blood, #crosshair, #flash, #hit-card, #ammo, #timer, #alive, #banner, #watching, #replay, #leave-down, #body-hud) {
+  visibility: hidden;
 }
 
 /* 걷는 동안 화면 가장자리 어둠 (SHEEP-141). 가운데는 비우고 가장자리로 갈수록 검게. 짙기(opacity)와 크기(scale)는 main.ts가 정함 */
@@ -371,16 +389,17 @@ body {
 }
 
 /* 종이가 총알에 뚫린 구멍: 둘레가 그을리고, 가운데가 찢겨 뚫리고, 종이 두 쪽이 바깥으로 젖혀짐 */
-#hit-hole .scorch {
+/* 연습은 구멍마다 이 그림의 복사본(.practice-hole)을 찍어 id가 아니라 카드 안으로 고름 (SHEEP-195) */
+#hit-card .scorch {
   fill: #3a2410;
   opacity: 0.35;
 }
 
-#hit-hole .hole {
+#hit-card .hole {
   fill: #140c06;
 }
 
-#hit-hole .flap {
+#hit-card .flap {
   fill: #f3e2b6;
 }
 
@@ -450,12 +469,40 @@ body {
 }
 
 #banner,
-#watching,
-#room {
+#watching {
   color: #f2dfa7;
   font: 3cqw / 1 var(--text);
   letter-spacing: 0.4cqw;
   text-shadow: 0 0 0.3cqw #000;
+}
+
+/* 내 몸 (SHEEP-207 시안 A). 오른쪽 위에 사격 결과 카드·쓰러짐 자막과 같은 정면 블록 몸을 바랜 흰빛 45%로 두고 맞은 자리만 진한 빨강 */
+#body-hud {
+  right: 2.4cqw;
+  top: 2cqw;
+}
+
+#body-hud svg {
+  display: block;
+  width: 4cqw;
+  height: 10.4cqw;
+}
+
+#body-hud .figure {
+  fill: #f4efe2;
+  fill-opacity: 0.45;
+  stroke: #1b130d;
+  stroke-opacity: 0.5;
+  stroke-width: 0.8;
+}
+
+#body-hud .burn {
+  fill: #4a0b0e;
+  opacity: 0.85;
+}
+
+#body-hud .hole {
+  fill: #c0262d;
 }
 
 /* 리볼버 실린더. 사격 결과 카드 아래 왼쪽 아래 구석 (시스템 기획서 HUD) */
@@ -593,6 +640,43 @@ body {
   font-size: 1.8cqw;
 }
 
+/* 연습에 들어가고 나갈 때 덮는 검은 막 (SHEEP-198). 진하기는 main.ts가 움직임 */
+#fade {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  background: #000;
+}
+
+/* Esc 메뉴 (SHEEP-199). 화면을 어둡게 덮고 가운데에 폭 넓은 돌아가기 판, 그 아래 줄에 설정과 나가기를 반씩 */
+#pause {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: #000a;
+}
+
+#pause[hidden] {
+  display: none;
+}
+
+#pause-buttons {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.6cqw;
+  width: 34cqw;
+}
+
+#pause .plank {
+  padding: 1cqw 1.2cqw;
+  font: bold 2.3cqw / 1.2 var(--text);
+}
+
+#pause-resume {
+  grid-column: 1 / -1;
+}
+
 /* 다시 보기에서는 그 사람의 사격 결과를 몰라 숨김 */
 #game.replaying #hit-card {
   visibility: hidden;
@@ -709,7 +793,7 @@ body {
   }
 
   /* 도장은 떨어지지 않고 처음부터 찍혀 있음 */
-  #win :is(.poster, .stamp, .dust) {
+  #ending :is(.poster, .stamp, .dust) {
     animation: none;
   }
 }
@@ -828,6 +912,143 @@ body {
   margin-top: 1.6cqw;
 }
 
+/* 첫 화면 오른쪽 위 크레딧·후원 표지판 (SHEEP-205 시안 A). 위 가장자리에서 내려온 작은 나무 기둥(::before)에
+   메뉴 이정표와 같은 화살표 판을 박고, 후원 판은 밝은 나무. 깎은 판은 그림자가 잘려 묶음 전체에 줌.
+   #lobby button의 글꼴과 여백을 덮게 #signpost로 묶음 */
+#signpost {
+  position: absolute;
+  right: 2.4cqw;
+  top: 2.8cqw;
+  display: grid;
+  justify-items: end;
+  gap: 1cqw;
+  filter: drop-shadow(0 0.35cqw 0 #3d2412) drop-shadow(0 0.5cqw 0.5cqw #0007);
+}
+
+#signpost[hidden],
+#signpost .plank[hidden] {
+  display: none;
+}
+
+#signpost::before {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  right: 2.1cqw;
+  top: -2.8cqw;
+  bottom: -2.2cqw;
+  width: 1.4cqw;
+  border: 0.2cqw solid #3d2412;
+  background: repeating-linear-gradient(90deg, #6e4424 0 0.5cqw, #5c381c 0.5cqw 0.8cqw);
+}
+
+#signpost .plank {
+  padding-block: 0.6cqw;
+  font: bold 1.6cqw / 1.2 var(--text);
+  text-decoration: none;
+}
+
+#signpost #support {
+  background: var(--nails), repeating-linear-gradient(180deg, #a06a30 0 1.1cqw, #8a5a26 1.1cqw 1.4cqw);
+}
+
+/* 깎은 판 바깥은 잘려 보이지 않아 초점 테두리를 판 안쪽에 그림 */
+#signpost .plank:focus-visible {
+  outline-offset: -0.7cqw;
+}
+
+/* 크레딧 (SHEEP-203 시안 B). 검은 화면 아래 끝에서 올라오기 시작해 위 끝을 다 지나면 animationend로 닫힘.
+   56.25cqw는 16:9 화면의 높이 */
+#credits-panel {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background: #000;
+  color: #efe7d6;
+  cursor: pointer;
+}
+
+#credits-roll {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 100%;
+  display: grid;
+  justify-items: center;
+  gap: 2.4cqw;
+  padding-inline: 8cqw;
+  text-align: center;
+  font: 1.6cqw / 1.3 var(--text);
+  animation: credits-roll 24s linear forwards;
+}
+
+@keyframes credits-roll {
+  to {
+    translate: 0 calc(-100% - 56.25cqw);
+  }
+}
+
+#credits-title {
+  margin: 0;
+  font: 3.2cqw / 1 var(--display);
+  color: #e7bf55;
+}
+
+#credits-list {
+  display: grid;
+  gap: 2.4cqw;
+  margin: 0;
+}
+
+#credits-list div {
+  display: grid;
+  gap: 0.4cqw;
+}
+
+#credits-list dt {
+  font-size: 1.2cqw;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: #a89c84;
+}
+
+#credits-list dd {
+  margin: 0;
+}
+
+#credits-list .who {
+  font-size: 2cqw;
+}
+
+#credits-list .detail {
+  font-size: 1.3cqw;
+  color: #c9bfa8;
+}
+
+#credits-game {
+  margin: 2cqw 0 0;
+  font: 2.4cqw / 1.1 var(--display);
+  color: #e7bf55;
+}
+
+#credits-hint {
+  position: absolute;
+  right: 3cqw;
+  bottom: 2.5cqw;
+  margin: 0;
+  font: 1.3cqw / 1 var(--text);
+  color: #a89c84;
+}
+
+/* 움직임 줄이기를 켜면 올리지 않고 가운데에 둠. 닫기는 누르기와 키로만 */
+@media (prefers-reduced-motion: reduce) {
+  #credits-roll {
+    top: 50%;
+    translate: 0 -50%;
+    animation: none;
+  }
+}
+
 /* 방 목록. 들어갈 수 있는 방이 위, 그 안에서는 사람이 많은 방부터 (서버가 정렬함) */
 #room-list {
   display: grid;
@@ -906,7 +1127,8 @@ body {
 /* 줄마다 폭을 같게 나눔 */
 #lobby .row,
 #create-panel .row,
-#settings-panel .row {
+#settings-panel .row,
+#help-panel .row {
   display: flex;
   align-items: center;
   gap: 1cqw;
@@ -918,7 +1140,8 @@ body {
 
 /* 방 만들기 창과 설정 창. 화면 위를 어둡게 덮고 가운데에 낡은 종이 한 장 */
 #create-panel,
-#settings-panel {
+#settings-panel,
+#help-panel {
   position: absolute;
   inset: 0;
   display: grid;
@@ -928,12 +1151,14 @@ body {
 }
 
 #create-panel[hidden],
-#settings-panel[hidden] {
+#settings-panel[hidden],
+#help-panel[hidden] {
   display: none;
 }
 
 #create-panel .sheet,
 #settings-panel .sheet,
+#help-panel .sheet,
 #lobby #room-step {
   display: grid;
   gap: 1.2cqw;
@@ -956,10 +1181,49 @@ body {
 }
 
 #create-title,
-#settings-title {
+#settings-title,
+#help-title {
   margin: 0;
   font: 3cqw / 1 var(--display);
   text-align: center;
+}
+
+/* 도움말 창 (SHEEP-196 시안 A). 설정 창보다 넓혀 그림을 크게 보임 */
+#help-panel .sheet {
+  width: 44cqw;
+}
+
+/* 게임 화면을 찍은 그림. 검은 테를 두른 사진처럼, 도트가 흐려지지 않게 키움 */
+#help-picture {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border: 0.5cqw solid #2a1a0e;
+  box-sizing: border-box;
+  image-rendering: pixelated;
+}
+
+/* 한 줄 설명. 모든 언어에서 한 줄에 들어가게 씀 (사용자 결정 2026-11-11) */
+#help-line {
+  display: grid;
+  place-items: center;
+  min-height: 1.4em;
+  margin: 0;
+  font-weight: bold;
+  text-align: center;
+  text-wrap: balance;
+}
+
+#help-panel .row {
+  justify-content: space-between;
+}
+
+#help-count {
+  font-variant-numeric: tabular-nums;
+}
+
+#help-close {
+  justify-self: center;
 }
 
 /* 입장 게시판: 설정 창과 같은 못 박은 종이를 오른쪽에 붙임 (시안 C) */
@@ -1000,6 +1264,7 @@ body {
 #room-name,
 #settings-nickname,
 #settings-panel button,
+#help-panel button,
 .settings-open {
   font: inherit;
   padding: 0.6cqw 1.2cqw;
@@ -1497,116 +1762,227 @@ body {
   opacity: 0.85;
 }
 
-/* 판 끝 포스터. 화면을 어둡게 덮고 가운데에 술집 포스터를 크게. 클릭은 캔버스로 넘김 */
-#win {
+/* 판 끝 결과 보드 (SHEEP-187 시안 A). 이긴 사람이 석양으로 걸어가는 장면 위에 얹음. 클릭은 캔버스로 넘김.
+   각 칸은 main.ts가 걷기 시각에 맞춰 on을 붙여 차례로 띄움 (ceremony.ts boardTimes) */
+#ending {
   position: absolute;
   inset: 0;
-  display: grid;
-  place-content: center;
-  justify-items: center;
-  gap: 2cqw;
-  background: #000;
   pointer-events: none;
 }
 
-#win[hidden] {
-  display: none;
+/* 걷기 시작부터 1.5초 동안 가장자리부터 살짝 어두워짐. 가운데의 걷는 사람과 해는 밝게 남음. 짙기(--dim)는 main.ts가 정함 (SHEEP-197) */
+#end-dim {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at 50% 46%, #0000 25%, #00000059 60%, #000000b8 100%), #0000002e;
+  opacity: var(--dim, 0);
 }
 
-#win .poster {
-  width: 22cqw;
-  height: 30cqw;
+/* 끝에 검게 닫혀 술집으로 넘어감. 짙기(--fade)는 main.ts가 정함 */
+#end-fade {
+  position: absolute;
+  inset: 0;
+  background: #000;
+  opacity: var(--fade, 0);
+}
+
+/* 걷는 사람 머리 위의 이긴 사람 닉네임과 놋쇠 보안관 별. 자리는 main.ts가 머리 위 점을 화면에 옮겨 정함 */
+#walker-name {
+  position: absolute;
+  margin: 0;
+  translate: -50% -100%;
+  color: #f4efe2;
+  font: 1.6cqw / 1 var(--display);
+  white-space: nowrap;
+  text-shadow: 0 0.15cqw 0 #000, 0 0 0.6cqw #000a;
+}
+
+#walker-name .star {
+  margin-right: 0.4cqw;
+  color: #e9bf55;
+}
+
+/* 보는 사람 자신의 포스터. 왼쪽 위에 못으로 박아 비스듬히, 위에서 떨어지듯 뜸. 도장이 찍히면 종이가 눌림(pressed) */
+#end-poster {
+  position: absolute;
+  left: 4cqw;
+  top: 3.2cqw;
+  width: 16cqw;
+  height: 21.8cqw;
   box-sizing: border-box;
-  padding-top: 2.2cqw;
-  gap: 0.8cqw;
+  padding-top: 1.6cqw;
+  gap: 0.5cqw;
+  --tilt: -3deg;
+  opacity: 0;
+  translate: 0 -3cqw;
+  transition: opacity 0.45s ease-out, translate 0.45s cubic-bezier(0.2, 0.9, 0.3, 1.25);
 }
 
-#win .wanted {
-  font-size: 3.2cqw;
+#end-poster.on {
+  opacity: 1;
+  translate: 0 0;
 }
 
-#win img {
-  width: 14cqw;
+#end-poster.pressed {
+  animation: end-press 0.3s ease-out;
 }
 
-#win .nick {
-  font-size: 3cqw;
+#end-poster .wanted {
+  font-size: 2.4cqw;
 }
 
-/* Winner 도장 (SHEEP-172 B안). 별을 박은 둥근 보안관 도장을 오른쪽 아래 귀퉁이에 걸쳐 찍어 얼굴과 이름을 덜 가림.
-   포스터가 뜨고 0.6초 뒤 돌며 떨어져 0.24초에 찍히고(ceremony.ts STAMP_AT, STAMP_FALL), 그때 종이가 눌리고 흙먼지 고리가 퍼짐 */
-#win .stamp {
-  top: auto;
-  left: auto;
-  right: -1.8cqw;
-  bottom: 2.6cqw;
-  width: 12.8cqw;
-  aspect-ratio: 1;
-  box-sizing: border-box;
-  translate: none;
-  rotate: 16deg;
-  display: grid;
-  place-content: center;
-  justify-items: center;
-  padding: 0;
-  border: 0.5cqw solid #c0262d;
-  border-radius: 50%;
-  font: 1.7cqw / 1 var(--display);
-  animation: win-stamp 0.24s cubic-bezier(0.5, 0, 1, 0.6) 0.6s both;
+#end-poster img {
+  width: 10.5cqw;
 }
 
-/* 겹테의 안쪽 테. 틈을 종이색으로 칠하면 종이 밖으로 나간 부분에 밝은 고리가 떠서 비워 둠 */
-#win .stamp::before {
+#end-poster .nick {
+  max-width: 90%;
+  font-size: 1.3cqw;
+}
+
+/* 도장 (사용자 결정 2026-11-11, SHEEP-187). 이긴 사람은 붉은 WINNER, 진 사람은 검은 DEAD. 같은 네모 겹테 도장을 얼굴 가운데에 비스듬히 쾅 찍음.
+   돌며 떨어져 0.24초에 찍힘(ceremony.ts STAMP_FALL). SHEEP-172의 둥근 별 도장을 바꿈 */
+#end-poster .stamp {
+  top: 42%;
+  translate: -50% -50%;
+  rotate: -12deg;
+  padding: 0.4cqw 1.1cqw;
+  border: 0.35cqw solid currentColor;
+  border-radius: 0.3cqw;
+  color: #c0262d;
+  font: 1.9cqw / 1 var(--display);
+  letter-spacing: 0.2cqw;
+  opacity: 0;
+}
+
+#end-poster .stamp.dead {
+  color: #231710;
+  font-size: 2.2cqw;
+}
+
+/* 겹테의 안쪽 테 */
+#end-poster .stamp::before {
   content: '';
   position: absolute;
-  inset: 0.4cqw;
-  border: 0.3cqw solid #c0262d;
-  border-radius: 50%;
+  inset: 0.2cqw;
+  border: 0.2cqw solid currentColor;
+  border-radius: 0.2cqw;
 }
 
-#win .stamp small {
-  font-size: 1.2cqw;
-  letter-spacing: 0.4cqw;
+#end-poster .stamp.on {
+  opacity: 0.88;
+  animation: end-stamp 0.24s cubic-bezier(0.5, 0, 1, 0.6) both;
 }
 
-#win .poster {
-  animation: win-press 0.3s ease-out 0.84s;
-}
-
-#win .dust {
+#end-poster .dust {
   position: absolute;
-  right: 4.6cqw;
-  bottom: 9cqw;
+  left: 50%;
+  top: 42%;
+  translate: -50% -50%;
   width: 2cqw;
   aspect-ratio: 1;
   border: 0.3cqw solid #d9b77a;
   border-radius: 50%;
   opacity: 0;
-  pointer-events: none;
-  /* forwards만: 찍히기 전에는 보이지 않게 기다리는 동안 첫 장면을 미리 깔지 않음 */
-  animation: win-dust 0.5s ease-out 0.84s forwards;
 }
 
-@keyframes win-stamp {
+/* forwards만: 찍히기 전에는 보이지 않게 기다리는 동안 첫 장면을 미리 깔지 않음 */
+#end-poster .dust.on {
+  animation: end-dust 0.5s ease-out forwards;
+}
+
+/* 오른쪽 위 하늘. 서부 문구, 잔고, 킬 수를 오른쪽 정렬로 차례로 띄움. 가운데는 비워 걷는 사람과 해를 가리지 않음 */
+#end-board {
+  position: absolute;
+  right: 4cqw;
+  top: 4cqw;
+  width: 36cqw;
+  display: grid;
+  justify-items: end;
+  gap: 1.1cqw;
+  color: #f4efe2;
+  text-align: right;
+  text-shadow: 0 0.15cqw 0 #000, 0 0 0.8cqw #000c;
+}
+
+#end-board p {
+  margin: 0;
+}
+
+#end-board [data-k] {
+  opacity: 0;
+  translate: 0 0.8cqw;
+  transition: opacity 0.7s ease-out, translate 0.7s ease-out;
+}
+
+#end-board [data-k].on {
+  opacity: 1;
+  translate: 0 0;
+}
+
+#end-line {
+  padding-bottom: 0.6cqw;
+  font: 2.5cqw / 1.25 var(--display);
+  text-wrap: balance;
+}
+
+/* 잔고. 전 잔고 위에 +$100이 튀어 붙은 뒤 숫자가 세어 올라감. 제목 글꼴은 숫자 0이 동그란 점처럼 보여 본문 글꼴로 씀 */
+#end-money {
+  display: grid;
+  justify-items: end;
+}
+
+#end-board #end-plus[hidden] {
+  display: none;
+}
+
+#end-board #end-plus {
+  display: inline-block;
+  color: #e9bf55;
+  font: bold 2.2cqw / 1 var(--text);
+  translate: none;
+  scale: 0.6;
+  transition: opacity 0.3s, scale 0.35s cubic-bezier(0.3, 1.6, 0.5, 1);
+}
+
+#end-board #end-plus.on {
+  scale: 1;
+}
+
+#end-balance {
+  color: #e9bf55;
+  font: bold 5.2cqw / 1 var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+#end-balance.counting {
+  color: #fff1b8;
+}
+
+#end-kills {
+  font: bold 2.5cqw / 1.2 var(--text);
+}
+
+@keyframes end-stamp {
   from {
     opacity: 0;
     scale: 3;
-    rotate: 60deg;
+    rotate: -40deg;
   }
   to {
-    opacity: 0.85;
+    opacity: 0.88;
     scale: 1;
-    rotate: 16deg;
+    rotate: -12deg;
   }
 }
 
-@keyframes win-press {
+@keyframes end-press {
   30% {
     scale: 0.965;
   }
 }
 
-@keyframes win-dust {
+@keyframes end-dust {
   from {
     opacity: 0.9;
     scale: 1;

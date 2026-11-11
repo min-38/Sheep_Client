@@ -221,6 +221,8 @@ describe('parseServerMessage', () => {
       shooterId: 'p1',
     })
     expect(parseServerMessage('{"type":"eliminated","playerId":"p2","reason":"timeout","zone":null,"height":null,"x":null,"y":null,"shooterId":null}')).toEqual({ type: 'eliminated', playerId: 'p2', reason: 'timeout', hit: null, shooterId: null })
+    // 판 도중 방을 나가 자살로 쓰러짐 (SHEEP-200)
+    expect(parseServerMessage('{"type":"eliminated","playerId":"p2","reason":"left","zone":null,"height":null,"x":null,"y":null,"shooterId":null}')).toEqual({ type: 'eliminated', playerId: 'p2', reason: 'left', hit: null, shooterId: null })
     expect(parseServerMessage('{"type":"eliminated","playerId":"p2","reason":"shot","zone":"leg","height":0.5,"x":1,"y":1}')).toBeNull()
     expect(parseServerMessage('{"type":"eliminated","playerId":"p2","reason":"shot","zone":"body","height":"0.5","x":1,"y":1}')).toBeNull()
     expect(parseServerMessage('{"type":"eliminated","reason":"shot"}')).toBeNull()
