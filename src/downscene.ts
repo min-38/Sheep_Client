@@ -1,16 +1,22 @@
+import { SUICIDE_AIM, SUICIDE_FLASH } from './character.ts'
+import type { DownReason } from './net.ts'
 import type { Hand } from './settings.ts'
 
 // 쓰러짐 장면 (시스템 기획서 HUD 쓰러짐, SHEEP-166. SHEEP-119의 위에서 느리게 보기를 바꿈). 내가 쓰러진 것을 보여 주는 때부터
-// SCENE_MS 동안 내 눈 그대로 맞은 쪽으로 넘어져 바닥에 눕고, 끝나면 관전으로 감. 서부 영화 같은 느린 화면이나 띠는 없음.
+// sceneMs 동안 내 눈 그대로 맞은 쪽으로 넘어져 바닥에 눕고, 끝나면 관전으로 감. 서부 영화 같은 느린 화면이나 바랜 색은 없음.
 // 이 눈은 내 화면에서만이고 서버와 다른 사람은 모름
 
-// ms. 함께 쓰러져 재대결로 가도 카운트다운(결과 8초 뒤) 전에 끝남. 관전할 사람이 없으면 장면이 끝나도 누운 눈 그대로 둠 (SHEEP-175).
+// ms. 바닥에 닿은 뒤 위아래 검은 띠와 자막을 더 보이는 시간. 다 읽을 만큼 둠 (사용자 결정 2026-11-11, SHEEP-193).
 // ponytail: 임시 값. 플레이해 보며 정함
-export const SCENE_MS = 2500
+const CARD_HOLD = 3000
 
-// ms. 바닥에 닿은 뒤 재대결 글자를 누운 화면 위에 띄우기까지 뜸. 닿자마자 띄우면 급해 여유를 둠 (사용자 결정 2026-11-11, SHEEP-175).
+// 쓰러짐 장면 길이(ms). 시간 초과는 옆머리를 쏘는 동안만큼 김. 함께 쓰러져 재대결로 가도 카운트다운(결과 8초 뒤) 전에 끝남.
+// 관전할 사람이 없으면 장면이 끝나도 누운 눈 그대로 둠 (SHEEP-175)
+export const sceneMs = (reason: DownReason) => (reason !== 'shot' ? SUICIDE_AIM + SUICIDE_FLASH : 0) + LANDED_MS + CARD_HOLD
+
+// ms. 장면이 끝나 자막이 걷힌 뒤 재대결 글자를 누운 화면 위에 띄우기까지 뜸. 걷히자마자 띄우면 급해 여유를 둠 (사용자 결정 2026-11-11, SHEEP-175, SHEEP-193).
 // ponytail: 임시 값. 플레이해 보며 정함
-export const TEXT_PAUSE = 1500
+export const TEXT_PAUSE = 500
 
 // 넘어지는 쪽. 내가 보던 쪽을 앞으로 잼
 export type FallSide = 'forward' | 'back' | 'left' | 'right'

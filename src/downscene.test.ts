@@ -1,21 +1,22 @@
 import { describe, expect, test } from 'vitest'
 import { SUICIDE_AIM, SUICIDE_FLASH } from './character.ts'
-import { fallEye, fallSide, LANDED_MS, SCENE_MS, suicideSide } from './downscene.ts'
+import { fallEye, fallSide, LANDED_MS, sceneMs, suicideSide, TEXT_PAUSE } from './downscene.ts'
 
-// 서버의 결과를 보여 주는 시간(시스템 기획서 판 흐름 시간). 함께 쓰러져 재대결로 가면 내 쓰러짐이 보인 뒤 적어도 이만큼 지나야 카운트다운임
-const RESULT_MS = 3000
+// 서버의 재대결 결과를 보여 주는 시간(시스템 기획서 판 흐름 시간). 함께 쓰러져 재대결로 가면 내 쓰러짐이 보인 뒤 적어도 이만큼 지나야 카운트다운임
+const RESULT_MS = 8000
 // 지연 보정 최대 시간 W(시스템 기획서 리볼버). 탈락은 맞은 발사에서 W 뒤에 오고, 결과는 W + D 뒤에 정해짐
 const W_MS = 200
 
 describe('쓰러짐 장면 시간 (시스템 기획서 HUD 쓰러짐)', () => {
-  test('재대결 카운트다운 전에 끝남: 내 쓰러짐이 보인 뒤 가장 이른 카운트다운은 결과 시간 뒤', () => {
-    // 내 탈락은 결과를 정하기 전에 오고, 보간 지연(0.1초)과 받는 지연(0.4초까지)만큼 늦게 보여도 남음
-    expect(SCENE_MS + 100 + 400).toBeLessThanOrEqual(RESULT_MS + W_MS)
+  test('바닥에 닿고 3초 더 자막을 보임: 맞으면 3.83초, 시간 초과면 옆머리를 쏘는 0.7초만큼 더 김', () => {
+    expect(sceneMs('shot')).toBe(LANDED_MS + 3000)
+    expect(sceneMs('timeout')).toBe(SUICIDE_AIM + SUICIDE_FLASH + LANDED_MS + 3000)
+    expect(sceneMs('timeout')).toBe(4530)
   })
 
-  test('맞아도, 시간 초과로 옆머리를 쏴도 장면 안에서 바닥에 닿고 잠시 누워 있음', () => {
-    expect(LANDED_MS + 1000).toBeLessThan(SCENE_MS)
-    expect(SUICIDE_AIM + SUICIDE_FLASH + LANDED_MS + 500).toBeLessThan(SCENE_MS)
+  test('재대결 카운트다운 전에 재대결 글자를 2.5초 넘게 보임', () => {
+    // 내 탈락은 결과를 정하기 전에 오고, 보간 지연(0.1초)과 받는 지연(0.4초까지)만큼 늦게 보여도 남음
+    expect(sceneMs('timeout') + TEXT_PAUSE + 100 + 400 + 2500).toBeLessThanOrEqual(RESULT_MS + W_MS)
   })
 })
 

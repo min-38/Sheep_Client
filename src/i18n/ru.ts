@@ -162,9 +162,22 @@ export const ru: Copy = {
       'Побеждает последний. Ничья — заново.',
     ],
   },
+  credits: {
+    open: 'Титры',
+    support: 'Поддержать',
+    title: 'Титры',
+    hint: 'Нажмите, чтобы закрыть',
+    entries: [
+      { role: 'Модель револьвера', who: 'Loafbrr', detail: 'Revolver pack · CC BY 1.0 · loafbrr.itch.io' },
+      { role: 'Звуки выстрелов', who: 'f8studios', detail: "Snake's SECOND Authentic Gun Sounds Pack · Общественное достояние · f8studios.itch.io" },
+      { role: 'Движения', who: 'Quaternius', detail: 'Universal Animation Library · CC0 1.0 · quaternius.itch.io' },
+      { role: 'Шрифты', who: 'Holtwood One SC · Rokkitt · Kelly Slab · Podkova · Zen Antique · Zen Old Mincho · ZCOOL XiaoWei · Noto Serif SC · Hahmlet · Song Myung · Nanum Myeongjo', detail: 'SIL Open Font License 1.1 · fonts.google.com' },
+      { role: 'Музыка', who: 'Создана в Suno', detail: 'Last One Standing · Dusty Saloon · High Noon Standoff · Quickest Hand in Town' },
+    ],
+  },
   settings: {
-    music: 'Музыка',
-    effects: 'Эффекты',
+    music: en.settings.music, // 영어 그대로 (SHEEP-201)
+    effects: en.settings.effects, // 영어 그대로 (SHEEP-201)
     hand: 'Рука',
     right: 'Правая',
     left: 'Левая',
