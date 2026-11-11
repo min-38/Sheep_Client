@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { BURST_MS, burst, pool, POOL_MS } from './blood.ts'
+import { bulletDir, BURST_MS, burst, exitPoint, pool, POOL_MS } from './blood.ts'
 import type { Box } from './character.ts'
 
 describe('burst', () => {
@@ -21,10 +21,47 @@ describe('burst', () => {
     expect(new Set(early.map((d) => Math.sign(d.side))).size).toBeGreaterThan(1)
   })
 
+  test('대부분은 총알이 날아가던 쪽으로 튀고, 들어간 자리에서 쏜 사람 쪽(back)으로는 적게 덜 멀리 튐 (SHEEP-176)', () => {
+    const drops = burst(300)
+    const ahead = drops.filter((d) => !d.back)
+    const back = drops.filter((d) => d.back)
+    expect(back.length).toBeGreaterThan(0)
+    expect(ahead.length).toBeGreaterThan(back.length)
+    expect(Math.max(...back.map((d) => d.out))).toBeLessThan(Math.min(...ahead.map((d) => d.out)))
+  })
+
   test('BURST_MS가 지나면 사라지고, 맞기 전에는 없음', () => {
     expect(burst(BURST_MS - 1).length).toBeGreaterThan(0)
     expect(burst(BURST_MS)).toEqual([])
     expect(burst(-1)).toEqual([])
+  })
+})
+
+describe('exitPoint (SHEEP-176)', () => {
+  test('총알이 원기둥 가운데를 지나면 맞은 자리의 반대쪽 겉면으로 나감', () => {
+    const exit = exitPoint({ x: 1.15, y: 1 }, { x: 1, y: 1 }, { x: -1, y: 0 })
+    expect(exit.x).toBeCloseTo(0.85)
+    expect(exit.y).toBeCloseTo(1)
+  })
+
+  test('겉면을 스치면 맞은 자리에서 바로 나감', () => {
+    const exit = exitPoint({ x: 1, y: 1.15 }, { x: 1, y: 1 }, { x: 1, y: 0 })
+    expect(exit.x).toBeCloseTo(1)
+    expect(exit.y).toBeCloseTo(1.15)
+  })
+})
+
+describe('bulletDir (SHEEP-176)', () => {
+  test('맞은 자리를 가장 가깝게 지나는 발사의 쪽을 고름', () => {
+    // (0, 0)에서 +x로 쏜 발사가 (4, 0.05)를 맞힘. (0, 3)에서 +y로 쏜 발사는 그 자리를 지나지 않음
+    const d = bulletDir([{ x: 0, y: 3, angle: Math.PI / 2 }, { x: 0, y: 0, angle: 0 }], { x: 4, y: 0.05 })
+    expect(d?.x).toBeCloseTo(1)
+    expect(d?.y).toBeCloseTo(0)
+  })
+
+  test('맞은 자리를 등지고 쏜 발사는 고르지 않고, 고를 발사가 없으면 null', () => {
+    expect(bulletDir([{ x: 0, y: 0, angle: Math.PI }], { x: 4, y: 0 })).toBeNull()
+    expect(bulletDir([], { x: 4, y: 0 })).toBeNull()
   })
 })
 

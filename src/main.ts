@@ -32,7 +32,7 @@ import { oneTab } from './tablock.ts'
 import { nextTarget } from './spectate.ts'
 import { drawSmoke, HALO_ALPHA, HALO_SIZE, smoke, SMOKE_MS, SMOKE_PX } from './smoke.ts'
 import { along, bulletDots, bulletRange, EYE_HEIGHT, FLIGHT_MS } from './bullet.ts'
-import { burst, BURST_MS, pool } from './blood.ts'
+import { bulletDir, burst, BURST_MS, exitPoint, pool } from './blood.ts'
 import { fallDelay, heardFrom, loadEffects, play, playDoor, playFall, playSignal, playStamp, playStep, playWhoosh, setEffectsVolume, stampOf, toAudioTime } from './sound.ts'
 import { darkness, stepDip } from './tension.ts'
 import type { Thing } from './sprite.ts'
@@ -353,8 +353,8 @@ function othersAt(t: number, viewer: string, scene: Scene): Thing[] {
       const upright = duel || (counted !== null && counted < 0 && drawn >= 0) ? (drawn >= 0 ? body.draw(drawn, s.pitch) : body.rest) : s.pose === 'walk' ? stepping(body) : reloadingFor !== null && reloadingFor < RELOAD_END ? body.reload(reloadingFor) : body.stand(t)
       // 불꽃 동안은 쏜 각도로 그림. 돌고 바로 쏘면 돌아간 각도는 다음 state로 늦게 옴
       const down = scene.downs.get(id)
-      const fallen = down && { landed: t - down.at - fallDelay(down.reason), reason: down.reason }
-      const figure = withWounds({ x: s.x, y: s.y, facing: flashing ? shot.angle : s.angle, ...(flashing ? body.fire(s.pitch) : poseAt(body, down, t, upright)) }, body, scene.hits.get(id), t, fallen)
+      const fallen = down && { landed: t - down.at - fallDelay(down.reason), since: t - down.at, reason: down.reason }
+      const figure = withWounds({ x: s.x, y: s.y, facing: flashing ? shot.angle : s.angle, ...(flashing ? body.fire(s.pitch) : poseAt(body, down, t, upright)) }, body, scene.hits.get(id), t, fallen, upright)
       if (shot === undefined || t < shot.at || t >= shot.at + SMOKE_MS) return [figure]
       // 연기는 쏜 쪽으로 겨눈 총구에서 나와 공중에 남음. 그 뒤 돌거나 쓰러져도 따라가지 않음 (SHEEP-124).
       // 반동으로 들린 총구(fire)가 아니라 겨눈 총구(aim)라야 0.1초 뒤 팔이 내려와도 연기가 총 위에 떠 보이지 않음
@@ -373,15 +373,18 @@ function othersAt(t: number, viewer: string, scene: Scene): Thing[] {
     })
 }
 
-// 그 사람 몸에 남은 상처를 작은 상자로 더함. 맞은 뒤 처음 그릴 때 그때 모습의 가장 가까운 상자에 붙여, 그 뒤로는 그 상자를 따라감 (SHEEP-126).
-// fallen이면 쓰러져 바닥에 닿은 뒤 지난 시간(landed, ms)만큼 번진 피 웅덩이를 몸 밑에 더함
-function withWounds(fig: Figure, body: Body, list: Hit[] | undefined, t: number, fallen?: { landed: number; reason: Down['reason'] }): Figure {
+// 그 사람 몸에 남은 상처를 작은 상자로 더함. 맞은 뒤 처음 그릴 때 선 모습(upright)의 가장 가까운 상자에 붙여, 그 뒤로는 그 상자를 따라감 (SHEEP-126).
+// 지금 모습에 붙이면 쓰러진 뒤에야 처음 그리는 몸(내 몸, 관전하던 사람)은 선 높이의 맞은 자리가 누운 몸의 엉뚱한 상자에 붙음 (SHEEP-176).
+// fallen이면 쓰러져 바닥에 닿은 뒤 지난 시간(landed, ms)만큼 번진 피 웅덩이를 몸 밑에 더함. 시간 초과면 옆머리를 쏜 때(since가 SUICIDE_AIM)부터 그 상처를 더함
+function withWounds(fig: Figure, body: Body, list: Hit[] | undefined, t: number, fallen?: { landed: number; since: number; reason: Down['reason'] }, upright: Pose = fig): Figure {
   const shown = (list ?? []).filter((h) => h.at <= t)
-  if (shown.length === 0 && (fallen?.landed ?? 0) <= 0) return fig
+  const shotSelf = fallen?.reason === 'timeout' && fallen.since >= SUICIDE_AIM
+  if (shown.length === 0 && !shotSelf && (fallen?.landed ?? 0) <= 0) return fig
   // 불꽃 상자처럼 동작마다 더해지는 상자에는 붙이지 않음
   const own = fig.boxes.slice(0, body.rest.boxes.length)
-  for (const h of shown) h.wound ??= pinWound(own, toModel(fig.x, fig.y, fig.facing, h.x, h.y, h.height))
-  const wounds = shown.map((h) => woundBox(own, h.wound!))
+  const standing = upright.boxes.slice(0, body.rest.boxes.length)
+  for (const h of shown) h.wound ??= pinWound(standing, toModel(fig.x, fig.y, fig.facing, h.x, h.y, h.height))
+  const wounds = [...shown.map((h) => woundBox(own, h.wound!)), ...(shotSelf ? [woundBox(own, body.templeWound)] : [])]
   if (!fallen) return { ...fig, boxes: [...fig.boxes, ...wounds] }
   // 웅덩이는 쓰러뜨린 상처 밑에. 시간 초과(자살)면 머리 밑에. 머리는 선 모습에서 가장 높은 상자
   const head = own[body.rest.boxes.reduce((m, b, i, all) => (b.c[1] > all[m].c[1] ? i : m), 0)].c
@@ -392,21 +395,49 @@ function withWounds(fig: Figure, body: Body, list: Hit[] | undefined, t: number,
 // 피 색. 튀는 조각은 상처보다 밝음
 const BLOOD_RGB: readonly [number, number, number] = [150, 15, 15]
 
-// 맞은 자리에서 튀는 피 (SHEEP-126). 몸 가운데에서 맞은 자리 쪽(바깥)으로 부채꼴로 퍼지며 떨어짐. 바닥 아래로는 내려가지 않음
+// 맞은 자리에서 튀는 피 (SHEEP-126). 대부분은 총알이 날아가던 쪽으로 몸을 지나 나간 자리에서, 몇 개는 들어간 자리에서 쏜 사람 쪽으로 튐.
+// 시간 초과는 옆머리를 쏜 때 총 든 손 쪽 관자놀이로 들어가 반대쪽 옆으로 나감 (사용자 결정 2026-11-11, SHEEP-176). 바닥 아래로는 내려가지 않음
 function bloodAt(t: number, scene: Scene): Thing[] {
-  return [...scene.hits].flatMap(([id, list]): Thing[] => {
+  type At = { x: number; y: number }
+  // entry는 들어간 자리, exit는 나간 자리, d는 총알이 날아가던 쪽(바닥 평면의 단위 벡터), height는 높이(칸)
+  const spray = (elapsed: number, entry: At, exit: At, d: At, height: number): Thing[] =>
+    burst(elapsed).map((drop) => {
+      const from = drop.back ? entry : exit
+      const k = drop.back ? -1 : 1
+      return { x: from.x + k * d.x * drop.out - d.y * drop.side, y: from.y + k * d.y * drop.out + d.x * drop.side, z: Math.max(0.01, height + drop.up), size: 0.03, alpha: drop.alpha, rgb: BLOOD_RGB }
+    })
+  const shot = [...scene.hits].flatMap(([id, list]): Thing[] => {
     const samples = scene.history.get(id)
     if (!samples) return []
     return list
       .filter((h) => t >= h.at && t < h.at + BURST_MS)
       .flatMap((h) => {
         const c = sampleAt(samples, h.at)
+        // 맞은 자리는 누가 쐈는지 담지 않아, 그 전에 쏜 다른 사람의 발사 중 맞은 자리를 지나는 것을 고름.
+        // 못 고르면 맞은 자리에서 몸 가운데 쪽으로 들어온 것으로 봄
+        const fired = [...scene.shots].flatMap(([sid, s]) => {
+          const from = sid !== id && s.at <= h.at ? scene.history.get(sid) : undefined
+          return from ? [{ ...sampleAt(from, s.at), angle: s.angle }] : []
+        })
         const len = Math.hypot(h.x - c.x, h.y - c.y) || 1
-        const nx = (h.x - c.x) / len
-        const ny = (h.y - c.y) / len
-        return burst(t - h.at).map((d) => ({ x: h.x + nx * d.out - ny * d.side, y: h.y + ny * d.out + nx * d.side, z: Math.max(0.01, h.height + d.up), size: 0.03, alpha: d.alpha, rgb: BLOOD_RGB }))
+        const d = bulletDir(fired, h) ?? { x: (c.x - h.x) / len, y: (c.y - h.y) / len }
+        return spray(t - h.at, h, exitPoint(h, c, d), d, h.height)
       })
   })
+  const self = [...scene.downs].flatMap(([id, down]): Thing[] => {
+    const elapsed = t - down.at - SUICIDE_AIM
+    const samples = scene.history.get(id)
+    const look = scene.characters.get(id)
+    if (down.reason !== 'timeout' || elapsed < 0 || elapsed >= BURST_MS || !samples || !look) return []
+    const s = sampleAt(samples, down.at)
+    const body = characterBody(look.character, look.color, look.hand)
+    const w = woundBox(body.rest.boxes, body.templeWound).c
+    const [ix, iy, height] = inWorld(s.x, s.y, s.angle, w)
+    const [ox, oy] = inWorld(s.x, s.y, s.angle, [-w[0], w[1], w[2]])
+    const len = Math.hypot(ox - ix, oy - iy) || 1
+    return spray(elapsed, { x: ix, y: iy }, { x: ox, y: oy }, { x: (ox - ix) / len, y: (oy - iy) / len }, height)
+  })
+  return [...shot, ...self]
 }
 
 // 총알 색과 크기(칸). 머리는 어두운 납, 잔상은 달군 빛. 실제보다 크게 둬 결투 거리에서도 1~2px로 보임. ponytail: 화면을 보며 맞출 값
@@ -706,8 +737,8 @@ function frame(now: number) {
     const look = characters.get(id)!
     const body = characterBody(look.character, look.color, look.hand)
     const motion = lastFallMotion(now - INTERP_DELAY - down.at, fallDelay(down.reason), fallSlow(down.reason))
-    const fallen = { landed: motion - fallDelay(down.reason), reason: down.reason }
-    const figure = withWounds({ x: at.x, y: at.y, facing: at.angle, ...poseAt(body, { at: 0, reason: down.reason }, motion, body.rest) }, body, hits.get(id), now - INTERP_DELAY, fallen)
+    const fallen = { landed: motion - fallDelay(down.reason), since: motion, reason: down.reason }
+    const figure = withWounds({ x: at.x, y: at.y, facing: at.angle, ...poseAt(body, { at: 0, reason: down.reason }, motion, body.rest) }, body, hits.get(id), now - INTERP_DELAY, fallen, body.rest)
     const things = [figure, ...othersAt(now - INTERP_DELAY, id, live()), ...bulletsAt(now - INTERP_DELAY, id, live(), grid), ...bloodAt(now - INTERP_DELAY, live())]
     renderFrame(pixels, W, H, grid, lastFallCamera(at.x, at.y, at.angle, now - INTERP_DELAY - down.at, STAGED_FOV), things, SKIES[timeOfDay(standing ?? history.size)])
     ctx.putImageData(image, 0, 0)

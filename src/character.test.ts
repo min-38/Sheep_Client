@@ -541,6 +541,26 @@ describe('상처 (SHEEP-126)', () => {
     expect(Math.hypot(...onFallen.c.map((v, i) => v - fallen.boxes[wound.box].c[i]))).toBeCloseTo(Math.hypot(...onRest.c.map((v, i) => v - trunk.c[i])), 9)
   })
 
+  test('쓰러진 뒤 처음 그려도 맞을 때 선 모습에 붙여야 같은 자리를 따라감 (SHEEP-176)', () => {
+    // 머리 앞 맞은 자리. 누운 모습에 바로 붙이면 선 높이(28블록)의 점이 엉뚱한 상자에 붙음
+    const hit: [number, number, number] = [0, 28, 2]
+    const onRest = pinWound(body.rest.boxes, hit)
+    const fallen = body.fall(5000)
+    expect(pinWound(fallen.boxes, hit).box).not.toBe(onRest.box)
+    const head = body.rest.boxes.reduce((m, b, i, all) => (b.c[1] > all[m].c[1] ? i : m), 0)
+    expect(Math.abs(body.rest.boxes[onRest.box].c[1] - body.rest.boxes[head].c[1])).toBeLessThan(4)
+  })
+
+  test('자살 상처는 총 든 손 쪽 옆머리에 붙음 (SHEEP-176)', () => {
+    for (const [hand, sign] of [['right', 1], ['left', -1]] as const) {
+      const b = characterBody(0, undefined, hand)
+      const box = woundBox(b.rest.boxes, b.templeWound)
+      expect(Math.sign(box.c[0])).toBe(sign)
+      expect(box.c[1]).toBeGreaterThan(26)
+      expect(box.c[1]).toBeLessThan(30)
+    }
+  })
+
   test('상자 안쪽에 든 점도 가장 가까운 겉면으로 밀어냄', () => {
     const wound = pinWound(body.rest.boxes, [0, 20, 0.2])
     const trunk = body.rest.boxes[wound.box]
