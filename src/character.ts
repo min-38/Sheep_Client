@@ -9,6 +9,7 @@ import rosa from './assets/characters/rosa.json'
 import silas from './assets/characters/silas.json'
 import motionData from './assets/motions.json'
 import revolverData from './assets/revolver-rig.json'
+import { isPool } from './blood.ts'
 import { DRAW_MS, HOLSTER_MS, RELOAD_AT, RELOAD_END, RELOAD_MS, reloadNod, reloadTime, revolverMesh } from './gun.ts'
 import { HEAD } from './hitcard.ts'
 import { horizonY, pack, tint, type Camera } from './render.ts'
@@ -582,8 +583,9 @@ export function portraitUrl(character: number, color?: number): string {
 export const corners = (b: Box): V[] =>
   Array.from({ length: 8 }, (_, i) => b.axes.reduce((p, axis, j) => add(p, axis, (i >> j) & 1 ? b.half[j] : -b.half[j]), b.c))
 
-// 결투장에 선 사람 하나. facing은 바라보는 각도(라디안, 0 = +x)
-export type Figure = { x: number; y: number; facing: number } & Pose
+// 결투장에 선 사람 하나. facing은 바라보는 각도(라디안, 0 = +x). downAt은 쓰러지기 시작한 시각(ms)이고 서 있으면 없음.
+// 쓰러진 몸끼리 겹치면 늦게 쓰러진 몸을 먼저 몸 위에 얹음 (restOn)
+export type Figure = { x: number; y: number; facing: number; downAt?: number } & Pose
 
 // 격자 좌표 (wx, wy)와 높이 h(칸)를 x, y에 facing으로 선 사람의 모델 좌표(블록)로. inWorld를 되돌림
 export function toModel(x: number, y: number, facing: number, wx: number, wy: number, h: number): V {
@@ -633,13 +635,83 @@ export function inWorld(x: number, y: number, facing: number, p: V): [number, nu
   return [x + (-sin * p[0] + cos * p[2]) * CELL, y + (cos * p[0] + sin * p[2]) * CELL, p[1] * CELL]
 }
 
-// 사람 하나를 그리는 동안 픽셀마다 가장 가까운 면까지의 깊이(칸). 상자와 총의 삼각형이 서로 가림. 화면 크기가 바뀌면 다시 만듦
+// 블록. 상자 겉면끼리 이만큼 닿는 것은 파고든 것으로 치지 않음
+const TOUCH = 0.01
+
+// 상자 b를 모델 좌표 (x, z)에서 위아래로 꿰는 곧은 선이 상자 안을 지나는 높이 구간 [아래, 위](블록). 안 지나면 null
+function column(b: Box, x: number, z: number): readonly [number, number] | null {
+  let lo = -Infinity
+  let hi = Infinity
+  for (let i = 0; i < 3; i++) {
+    const a = b.axes[i]
+    // 높이 0인 점의 이 축 몫. 높이가 s면 o + s * a[1]
+    const o = (x - b.c[0]) * a[0] - b.c[1] * a[1] + (z - b.c[2]) * a[2]
+    const half = b.half[i] - TOUCH
+    if (Math.abs(a[1]) < 1e-9) {
+      if (Math.abs(o) > half) return null
+      continue
+    }
+    const t0 = (-half - o) / a[1]
+    const t1 = (half - o) / a[1]
+    lo = Math.max(lo, Math.min(t0, t1))
+    hi = Math.min(hi, Math.max(t0, t1))
+  }
+  return lo <= hi ? [lo, hi] : null
+}
+
+// 사람 from의 모델 좌표 상자를 사람 to의 모델 좌표로 옮김. 둘 다 위가 y이고 블록 크기가 같아 세로축으로 돌리고 옮기기만 함
+function moveInto(b: Box, from: Figure, to: Figure): Box {
+  const at = (p: V) => toModel(to.x, to.y, to.facing, ...inWorld(from.x, from.y, from.facing, p))
+  const o = at([0, 0, 0])
+  const turn = (a: V) => sub(at(a), o)
+  return { ...b, c: at(b.c), axes: [turn(b.axes[0]), turn(b.axes[1]), turn(b.axes[2])] }
+}
+
+// 모델 원점에서 가장 먼 상자 꼭짓점까지의 바닥 거리(칸). 두 사람이 이보다 멀면 겹칠 수 없음
+const reach = (f: Figure) => Math.max(0, ...f.boxes.flatMap(corners).map((p) => Math.hypot(p[0], p[2]))) * CELL
+
+// 상자 겉면 바로 안쪽의 점들: 가운데와, 꼭짓점을 가운데 쪽으로 조금 당긴 점 8개. 위아래 선을 꿰어 볼 바닥 자리로 씀
+const inner = (b: Box): V[] => [b.c, ...corners(b).map((q) => add(b.c, sub(q, b.c), 0.95))]
+
+// 쓰러진 몸 fig를 먼저 누운 몸들(under) 위에 얹은 모습 (SHEEP-181). 겹치면 서로 파고들지 않을 만큼만 통째로 올리고, 겹치지 않으면 fig 그대로.
+// 두 몸의 상자 짝마다 두 상자 안쪽 점의 바닥 자리에서 위아래 선을 꿰어, 아래 몸 상자 윗면이 fig 상자 밑면보다 높은 만큼을 잼.
+// 피 웅덩이는 바닥에 그대로 두고 재지도 않음
+export function restOn(fig: Figure, under: readonly Figure[]): Figure {
+  const own = fig.boxes.filter((b) => !isPool(b))
+  let lift = 0
+  for (const u of under) {
+    if (Math.hypot(fig.x - u.x, fig.y - u.y) > reach(fig) + reach(u)) continue
+    const theirs = u.boxes.filter((b) => !isPool(b)).map((t) => ({ t, at: inner(t) }))
+    for (const b of own.map((b) => moveInto(b, fig, u))) {
+      const mine = inner(b)
+      for (const { t, at } of theirs) {
+        for (const p of [...mine, ...at]) {
+          const below = column(b, p[0], p[2])
+          const top = below && column(t, p[0], p[2])
+          if (below && top) lift = Math.max(lift, top[1] - below[0])
+        }
+      }
+    }
+  }
+  if (lift === 0) return fig
+  const up = (p: V): V => [p[0], p[1] + lift, p[2]]
+  return { ...fig, boxes: fig.boxes.map((b) => (isPool(b) ? b : { ...b, c: up(b.c) })), gun: fig.gun.map(up), ...(fig.muzzle && { muzzle: up(fig.muzzle) }) }
+}
+
+// 픽셀마다 가장 가까운 면까지의 깊이(칸). 상자와 총의 삼각형이 서로 가림. 화면 크기가 바뀌면 다시 만듦
 let depth = new Float64Array(0)
+
+// 결투장의 사람들을 그리기 전에 한 번 부름. 깊이를 화면 전체에 벽까지의 거리로 채워, 그 뒤 shared로 그리는 사람들이 픽셀마다 서로 가림.
+// 사람마다 따로 채우면 몸끼리는 가운데가 먼 것부터 덮어 그린 순서대로만 가려, 겹쳐 누운 몸이 엉뚱하게 그려짐 (SHEEP-181)
+export function clearDepth(w: number, h: number, zbuf: Float64Array) {
+  if (depth.length !== w * h) depth = new Float64Array(w * h)
+  for (let py = 0; py < h; py++) depth.set(zbuf.subarray(0, w), py * w)
+}
 
 // 사람을 그 자리와 각도에서 본 대로 그림. 픽셀마다 눈에서 쏜 광선이 처음 닿는 상자 면을 칠하고, 그 면이 벽(zbuf)보다 멀면 건너뜀.
 // 광선의 t는 카메라에서 앞으로 간 수직 거리라 벽까지의 거리(zbuf)와 바로 견줌. 그다음 총의 삼각형을 칠하며 픽셀마다 깊이를 견줌.
-// light는 그 시간대의 빛 색조
-export function drawFigure(pixels: Uint32Array, w: number, h: number, zbuf: Float64Array, cam: Camera, fig: Figure, light: RGB) {
+// light는 그 시간대의 빛 색조. shared면 clearDepth로 채운 깊이를 이어 써 앞서 그린 사람과 픽셀마다 가림
+export function drawFigure(pixels: Uint32Array, w: number, h: number, zbuf: Float64Array, cam: Camera, fig: Figure, light: RGB, shared = false) {
   if (depth.length !== w * h) depth = new Float64Array(w * h)
   const proj = w / (2 * Math.hypot(cam.planeX, cam.planeY))
   const horizon = horizonY(h, proj, cam.pitch)
@@ -693,7 +765,7 @@ export function drawFigure(pixels: Uint32Array, w: number, h: number, zbuf: Floa
   const y1 = Math.min(h, Math.max(...local.map((b) => (b.x0 < b.x1 ? b.y1 : 0)), ...gunOn.map((s) => Math.ceil(s[1]) + 1)))
   // 화면 밖 옆에 선 사람은 범위가 빔. 상자 범위는 화면 폭으로 자르지 않아 x0가 w를 넘을 수 있고, 그대로 두면 깊이 버퍼 밖에 씀 (SHEEP-134)
   if (x0 >= x1 || y0 >= y1) return
-  for (let py = y0; py < y1; py++) depth.set(zbuf.subarray(x0, x1), py * w + x0)
+  if (!shared) for (let py = y0; py < y1; py++) depth.set(zbuf.subarray(x0, x1), py * w + x0)
 
   for (let px = x0; px < x1; px++) {
     const camX = (2 * (px + 0.5)) / w - 1

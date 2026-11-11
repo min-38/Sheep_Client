@@ -83,6 +83,9 @@ const PATCHES = [
   { off: 0.55, dir: 5.3, size: 0.45, turn: 0.5 },
 ]
 
+// 상자가 웅덩이 조각인지. 몸을 다른 몸 위에 얹어 올릴 때 웅덩이는 바닥에 둠 (SHEEP-181)
+export const isPool = (b: Box) => b.rgb === POOL_RGB
+
 // center는 웅덩이 가운데의 모델 좌표 [x, z](블록), elapsed는 바닥에 닿은 뒤 지난 시간(ms)
 export function pool(center: readonly [number, number], elapsed: number): Box[] {
   if (elapsed <= 0) return []
