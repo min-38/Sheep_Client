@@ -102,6 +102,7 @@ export const de: Copy = {
     join: 'Beitreten',
     play: 'Spielen',
     practice: 'Training',
+    help: 'Hilfe',
     rooms: 'Räume',
     back: 'Zurück',
     doubleClick: "Doppelklick auf 'nen Raum, und rein mit dir",
@@ -140,6 +141,20 @@ export const de: Copy = {
     players: 'Spieler',
     ok: 'Erstellen',
     cancel: 'Abbrechen',
+  },
+  help: {
+    prev: 'Zurück',
+    next: 'Weiter',
+    pages: [
+      'Mach einen Raum auf oder reit mit dem sechsstelligen Code in einen rein.',
+      'Stell dich an die Bar und drück Bereit. Sind alle bereit, geht das Duell los.',
+      'Eine Kugel kommt rein. Dann Rücken an Rücken, zehn langsame Schritte.',
+      'Hörst du „Zieh!“, dreh dich um und drück D, um das Eisen zu ziehen.',
+      "Halt dein Ziel 'nen Moment still. Drehst du dich zu schnell, wackelt's.",
+      'Ein Kopftreffer legt ihn um. Der Körper braucht zwei.',
+      'Schieß binnen fünf Sekunden nach „Zieh!“, sonst bist du erledigt.',
+      'Wer zuletzt steht, gewinnt. Fallen zwei zugleich? Dann nochmal.',
+    ],
   },
   settings: {
     music: 'Musik',

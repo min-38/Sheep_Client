@@ -102,6 +102,7 @@ export const es: Copy = {
     join: 'Entrar',
     play: 'Jugar',
     practice: 'Práctica',
+    help: 'Ayuda',
     rooms: 'Salas',
     back: 'Atrás',
     doubleClick: "Doble clic en una sala pa' entrar",
@@ -140,6 +141,20 @@ export const es: Copy = {
     players: 'Jugadores',
     ok: 'Crear',
     cancel: 'Cancelar',
+  },
+  help: {
+    prev: 'Atrás',
+    next: 'Siguiente',
+    pages: [
+      'Abre una sala o entra en una con su código de seis letras.',
+      'Arrímate a la barra y dale a Listo. Cuando todos estén listos, empieza el duelo.',
+      'Una bala al tambor. Luego espalda con espalda, diez pasos lentos.',
+      "Al oír «¡Desenfunda!», date la vuelta y dale a la D pa' sacar el fierro.",
+      'Deja quieta la puntería un rato. Si giras deprisa, te baila.',
+      'Un tiro en la cabeza lo tumba. En el cuerpo hacen falta dos.',
+      "Tienes cinco segundos tras «¡Desenfunda!» pa' disparar, o se acabó.",
+      'Gana el último en pie. ¿Caen dos a la vez? Vuelven a empezar.',
+    ],
   },
   settings: {
     music: 'Música',
