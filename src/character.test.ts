@@ -2,7 +2,7 @@ import { describe, expect, test } from 'vitest'
 import { bartenderBody, brimOf, CELL, CHARACTERS, characterBody, corners, drawFigure, FALL_LAND_MS, inWorld, pinWound, toModel, woundBox, keyColor, PORTRAIT_SIZE, portraitPixels, restOn, savedCharacter, savedColor, SUICIDE_AIM, SUICIDE_FLASH, suicideStage, type Box, type Figure, type Pose } from './character.ts'
 import { pool } from './blood.ts'
 import revolverData from './assets/revolver-rig.json'
-import { DRAW_MS, RELOAD_AT, RELOAD_END, RELOAD_MS, revolverMesh } from './gun.ts'
+import { DRAW_MS, RELOAD_AT, RELOAD_END, RELOAD_MS, revolverMesh, STAND_MS } from './gun.ts'
 import { makeCamera, type RGB } from './render.ts'
 import type { Rig } from './rig.ts'
 import { STEP_MS, TURN_MS } from './round.ts'
@@ -332,9 +332,14 @@ describe('characterBody', () => {
     same(body.reload(RELOAD_END), rest)
     expect(body.reload(RELOAD_END).gun).toEqual(rest.gun)
     // 꺼내고 넣는 동안 총이 몸 앞으로 나왔다 들어감
-    expect(gunSpan(body.reload(RELOAD_AT / 2), 2)[1]).toBeGreaterThan(gunSpan(rest, 2)[1])
+    expect(gunSpan(body.reload((STAND_MS + RELOAD_AT) / 2), 2)[1]).toBeGreaterThan(gunSpan(rest, 2)[1])
     expect(gunSpan(body.reload(RELOAD_END - 1), 2)[1]).toBeLessThan(gunSpan(middle, 2)[1])
     for (let t = 0; t < RELOAD_END; t += 250) near(span(body.reload(t).boxes, 1)[0], 0)
+  })
+
+  test('카운트다운 처음 STAND_MS 동안은 총을 꺼내지 않음 (SHEEP-206)', () => {
+    same(body.reload(STAND_MS - 1), rest)
+    expect(body.reload(STAND_MS - 1).gun).toEqual(rest.gun)
   })
 
   test('뒤도는 동안 제자리에서 두 발을 번갈아 떼었다 놓고, 처음과 끝은 곧게 섬 (SHEEP-120)', () => {

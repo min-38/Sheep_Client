@@ -14,7 +14,7 @@ import { best, measure, toLocalTime, toServerTime, type ClockSample } from './cl
 import { CHAMBERS, CYLINDER_TURN, cylinderSvg } from './cylinder.ts'
 import { makeProps, SKIES, timeOfDay } from './desert.ts'
 import { enhanceSelect } from './dropdown.ts'
-import { aimed, DRAW_MS, drawGun, gunClips, HOLSTER_MS, lift, RECOIL_MS, RELOAD_END, RELOAD_SEATED, RELOAD_SHUT, reloadNod, reloadSoundAt, revolverMesh, templeAim, VIEW_NOD } from './gun.ts'
+import { aimed, DRAW_MS, drawGun, gunClips, HOLSTER_MS, lift, RECOIL_MS, RELOAD_END, RELOAD_SEATED, RELOAD_SHUT, reloadNod, reloadSoundAt, revolverMesh, STAND_MS, templeAim, VIEW_NOD } from './gun.ts'
 import { bodyDot, dotPosition, noBlood, onGameEnd, onRevived, onWalk, onWounded, resultLabel } from './hitcard.ts'
 import { record, sampleAt, viewSample, type Sample } from './interpolate.ts'
 import { drawMessage, fireMessage, parseServerMessage, type ClientMessage, type DownReason, type HitPoint, type PlayerState, type RoundResult, type ShotResult } from './net.ts'
@@ -460,7 +460,9 @@ function othersAt(t: number, viewer: string, scene: Scene): Thing[] {
       const drawn = s.drawnAt !== null && clock !== null ? toServerTime(t, clock.offset) - s.drawnAt : -1
       // 결투 중 뽑기 전에는 곧게 선 틀 모습(rest). 서기 동작은 다리를 벌리고 있어 뽑기 시작할 때 다리가 튐.
       // 재대결 결과 동안(카운트다운 전)은 뽑아 든 총을 내리지 않음. 뽑은 시각은 서버가 카운트다운 시각에 비움 (SHEEP-175)
-      const upright = duel || (counted !== null && counted < 0 && drawn >= 0) ? (drawn >= 0 ? body.draw(drawn, s.pitch) : body.rest) : s.pose === 'walk' ? stepping(body) : reloadingFor !== null && reloadingFor < RELOAD_END ? body.reload(reloadingFor) : body.stand(t)
+      // 카운트다운 처음 STAND_MS 동안은 서기 동작으로 서 있고, 재대결 결과 동안 총을 든 사람은 겨눈 모습 그대로 둠 (SHEEP-206)
+      const beforeReload = reloadingFor !== null && reloadingFor < STAND_MS
+      const upright = duel || (counted !== null && counted < 0 && drawn >= 0) ? (drawn >= 0 ? body.draw(drawn, s.pitch) : body.rest) : beforeReload && holding.has(id) ? body.draw(DRAW_MS, s.pitch) : s.pose === 'walk' ? stepping(body) : reloadingFor !== null && !beforeReload && reloadingFor < RELOAD_END ? body.reload(reloadingFor) : body.stand(t)
       // 불꽃 동안은 쏜 각도로 그림. 돌고 바로 쏘면 돌아간 각도는 다음 state로 늦게 옴
       const down = scene.downs.get(id)
       const fallen = down && { landed: t - down.at - fallDelay(down.reason), since: t - down.at, reason: down.reason }
