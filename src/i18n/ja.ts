@@ -142,7 +142,7 @@ export const ja: Copy = {
   settings: {
     music: 'BGM',
     effects: '効果音',
-    hand: '銃を持つ手',
+    hand: '利き手',
     right: '右手',
     left: '左手',
     crosshair: '照準',
