@@ -20,6 +20,9 @@ import {
   reloadSoundAt,
   revolverMesh,
   shade,
+  templeAim,
+  TEMPLE_SHIFT,
+  TEMPLE_YAW,
   transform,
   type GunPose,
 } from './gun.ts'
@@ -366,5 +369,31 @@ describe('revolverMesh', () => {
 
   test('꼭짓점은 클립을 덮은 자리', () => {
     expect(revolverMesh(revolver, [{ clip: 'Reload', t: 0.5 }], 1).vertices).toEqual(skin(revolver, [{ clip: 'Reload', t: 0.5 }]))
+  })
+})
+
+describe('templeAim (SHEEP-190)', () => {
+  const rig = revolverData as Rig
+  const mesh = revolverMesh(rig, [], 1)
+  const centre = (vs: number[][]) => vs.reduce((s, v) => [s[0] + v[0] / vs.length, s[1] + v[1] / vs.length, s[2] + v[2] / vs.length], [0, 0, 0])
+
+  test('처음에는 겨누던 그대로, 다 가져가면 총구가 머리 쪽(오른손이면 왼쪽)으로 돌고 총은 옆머리 가까이 위로 옴', () => {
+    const start = templeAim(0, 600, true)
+    for (const v of [start.yaw, start.pitch, start.lower, ...start.shift]) expect(v).toBeCloseTo(0)
+    const done = templeAim(600, 600, true)
+    expect(done.yaw).toBeCloseTo(TEMPLE_YAW)
+    expect(done.shift).toEqual(TEMPLE_SHIFT)
+    const before = centre(transform(mesh, STILL))
+    const after = centre(transform(mesh, { ...STILL, ...done }))
+    // 오른쪽으로, 위로, 눈 가까이 옴
+    expect(after[0]).toBeGreaterThan(before[0])
+    expect(after[1]).toBeGreaterThan(before[1])
+    expect(after[2]).toBeLessThan(before[2])
+  })
+
+  test('뽑지 않았으면 앞 절반 동안 권총집에서 꺼내 올림', () => {
+    expect(templeAim(0, 600, false).lower).toBe(1)
+    expect(templeAim(150, 600, false).lower).toBeGreaterThan(0)
+    expect(templeAim(300, 600, false).lower).toBe(0)
   })
 })

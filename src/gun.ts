@@ -4,8 +4,9 @@ import { skin, type Mesh, type Play, type RGB, type Rig, type Vec3 } from './rig
 // 1인칭 리볼버를 Canvas 2D 경로로 직접 그림. 먼 면부터 칠하는 화가 알고리즘 (기술 설계서 렌더링 무기)
 
 // yaw·pitch는 팔 흔들림(sway.ts, 라디안). kick은 반동이고 쏜 순간 1에서 RECOIL_MS 동안 0으로 줄어듦.
-// lower는 총을 내린 정도(0 듦 ~ 1 화면 아래로 다 내림). 음수면 겨누는 자리보다 높이 듦
-export type GunPose = { yaw: number; pitch: number; kick: number; lower: number }
+// lower는 총을 내린 정도(0 듦 ~ 1 화면 아래로 다 내림). 음수면 겨누는 자리보다 높이 듦.
+// shift는 GUN_POS에서 더 옮긴 자리(눈 좌표, x는 총 든 손 쪽이 +). 자살할 때 총을 옆머리로 가져감 (SHEEP-190)
+export type GunPose = { yaw: number; pitch: number; kick: number; lower: number; shift?: Vec3 }
 
 // ms. ponytail: 임시 값. 플레이해 보며 정함
 export const RECOIL_MS = 150
@@ -103,10 +104,11 @@ export function transform(mesh: Mesh, pose: GunPose, side: Side = 1): Vec3[] {
     // 총구를 위로 든 뒤(x축) 오른쪽으로 돌림(y축)
     const y1 = y * cosUp + z * sinUp
     const z1 = z * cosUp - y * sinUp
+    const [sx, sy, sz] = pose.shift ?? [0, 0, 0]
     return [
-      x * cosYaw + z1 * sinYaw + side * GUN_POS[0],
-      y1 + GUN_POS[1] - pose.lower * LOWER_BY,
-      z1 * cosYaw - x * sinYaw + GUN_POS[2] - pose.kick * KICK_BACK,
+      x * cosYaw + z1 * sinYaw + side * (GUN_POS[0] + sx),
+      y1 + GUN_POS[1] + sy - pose.lower * LOWER_BY,
+      z1 * cosYaw - x * sinYaw + GUN_POS[2] + sz - pose.kick * KICK_BACK,
     ]
   })
 }
@@ -134,6 +136,23 @@ export function lift(s: Schedule, now: number, reloading: boolean, drawnAt: numb
 }
 
 const raised = (since: number) => Math.max(0, 1 - since / RAISE_MS) ** 3
+
+// 시간 초과로 자살할 때 1인칭 총 (SHEEP-190). 총구를 내 머리 쪽으로 돌리며(TEMPLE_YAW, 오른손이면 왼쪽으로) 조금 들고,
+// 총을 총 든 손 쪽 옆머리 가까이(TEMPLE_SHIFT)로 가져가 화면 가장자리에 걸림. since는 자살 모습을 보이기 시작하고 지난 시간(ms)이고
+// aim(character.ts SUICIDE_AIM) 동안 다 가져간 뒤 쏨. 뽑지 않았으면 앞 절반 동안 권총집에서 꺼내 올림. ponytail: 임시 값. 화면을 보며 맞춤
+export const TEMPLE_YAW = -1.45
+export const TEMPLE_PITCH = 0.25
+export const TEMPLE_SHIFT: Vec3 = [0.12, 0.17, -0.25]
+export function templeAim(since: number, aim: number, drawn: boolean): { yaw: number; pitch: number; lower: number; shift: Vec3 } {
+  const k = Math.min(1, Math.max(0, since / aim))
+  const u = k * k * (3 - 2 * k)
+  return {
+    yaw: TEMPLE_YAW * u,
+    pitch: TEMPLE_PITCH * u,
+    lower: drawn ? 0 : Math.max(0, 1 - 2 * k) ** 2,
+    shift: [TEMPLE_SHIFT[0] * u, TEMPLE_SHIFT[1] * u, TEMPLE_SHIFT[2] * u],
+  }
+}
 
 // now(서버 시계)에 총에 덮을 클립. 소리처럼 서버가 알린 단계 시각에서 재어 소리와 움직임이 맞음.
 // 카운트다운에는 Reload(실린더를 열어 총알을 넣고 닫음), 뽑은 때(drawnAt)부터 DRAW_MS 동안 Cock(공이치기를 당김),
