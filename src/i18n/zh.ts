@@ -49,7 +49,7 @@ export const zh: Copy = {
     leave: '离开',
     ready: '准备',
     unready: '还没好',
-    changeDuds: '换身行头',
+    changeCharacter: '更换角色',
     settings: '设置',
     mySeat: '我的座位',
     wins: (n) => `${n} 胜`,

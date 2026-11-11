@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { DOOR_PUSH_AT, DOOR_ZOOM, entranceAt, entranceTrack, ENTER_MS, SWING_REST, swingAngle } from './entrance.ts'
+import { barShift, DOOR_PUSH_AT, DOOR_ZOOM, entranceAt, entranceTrack, ENTER_MS, SWING_REST, swingAngle } from './entrance.ts'
 
 const countdown = 50000
 const at = (ms: number) => entranceAt(countdown, countdown - ENTER_MS + ms)!
@@ -82,5 +82,15 @@ describe('DOOR_PUSH_AT (SHEEP-153)', () => {
     expect(entranceAt(countdownAt, countdownAt - ENTER_MS + DOOR_PUSH_AT)?.pushed).toBeCloseTo(0)
     expect(DOOR_PUSH_AT).toBeGreaterThan(0)
     expect(DOOR_PUSH_AT).toBeLessThan(ENTER_MS)
+  })
+})
+
+describe('barShift', () => {
+  test('간판과 칠판 글자는 뒤도는 동안 술집 그림과 같이 밀리고, 다 돌면 그림과 함께 화면 밖 (SHEEP-173)', () => {
+    expect(barShift(at(0))).toBe(0)
+    const turning = at(pushAt / 4)
+    expect(barShift(turning)).toBe(Math.round(turning.turn * 480))
+    expect(barShift(turning)).toBeGreaterThan(0)
+    expect(barShift(at(pushAt))).toBe(480)
   })
 })

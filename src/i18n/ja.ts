@@ -49,7 +49,7 @@ export const ja: Copy = {
     leave: '退出',
     ready: '準備OK',
     unready: 'まだだ',
-    changeDuds: '着替える',
+    changeCharacter: 'キャラ変更',
     settings: '設定',
     mySeat: '自分の席',
     wins: (n) => `${n}勝`,
