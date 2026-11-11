@@ -60,7 +60,7 @@ export const ja: Copy = {
     wardrobe: '身なりと色',
     keyParts: ['ネッカチーフ', 'ソンブレロ', 'シャツ', 'コルセット', 'ベスト', 'コート', '帽子', 'ポンチョ'],
     partColor: (part) => `${part}の色`,
-    colors: ['赤', '空色', '緑', '黄', 'オレンジ', 'ピンク', '白', '黒'],
+    colors: ['赤', '空色', '紫', '黄', 'オレンジ', 'ピンク', '白', '黒'],
     colorTaken: (color) => `${color}、先客ありだぜ`,
     bartender: {
       tips: [

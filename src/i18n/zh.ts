@@ -60,7 +60,7 @@ export const zh: Copy = {
     wardrobe: '行头和颜色',
     keyParts: ['领巾', '宽边帽', '衬衫', '束腰', '马甲', '外套', '帽子', '斗篷'],
     partColor: (part) => `${part}颜色`,
-    colors: ['红', '天蓝', '绿', '黄', '橙', '粉', '白', '黑'],
+    colors: ['红', '天蓝', '紫', '黄', '橙', '粉', '白', '黑'],
     colorTaken: (color) => `${color}，早有人占了`,
     bartender: {
       tips: [

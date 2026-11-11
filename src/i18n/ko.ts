@@ -60,7 +60,7 @@ export const ko: Copy = {
     wardrobe: '옷차림과 색',
     keyParts: ['목수건', '솜브레로', '셔츠', '코르셋 조끼', '조끼', '코트', '모자', '판초'],
     partColor: (part) => `${part} 색`,
-    colors: ['빨강', '하늘색', '초록', '노랑', '주황', '분홍', '하양', '검정'],
+    colors: ['빨강', '하늘색', '보라', '노랑', '주황', '분홍', '하양', '검정'],
     colorTaken: (color) => `${color}, 임자 있수`,
     bartender: {
       tips: [
