@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest'
 import type { PlayerState } from './net.ts'
-import { BAR_LEFT, BAR_RIGHT, bartenderFigure, bountyRise, bountyText, bubbleX, CHATTER_FIRST, CHATTER_GAP, CHATTER_SHOW, copyKeys, seatSlots, seatSpot, seatTag, startBartender, startChatter, stepBartender, stepChatter, WARDROBE_RIGHT } from './saloon.ts'
+import { BAR_LEFT, BAR_RIGHT, bartenderFigure, bountyRise, bountyText, bubbleX, CHATTER_FIRST, CHATTER_GAP, CHATTER_SHOW, copyKeys, seatSlots, seatSpot, seatTag, startBartender, startChatter, stepBartender, stepChatter, DECOR_RIGHT } from './saloon.ts'
 
 // seat번 좌석에 앉은 사람. 색은 따로 주지 않으면 좌석 번호와 같음
 const player = (id: string, seat: number, extra: Partial<PlayerState> = {}): PlayerState => ({
@@ -182,9 +182,9 @@ describe('stepChatter', () => {
 })
 
 describe('bubbleX', () => {
-  test('술집 주인을 따르되 칠판(352px)과 왼쪽 현상금 게시판을 넘지 않음', () => {
+  test('술집 주인을 따르되 칠판(352px)과 왼쪽 벽 장식을 넘지 않음', () => {
     expect(bubbleX(200)).toBe(200)
     expect(bubbleX(BAR_RIGHT) + 75).toBeLessThanOrEqual(348)
-    expect(bubbleX(0) - 75).toBeGreaterThanOrEqual(WARDROBE_RIGHT + 4)
+    expect(bubbleX(0) - 75).toBeGreaterThanOrEqual(DECOR_RIGHT + 4)
   })
 })

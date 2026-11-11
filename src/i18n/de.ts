@@ -49,7 +49,7 @@ export const de: Copy = {
     leave: 'Verlassen',
     ready: 'Bereit',
     unready: "Noch nich'",
-    readyCount: (ready, total) => `${ready} von ${total} bereit zum Ziehen`,
+    changeDuds: 'Kluft wechseln',
     settings: 'Einstellungen',
     mySeat: 'Mein Platz',
     wins: (n) => `${n} Sieg${n === 1 ? '' : 'e'}`,

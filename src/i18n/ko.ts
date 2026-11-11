@@ -49,7 +49,7 @@ export const ko: Copy = {
     leave: '나가기',
     ready: '준비',
     unready: '아직이여',
-    readyCount: (ready, total) => `${total}명 중 ${ready}명 준비됐수`,
+    changeDuds: '옷 갈아입기',
     settings: '설정',
     mySeat: '내 자리',
     wins: (n) => `${n}승`,

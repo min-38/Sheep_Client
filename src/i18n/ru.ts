@@ -49,7 +49,7 @@ export const ru: Copy = {
     leave: 'Выйти',
     ready: 'Готов',
     unready: 'Погоди',
-    readyCount: (ready, total) => `Готовы: ${ready} из ${total}`,
+    changeDuds: 'Сменить шмотки',
     settings: 'Настройки',
     mySeat: 'Моё место',
     wins: (n) => `Побед: ${n}`,
