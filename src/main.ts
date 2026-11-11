@@ -6,9 +6,9 @@ import { best, measure, toLocalTime, toServerTime, type ClockSample } from './cl
 import { CYLINDER_TURN, cylinderSvg } from './cylinder.ts'
 import { makeProps, SKIES, timeOfDay } from './desert.ts'
 import { enhanceSelect } from './dropdown.ts'
-import { aimed, DRAW_MS, drawGun, gunClips, lift, RECOIL_MS, RELOAD_END, RELOAD_SEATED, RELOAD_SHUT, reloadNod, reloadSoundAt, revolverMesh, templeAim } from './gun.ts'
+import { aimed, DRAW_MS, drawGun, gunClips, lift, RECOIL_MS, RELOAD_END, RELOAD_SEATED, RELOAD_SHUT, reloadNod, reloadSoundAt, revolverMesh, templeAim, VIEW_NOD } from './gun.ts'
 import { dotPosition, noBlood, onGameEnd, onRevived, onWalk, onWounded, resultLabel } from './hitcard.ts'
-import { record, sampleAt, type Sample } from './interpolate.ts'
+import { record, sampleAt, viewSample, type Sample } from './interpolate.ts'
 import { drawMessage, fireMessage, parseServerMessage, type ClientMessage, type HitPoint, type PlayerState, type RoundResult, type ShotResult } from './net.ts'
 import { normalizeNickname } from './nickname.ts'
 import { dressPaper, PAPER_GRAIN, PAPER_INK } from './paper.ts'
@@ -233,7 +233,7 @@ function eyes(now: number) {
     const s = sampleAt(history.get(watch.id)!, now - INTERP_DELAY)
     return { id: watch.id, x: s.x, y: s.y, angle: s.angle, pitch: s.pitch }
   }
-  const me = sampleAt(history.get(myId!)!, now - INTERP_DELAY)
+  const me = viewSample(history.get(myId!)!, now - INTERP_DELAY)
   return { id: myId!, x: me.x, y: me.y, angle: inputLocked(now) ? me.angle : angle, pitch }
 }
 
@@ -932,8 +932,9 @@ function frame(now: number) {
     brim = viewLook ? brimOf(viewLook.character, viewLook.color) : null
     // 관전하는 사람은 서 있어 카운트다운이면 이번 라운드에 끼어 장전함
     const loading = r || watch ? true : reloading
-    // 장전하는 동안 총을 보려고 고개를 숙였다가 권총집에 넣는 동안 듦. 그림에서만이고 서버에 보내는 시선은 그대로 (SHEEP-177)
-    const nod = loading && clock && scene.schedule.countdown !== undefined ? reloadNod(toServerTime(t, clock.offset) - scene.schedule.countdown) : 0
+    // 장전하는 동안 총을 보려고 고개를 숙였다가 권총집에 넣는 동안 듦. 그림에서만이고 서버에 보내는 시선은 그대로 (SHEEP-177).
+    // 1인칭은 화면이 떨어지듯 밀리지 않게 남이 보는 머리보다 조금만(VIEW_NOD) 숙임 (SHEEP-191)
+    const nod = loading && clock && scene.schedule.countdown !== undefined ? reloadNod(toServerTime(t, clock.offset) - scene.schedule.countdown, VIEW_NOD) : 0
     // 결정타 줌 동안은 시야를 좁히며 쓰러지는 몸 쪽을 봄 (SHEEP-194)
     let look = { angle: view.angle, pitch: view.pitch }
     const fallen = finish && zoom > 0 ? history.get(finish[0]) : undefined
