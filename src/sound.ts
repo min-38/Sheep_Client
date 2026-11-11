@@ -240,6 +240,42 @@ export function playClick(audio: AudioContext, when: number) {
   ring.stop(when + 0.1)
 }
 
+// 술집 준비 단추로 준비할 때 위스키 잔을 바 카운터에 탁 내려놓는 소리 (시스템 기획서 사운드 클릭 소리, SHEEP-211 시안 A).
+// 나무 카운터의 둔한 탁(낮은 대역 잡음과 떨어지는 울림)에 유리잔이 짧게 쨍(어긋난 배음 셋)
+export function playGlass(audio: AudioContext, when: number) {
+  const out = effectsOut(audio)
+  const decay = (start: number, peak: number, seconds: number) => {
+    const g = new GainNode(audio, { gain: 0.0001 })
+    g.gain.setValueAtTime(0.0001, start)
+    g.gain.exponentialRampToValueAtTime(peak, start + 0.003)
+    g.gain.exponentialRampToValueAtTime(0.0001, start + seconds)
+    g.connect(out)
+    return g
+  }
+  const noise = new AudioBuffer({ length: Math.round(audio.sampleRate * 0.09), sampleRate: audio.sampleRate })
+  const data = noise.getChannelData(0)
+  for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1
+  const knock = new AudioBufferSourceNode(audio, { buffer: noise })
+  knock.connect(new BiquadFilterNode(audio, { type: 'bandpass', frequency: 420, Q: 1.4 })).connect(decay(when, 0.7, 0.09))
+  knock.start(when)
+  const counter = new OscillatorNode(audio, { type: 'sine', frequency: 170 })
+  counter.frequency.setValueAtTime(170, when)
+  counter.frequency.exponentialRampToValueAtTime(95, when + 0.1)
+  counter.connect(decay(when, 0.45, 0.12))
+  counter.start(when)
+  counter.stop(when + 0.15)
+  for (const [frequency, peak, seconds] of [
+    [2350, 0.12, 0.35],
+    [3720, 0.07, 0.25],
+    [5480, 0.04, 0.18],
+  ]) {
+    const ring = new OscillatorNode(audio, { type: 'sine', frequency })
+    ring.connect(decay(when + 0.008, peak, seconds))
+    ring.start(when + 0.008)
+    ring.stop(when + 0.008 + seconds + 0.02)
+  }
+}
+
 // 금속 종을 친 듯한 맑은 소리. 배음 몇 개를 같이 울려 짧게 줄임. gain은 크기, seconds는 줄어드는 시간
 function bell(audio: AudioContext, when: number, partials: readonly number[], gain: number, seconds: number) {
   const out = effectsOut(audio)
