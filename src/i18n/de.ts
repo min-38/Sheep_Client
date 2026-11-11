@@ -11,7 +11,7 @@ export const de: Copy = {
     ammo: (n) => `Verbleibende Kugeln: ${n}`,
     timer: 'Verbleibende Zeit',
     alive: 'Wer noch steht',
-    aliveCount: (n) => `${n} steh'n noch`,
+    aliveCount: (n) => (n === 1 ? '1 steht noch' : `${n} steh'n noch`),
     banner: 'Rundensignal',
     watching: 'Der, dem du zuschaust',
     watchingWho: (name) => `Du guckst ${name} zu`,
