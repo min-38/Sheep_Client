@@ -142,7 +142,7 @@ export const ru: Copy = {
   },
   settings: {
     music: 'Музыка',
-    effects: 'Звуковые эффекты',
+    effects: 'Эффекты',
     hand: 'Рука с оружием',
     right: 'Правая',
     left: 'Левая',
