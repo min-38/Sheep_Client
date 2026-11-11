@@ -884,16 +884,18 @@ document.addEventListener('pointerlockchange', () => {
   }
   wasLocked = locked
 })
-// 잠기지 않은 동안(쓰러진 뒤 등)은 Esc로 메뉴를 열고 닫음. 설정 창의 Esc는 설정 창만 닫음
-document.addEventListener('keydown', (e) => {
-  if (e.key !== 'Escape' || document.pointerLockElement === canvas || settingsPanel.contains(e.target as Node) || e.timeStamp - unlockedAt < 500) return
-  if (!pauseMenu.hidden) pauseMenu.hidden = true
-  else if (inPlay()) pauseMenu.hidden = false
-})
-document.querySelector('#pause-resume')!.addEventListener('click', () => {
+// 잠기지 않은 동안(쓰러진 뒤 등)은 Esc로 메뉴를 열고 닫음. 메뉴가 떠 있을 때 Esc는 돌아가기와 같아 다시 잠금을 청함 (SHEEP-210).
+// 브라우저가 Esc 입력으로 청한 잠금을 거절하면 화면을 누르라는 안내가 뜸. 설정 창의 Esc는 설정 창만 닫음
+function resume() {
   pauseMenu.hidden = true
   lockPointer()
+}
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Escape' || document.pointerLockElement === canvas || settingsPanel.contains(e.target as Node) || e.timeStamp - unlockedAt < 500) return
+  if (!pauseMenu.hidden) resume()
+  else if (inPlay()) pauseMenu.hidden = false
 })
+document.querySelector('#pause-resume')!.addEventListener('click', resume)
 // 나가기는 연습이면 첫 화면 메뉴로, 판이면 방을 나감(술집의 나가기와 같음)
 document.querySelector('#pause-leave')!.addEventListener('click', () => {
   pauseMenu.hidden = true
