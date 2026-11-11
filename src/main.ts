@@ -41,7 +41,7 @@ import { nextTarget } from './spectate.ts'
 import { drawSmoke, HALO_ALPHA, HALO_SIZE, smoke, SMOKE_MS, SMOKE_PX } from './smoke.ts'
 import { along, bulletDots, bulletRange, EYE_HEIGHT, firstHit, FLIGHT_MS } from './bullet.ts'
 import { bulletDir, burst, BURST_MS, exitPoint, pool } from './blood.ts'
-import { fallDelay, heardFrom, loadEffects, play, playCoin, playDing, playDoor, playFall, playSignal, playStamp, playStep, playWhoosh, setEffectsVolume, stampOf, toAudioTime } from './sound.ts'
+import { fallDelay, heardFrom, loadEffects, play, playClick, playCoin, playDing, playDoor, playFall, playSignal, playStamp, playStep, playWhoosh, setEffectsVolume, stampOf, toAudioTime } from './sound.ts'
 import { darkness, stepDip } from './tension.ts'
 import type { Thing } from './sprite.ts'
 import { afterTurn, aimAt, crosshairOffset, scaleAt, steady, sway, type Unsteady } from './sway.ts'
@@ -1428,6 +1428,12 @@ function startAudio() {
 }
 document.addEventListener('pointerdown', startAudio, { capture: true })
 document.addEventListener('keydown', startAudio, { capture: true })
+// 단추를 누르면 나무 판 톡 소리 (시스템 기획서 사운드 클릭 소리, SHEEP-209). 막힌 단추는 click이 오지 않고, 음량 막대와 결투의 쏘기·뽑기는 고르지 않음.
+// 라디오·체크 칸은 칸을 감싼 label을 눌러도 칸에 click이 한 번 더 와 그때 한 번만 냄
+const CLICKS = 'button, a.plank, [role="option"], #room-list li, input[type="radio"], input[type="checkbox"]'
+document.addEventListener('click', (e) => {
+  if (audio && e.target instanceof Element && e.target.closest(CLICKS)) playClick(audio, audio.currentTime)
+})
 const nicknameInput = document.querySelector<HTMLInputElement>('#nickname')!
 const nicknameRule = document.querySelector<HTMLParagraphElement>('#nickname-rule')!
 const privateBox = document.querySelector<HTMLInputElement>('#private')!
