@@ -146,6 +146,12 @@
           <button type="button" id="help-open" class="plank sign" data-i18n="lobby.help" aria-controls="help-panel"></button>
           <button type="button" class="plank sign settings-open" data-i18n="lobby.settings"></button>
         </div>
+        <!-- 메뉴가 보이는 동안 오른쪽 위에 두는 놋쇠 동전 단추 (시스템 기획서 방 화면 크레딧과 후원, SHEEP-203 시안 B).
+             후원은 빌드 설정의 주소를 새 탭으로 열고, 주소가 없는 빌드(스팀 판 등)에서는 숨김 -->
+        <div id="coins" hidden>
+          <button type="button" id="credits-open" class="coin" aria-controls="credits-panel"><i aria-hidden="true">✎</i><span data-i18n="credits.open"></span></button>
+          <a id="support" class="coin" target="_blank" rel="noopener" hidden><i aria-hidden="true">$</i><span data-i18n="credits.support"></span></a>
+        </div>
         <!-- 입장 게시판: 못 박은 종이. 머리에 방 만들기, 그 아래 방 목록, 맨 아래 뒤로·방 코드·입장. 캐릭터는 술집에서 고름 (SHEEP-118) -->
         <fieldset id="room-step" class="sheet" hidden disabled>
           <div id="board-head">
@@ -258,6 +264,16 @@
           </div>
           <button type="button" id="help-close" class="plank" data-i18n="settings.close"></button>
         </div>
+      </div>
+      <!-- 크레딧. 검은 화면에 영화 끝 자막처럼 아래에서 위로 올라가고, 다 올라가거나 누르거나 Esc를 누르면 메뉴로 돌아감
+           (시스템 기획서 방 화면 크레딧과 후원, SHEEP-203 시안 B). 줄은 main.ts가 넣음 -->
+      <div id="credits-panel" role="dialog" aria-modal="true" aria-labelledby="credits-title" tabindex="-1" hidden>
+        <div id="credits-roll">
+          <h2 id="credits-title" data-i18n="credits.title"></h2>
+          <dl id="credits-list"></dl>
+          <p id="credits-game" data-i18n="title"></p>
+        </div>
+        <p id="credits-hint" data-i18n="credits.hint"></p>
       </div>
       <!-- 연습에 들어가고 나갈 때 화면을 검게 덮었다 걷는 막 (SHEEP-198). 모든 것 위에 둬 그동안 누르기를 막음 -->
       <div id="fade" aria-hidden="true" hidden></div>

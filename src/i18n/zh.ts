@@ -161,6 +161,19 @@ export const zh: Copy = {
       '最后站着的人获胜，同时倒下就重赛。',
     ],
   },
+  credits: {
+    open: '制作人员',
+    support: '赞助',
+    title: '制作人员',
+    hint: '点击关闭',
+    entries: [
+      { role: '左轮手枪模型', who: 'Loafbrr', detail: 'Revolver pack · CC BY 1.0 · loafbrr.itch.io' },
+      { role: '枪声', who: 'f8studios', detail: "Snake's SECOND Authentic Gun Sounds Pack · 公有领域 · f8studios.itch.io" },
+      { role: '动作', who: 'Quaternius', detail: 'Universal Animation Library · CC0 1.0 · quaternius.itch.io' },
+      { role: '字体', who: 'Holtwood One SC · Rokkitt · Kelly Slab · Podkova · Zen Antique · Zen Old Mincho · ZCOOL XiaoWei · Noto Serif SC · Hahmlet · Song Myung · Nanum Myeongjo', detail: 'SIL Open Font License 1.1 · fonts.google.com' },
+      { role: '音乐', who: '用 Suno 制作', detail: 'Last One Standing · Dusty Saloon · High Noon Standoff · Quickest Hand in Town' },
+    ],
+  },
   settings: {
     music: '音乐',
     effects: '音效',

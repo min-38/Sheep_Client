@@ -193,6 +193,21 @@ export const en = {
       'Last one standing wins. Ties go again.',
     ],
   },
+  // 첫 화면 오른쪽 위 크레딧·후원 단추와 크레딧 (시스템 기획서 방 화면 크레딧과 후원, SHEEP-203). 서부 말투 없이 씀 (사용자 결정 2026-11-12).
+  // entries는 CREDITS.md의 외부 에셋과 같게 둠: 역할, 만든 사람, 작품·라이선스·받은 곳. 이름과 작품 이름은 옮기지 않음
+  credits: {
+    open: 'Credits',
+    support: 'Support',
+    title: 'Credits',
+    hint: 'Click to close',
+    entries: [
+      { role: 'Revolver model', who: 'Loafbrr', detail: 'Revolver pack · CC BY 1.0 · loafbrr.itch.io' },
+      { role: 'Gun sounds', who: 'f8studios', detail: "Snake's SECOND Authentic Gun Sounds Pack · Public domain · f8studios.itch.io" },
+      { role: 'Motions', who: 'Quaternius', detail: 'Universal Animation Library · CC0 1.0 · quaternius.itch.io' },
+      { role: 'Fonts', who: 'Holtwood One SC · Rokkitt · Kelly Slab · Podkova · Zen Antique · Zen Old Mincho · ZCOOL XiaoWei · Noto Serif SC · Hahmlet · Song Myung · Nanum Myeongjo', detail: 'SIL Open Font License 1.1 · fonts.google.com' },
+      { role: 'Music', who: 'Made with Suno', detail: 'Last One Standing · Dusty Saloon · High Noon Standoff · Quickest Hand in Town' },
+    ],
+  },
   settings: {
     music: 'Music',
     effects: 'SFX',

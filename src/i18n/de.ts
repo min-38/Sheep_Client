@@ -162,6 +162,19 @@ export const de: Copy = {
       'Der Letzte gewinnt. Gleichstand: neu.',
     ],
   },
+  credits: {
+    open: 'Credits',
+    support: 'Unterstützen',
+    title: 'Credits',
+    hint: 'Klicken zum Schließen',
+    entries: [
+      { role: 'Revolvermodell', who: 'Loafbrr', detail: 'Revolver pack · CC BY 1.0 · loafbrr.itch.io' },
+      { role: 'Schussgeräusche', who: 'f8studios', detail: "Snake's SECOND Authentic Gun Sounds Pack · Gemeinfrei · f8studios.itch.io" },
+      { role: 'Bewegungen', who: 'Quaternius', detail: 'Universal Animation Library · CC0 1.0 · quaternius.itch.io' },
+      { role: 'Schriftarten', who: 'Holtwood One SC · Rokkitt · Kelly Slab · Podkova · Zen Antique · Zen Old Mincho · ZCOOL XiaoWei · Noto Serif SC · Hahmlet · Song Myung · Nanum Myeongjo', detail: 'SIL Open Font License 1.1 · fonts.google.com' },
+      { role: 'Musik', who: 'Mit Suno erstellt', detail: 'Last One Standing · Dusty Saloon · High Noon Standoff · Quickest Hand in Town' },
+    ],
+  },
   settings: {
     music: 'Musik',
     effects: 'Soundeffekte',

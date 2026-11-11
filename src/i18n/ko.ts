@@ -161,6 +161,19 @@ export const ko: Copy = {
       '끝까지 서 있으면 승리, 함께 쓰러지면 재대결.',
     ],
   },
+  credits: {
+    open: '크레딧',
+    support: '후원',
+    title: '크레딧',
+    hint: '눌러서 닫기',
+    entries: [
+      { role: '리볼버 모델', who: 'Loafbrr', detail: 'Revolver pack · CC BY 1.0 · loafbrr.itch.io' },
+      { role: '총소리', who: 'f8studios', detail: "Snake's SECOND Authentic Gun Sounds Pack · 퍼블릭 도메인 · f8studios.itch.io" },
+      { role: '동작', who: 'Quaternius', detail: 'Universal Animation Library · CC0 1.0 · quaternius.itch.io' },
+      { role: '글꼴', who: 'Holtwood One SC · Rokkitt · Kelly Slab · Podkova · Zen Antique · Zen Old Mincho · ZCOOL XiaoWei · Noto Serif SC · Hahmlet · Song Myung · Nanum Myeongjo', detail: 'SIL Open Font License 1.1 · fonts.google.com' },
+      { role: '음악', who: 'Suno로 만듦', detail: 'Last One Standing · Dusty Saloon · High Noon Standoff · Quickest Hand in Town' },
+    ],
+  },
   settings: {
     music: '배경음악',
     effects: '효과음',
