@@ -170,7 +170,7 @@ export const en = {
   // 설정 창
   settings: {
     music: 'Music',
-    effects: 'Sound effects',
+    effects: 'SFX',
     hand: 'Gun hand',
     right: 'Right',
     left: 'Left',

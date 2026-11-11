@@ -142,7 +142,7 @@ export const es: Copy = {
   },
   settings: {
     music: 'Música',
-    effects: 'Efectos de sonido',
+    effects: 'Efectos',
     hand: 'Mano del arma',
     right: 'Derecha',
     left: 'Izquierda',
