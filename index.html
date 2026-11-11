@@ -75,7 +75,22 @@
       <output id="watching" data-i18n-label="hud.watching" hidden></output>
       <button type="button" id="replay" class="plank" data-i18n="hud.replay" hidden></button>
       <button type="button" id="leave-down" class="plank" data-i18n="hud.leave" hidden></button>
-      <output id="room" data-i18n-label="hud.roomCode"></output>
+      <!-- 결투장 오른쪽 위의 반투명한 내 몸. 맞은 반샷 자리를 찍음. 관전하면 그 사람의 몸 (시스템 기획서 HUD 내 몸, SHEEP-207 시안 A).
+           사격 결과 카드와 같은 정면 블록 몸이고 구멍은 main.ts가 넣음 -->
+      <div id="body-hud" aria-hidden="true" hidden>
+        <svg viewBox="30 -2 40 104">
+          <g class="figure">
+            <rect x="45" y="0" width="10" height="13.333" />
+            <rect x="46.667" y="13.333" width="6.667" height="3.333" />
+            <rect x="40" y="16.667" width="20" height="30" />
+            <rect x="33.333" y="16.667" width="6.667" height="43.333" />
+            <rect x="60" y="16.667" width="6.667" height="43.333" />
+            <rect x="40.833" y="46.667" width="8.333" height="53.333" />
+            <rect x="50.833" y="46.667" width="8.333" height="53.333" />
+          </g>
+          <g id="body-holes"></g>
+        </svg>
+      </div>
       <!-- 판 끝 결과 보드 (SHEEP-187 시안 A). 이긴 사람이 석양으로 걸어가는 동안 그 위에 얹음. 보는 사람 자신의 것:
            왼쪽 위에 못으로 박은 내 WANTED 포스터와 도장(이긴 사람 WINNER, 진 사람 DEAD), 오른쪽 위 하늘에 서부 문구, 잔고(이긴 사람만 +$100이 붙어 세어 올라감), 킬 수.
            각 칸은 main.ts가 걷기 시각에 맞춰 on을 붙여 차례로 띄우고, 도장과 흙먼지 고리는 CSS 애니메이션으로 움직임.

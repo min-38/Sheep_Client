@@ -15,7 +15,7 @@ import { CHAMBERS, CYLINDER_TURN, cylinderSvg } from './cylinder.ts'
 import { makeProps, SKIES, timeOfDay } from './desert.ts'
 import { enhanceSelect } from './dropdown.ts'
 import { aimed, DRAW_MS, drawGun, gunClips, HOLSTER_MS, lift, RECOIL_MS, RELOAD_END, RELOAD_SEATED, RELOAD_SHUT, reloadNod, reloadSoundAt, revolverMesh, STAND_MS, templeAim, VIEW_NOD } from './gun.ts'
-import { dotPosition, noBlood, onGameEnd, onRevived, onWalk, onWounded, resultLabel } from './hitcard.ts'
+import { bodyDot, dotPosition, noBlood, onGameEnd, onRevived, onWalk, onWounded, resultLabel } from './hitcard.ts'
 import { record, sampleAt, viewSample, type Sample } from './interpolate.ts'
 import { drawMessage, fireMessage, parseServerMessage, type ClientMessage, type DownReason, type HitPoint, type PlayerState, type RoundResult, type ShotResult } from './net.ts'
 import { normalizeNickname } from './nickname.ts'
@@ -189,8 +189,9 @@ let watch: Watch | null = null
 type Down = { at: number; reason: DownReason; by: string | null; zone: 'head' | 'body' | null }
 // 발사 하나. at은 받은 시각(ms, 내 시계, 내 발사는 쏜 시각), angle과 pitch는 쏜 각도와 위아래 각도
 type Shot = { at: number; angle: number; pitch: number }
-// 맞은 자리 하나 (SHEEP-126). at은 받은 시각(ms, 내 시계). wound는 맞은 뒤 처음 그릴 때 그때 모습의 가장 가까운 상자에 붙인 상처
-type Hit = HitPoint & { at: number; wound?: Wound }
+// 맞은 자리 하나 (SHEEP-126). at은 받은 시각(ms, 내 시계). wound는 맞은 뒤 처음 그릴 때 그때 모습의 가장 가까운 상자에 붙인 상처,
+// dot은 내 몸 HUD(SHEEP-207)의 몸 그림에서 찍을 자리로 처음 그릴 때 잼
+type Hit = HitPoint & { at: number; wound?: Wound; dot?: { x: number; y: number } }
 type Scene = {
   history: Map<string, Sample[]>
   shots: Map<string, Shot>
@@ -694,6 +695,36 @@ let fallCardFilled = false
 const hitHole = document.querySelector<SVGGElement>('#hit-hole')!
 const hitStamp = document.querySelector<HTMLOutputElement>('#hit-stamp')!
 const bloodView = document.querySelector<HTMLDivElement>('#blood')!
+// 결투장 오른쪽 위의 내 몸 (시스템 기획서 HUD 내 몸, SHEEP-207). 그린 구멍 자리("x,y;x,y")가 바뀔 때만 다시 그림
+const bodyHud = document.querySelector<HTMLDivElement>('#body-hud')!
+const bodyHoles = document.querySelector<SVGGElement>('#body-holes')!
+let bodyHolesKey = ''
+// id의 몸 그림에 t까지 맞은 반샷 자리를 찍음. 자리는 맞을 때 선 자리와 보던 각도로 한 번만 잼. id가 null이면 숨김
+function showBody(id: string | null, t: number) {
+  bodyHud.hidden = id === null
+  const samples = id === null ? undefined : history.get(id)
+  const dots: { x: number; y: number }[] = []
+  for (const h of (id !== null && hits.get(id)) || []) {
+    if (h.zone !== 'body' || h.at > t || !samples) continue
+    if (!h.dot) {
+      const s = sampleAt(samples, h.at)
+      h.dot = bodyDot(s.x, s.y, s.angle, h.x, h.y, h.height)
+    }
+    dots.push(h.dot)
+  }
+  const key = dots.map((d) => `${d.x.toFixed(1)},${d.y.toFixed(1)}`).join(';')
+  if (key === bodyHolesKey) return
+  bodyHolesKey = key
+  const circle = (d: { x: number; y: number }, r: number, cls: string) => {
+    const c = document.createElementNS('http://www.w3.org/2000/svg', 'circle')
+    c.setAttribute('cx', d.x.toFixed(1))
+    c.setAttribute('cy', d.y.toFixed(1))
+    c.setAttribute('r', String(r))
+    c.setAttribute('class', cls)
+    return c
+  }
+  bodyHoles.replaceChildren(...dots.flatMap((d) => [circle(d, 3.4, 'burn'), circle(d, 2.2, 'hole')]))
+}
 // 반샷 혈흔. 판이 끝날 때까지 남아 한 발만 더 맞으면 쓰러진다는 표시를 겸함 (컨셉 기획서 화면 혈흔)
 let blood = noBlood
 
@@ -1111,6 +1142,9 @@ function frame(now: number) {
   fallCardFor = fallKey
   killCard.hidden = fallCard ? !fallCardFilled : !inScene || ending !== null
   bloodView.hidden = r !== null || !(watch ? watch.wounded : blood.shown)
+  // 결투장의 내 몸 HUD. 관전하면 그 사람의 몸. 쓰러지면 쓰러짐 장면 띠가 대신하고, 판 끝·다시 보기·연습·술집에서는 숨김 (SHEEP-207)
+  const bodyOf = r || practice || ending || !saloon.hidden || !lobby.hidden ? null : watch ? watch.id : myId
+  showBody(bodyOf !== null && !isDown(bodyOf, now - INTERP_DELAY) ? bodyOf : null, now - INTERP_DELAY)
   // 다시 보기 버튼은 잠시 숨김 (사용자 결정 2026-11-10, SHEEP-143). 다시 보기 코드는 그대로 두어, 다시 켤 때는 `replay === null`일 때만 숨기게 되돌림
   replayButton.hidden = true
   // "쓰러짐"이 뜰 때부터 판 도중에만 보임. 재대결로 다시 서거나 판이 끝나 술집으로 돌아가면 숨음.
@@ -1205,7 +1239,6 @@ function showStatus(text: () => string) {
   statusText = text
   status.textContent = text()
 }
-const room = document.querySelector<HTMLOutputElement>('#room')!
 // 술집 대기실. 방에 들어가 판이 시작되기 전과 판이 끝난 뒤에 보임
 const saloon = document.querySelector<HTMLDivElement>('#saloon')!
 const saloonSign = document.querySelector<HTMLParagraphElement>('#saloon-sign')!
@@ -1855,7 +1888,6 @@ function connect() {
     showStep()
     saloon.hidden = true
     endingView.hidden = true
-    room.value = ''
     showStatus(() => copy.lobby.disconnected)
   })
   ws.addEventListener('message', (e) => later(() => receive(e.data)))
@@ -1881,7 +1913,6 @@ function receive(data: string) {
       showCopied(null)
       makeSeats(m.maxPlayers)
       chatter = startChatter(performance.now())
-      room.value = m.code
       myId = m.playerId
       placed = false
       // 앞서 있던 방의 사람들이 남지 않게 비움. 나가기로 다른 방에 다시 들어올 수 있음
@@ -2030,7 +2061,6 @@ function receive(data: string) {
       saloon.hidden = true
       leaveSaloonAt = null
       lobby.hidden = false
-      room.value = ''
       myId = null
       grid = null
       placed = false

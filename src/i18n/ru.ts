@@ -18,7 +18,6 @@ export const ru: Copy = {
     replayWho: (name) => `Ещё разок глазами: ${name}`,
     replay: 'Повтор',
     leave: 'Выйти',
-    roomCode: 'Код комнаты',
     down: 'Наглотался пыли',
     go: 'Выхватывай!',
     drawHint: (key) => `Жми ${key} и выхватывай`,

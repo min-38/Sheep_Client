@@ -191,7 +191,7 @@ body {
 #draw-hint,
 #lock-hint,
 #watching,
-#room {
+#body-hud {
   position: absolute;
   pointer-events: none;
 }
@@ -334,7 +334,7 @@ body {
 }
 
 /* 승리 세레모니 (SHEEP-136). 이긴 사람이 해 쪽으로 걸어가는 동안 HUD를 숨김. 자막 카드는 마지막 쓰러짐 보기에 띄워 main.ts가 숨김 (SHEEP-180) */
-#game.ceremony :is(#blood, #crosshair, #flash, #hit-card, #ammo, #timer, #alive, #banner, #watching, #replay, #leave-down, #room) {
+#game.ceremony :is(#blood, #crosshair, #flash, #hit-card, #ammo, #timer, #alive, #banner, #watching, #replay, #leave-down, #body-hud) {
   visibility: hidden;
 }
 
@@ -469,12 +469,40 @@ body {
 }
 
 #banner,
-#watching,
-#room {
+#watching {
   color: #f2dfa7;
   font: 3cqw / 1 var(--text);
   letter-spacing: 0.4cqw;
   text-shadow: 0 0 0.3cqw #000;
+}
+
+/* 내 몸 (SHEEP-207 시안 A). 오른쪽 위에 사격 결과 카드·쓰러짐 자막과 같은 정면 블록 몸을 바랜 흰빛 45%로 두고 맞은 자리만 진한 빨강 */
+#body-hud {
+  right: 2.4cqw;
+  top: 2cqw;
+}
+
+#body-hud svg {
+  display: block;
+  width: 4cqw;
+  height: 10.4cqw;
+}
+
+#body-hud .figure {
+  fill: #f4efe2;
+  fill-opacity: 0.45;
+  stroke: #1b130d;
+  stroke-opacity: 0.5;
+  stroke-width: 0.8;
+}
+
+#body-hud .burn {
+  fill: #4a0b0e;
+  opacity: 0.85;
+}
+
+#body-hud .hole {
+  fill: #c0262d;
 }
 
 /* 리볼버 실린더. 사격 결과 카드 아래 왼쪽 아래 구석 (시스템 기획서 HUD) */

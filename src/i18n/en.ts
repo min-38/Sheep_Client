@@ -21,7 +21,6 @@ export const en = {
     replayWho: (name: string) => `Seein' it through ${name}'s eyes`,
     replay: 'Replay',
     leave: 'Leave',
-    roomCode: 'Room code',
     // 내가 쓰러졌을 때 가운데에 띄움
     down: 'You bit the dust',
     // "시작!" 신호

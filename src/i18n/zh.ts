@@ -18,7 +18,6 @@ export const zh: Copy = {
     replayWho: (name) => `借${name}的眼再瞧一遍`,
     replay: '回放',
     leave: '离开',
-    roomCode: '房间代码',
     down: '啃了一嘴土',
     go: '拔枪！',
     drawHint: (key) => `按 ${key} 拔枪`,

@@ -18,7 +18,6 @@ export const ja: Copy = {
     replayWho: (name) => `${name}の目でもう一度`,
     replay: 'リプレイ',
     leave: '退出',
-    roomCode: 'ルームコード',
     down: '土を舐めたな',
     go: '抜け！',
     drawHint: (key) => `${key} キーで抜け`,
