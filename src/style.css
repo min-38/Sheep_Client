@@ -1,6 +1,6 @@
 /* 서부 목판 글꼴 (시스템 기획서 방 화면 글꼴, CREDITS.md). 받는 동안은 기본 글꼴로 먼저 보임.
    글꼴마다 굵기가 하나뿐이라 모든 굵기에 같은 파일을 써 브라우저가 가짜 굵게를 덧입히지 않게 함.
-   한글 글꼴은 한글만 남겨 한글이 보일 때만 받음 */
+   다른 문자 글꼴은 unicode-range로 그 글자가 보일 때만 받음 */
 @font-face {
   font-family: 'Holtwood One SC';
   src: url('./assets/fonts/holtwood-one-sc.woff2') format('woff2');
@@ -16,8 +16,32 @@
 }
 
 @font-face {
-  font-family: 'Gasoek One';
-  src: url('./assets/fonts/gasoek-one.woff2') format('woff2');
+  font-family: 'Kelly Slab';
+  src: url('./assets/fonts/kelly-slab.woff2') format('woff2');
+  font-weight: 100 900;
+  font-display: swap;
+  unicode-range: U+0400-04FF;
+}
+
+@font-face {
+  font-family: 'Podkova';
+  src: url('./assets/fonts/podkova-medium.woff2') format('woff2');
+  font-weight: 100 900;
+  font-display: swap;
+  unicode-range: U+0400-04FF;
+}
+
+@font-face {
+  font-family: 'Hahmlet';
+  src: url('./assets/fonts/hahmlet-semibold.woff2') format('woff2');
+  font-weight: 100 900;
+  font-display: swap;
+  unicode-range: U+3131-318E, U+AC00-D7A3;
+}
+
+@font-face {
+  font-family: 'Song Myung';
+  src: url('./assets/fonts/song-myung.woff2') format('woff2');
   font-weight: 100 900;
   font-display: swap;
   unicode-range: U+3131-318E, U+AC00-D7A3;
@@ -31,11 +55,44 @@
   unicode-range: U+3131-318E, U+AC00-D7A3;
 }
 
-/* 제목·포스터·도장·칠판·남은 시간·"시작!"은 큰 글자, 버튼·창·나머지 글은 작은 글자.
-   Gasoek One에 없는 드문 한글은 명조로, 일본어·중국어·러시아어는 브라우저 기본 글꼴로 보임 */
+@font-face {
+  font-family: 'Zen Antique';
+  src: url('./assets/fonts/zen-antique.woff2') format('woff2');
+  font-weight: 100 900;
+  font-display: swap;
+  unicode-range: U+3000-30FF, U+31F0-31FF, U+4E00-9FFF, U+FF00-FFEF;
+}
+
+@font-face {
+  font-family: 'Zen Old Mincho';
+  src: url('./assets/fonts/zen-old-mincho-medium.woff2') format('woff2');
+  font-weight: 100 900;
+  font-display: swap;
+  unicode-range: U+3000-30FF, U+31F0-31FF, U+4E00-9FFF, U+FF00-FFEF;
+}
+
+@font-face {
+  font-family: 'ZCOOL XiaoWei';
+  src: url('./assets/fonts/zcool-xiaowei.woff2') format('woff2');
+  font-weight: 100 900;
+  font-display: swap;
+  unicode-range: U+3000-30FF, U+31F0-31FF, U+4E00-9FFF, U+FF00-FFEF;
+}
+
+@font-face {
+  font-family: 'Noto Serif SC';
+  src: url('./assets/fonts/noto-serif-sc-medium.woff2') format('woff2');
+  font-weight: 100 900;
+  font-display: swap;
+  unicode-range: U+3000-30FF, U+31F0-31FF, U+4E00-9FFF, U+FF00-FFEF;
+}
+
+/* 제목·포스터·도장·칠판·남은 시간·"시작!"은 큰 글자, 버튼·창·나머지 글은 작은 글자 (시안 A, SHEEP-202).
+   키릴 문자와 한글은 어느 언어에서든 닉네임에 나와 늘 넣고, 두 한글 글꼴에 없는 드문 한글은 명조로 보임.
+   일본어·중국어는 한자가 겹쳐 그 언어일 때만 넣음. 문구에 쓰인 글자만 있어 닉네임에만 쓰인 글자는 기본 글꼴로 보임 */
 :root {
-  --display: 'Holtwood One SC', 'Gasoek One', 'Sheep Myeongjo', serif;
-  --text: 'Rokkitt', 'Sheep Myeongjo', serif;
+  --display: 'Holtwood One SC', 'Kelly Slab', 'Hahmlet', 'Sheep Myeongjo', serif;
+  --text: 'Rokkitt', 'Podkova', 'Song Myung', 'Sheep Myeongjo', serif;
   /* 나무 판 무늬와 양 끝 못 머리. 버튼과 선택 칸이 같이 씀 */
   --planks: repeating-linear-gradient(180deg, #8a5a32 0 1.1cqw, #7a4c28 1.1cqw 1.4cqw);
   --nails:
@@ -45,6 +102,16 @@
   --brass: radial-gradient(circle at 35% 30%, #fff3c0, #e2b23c 45%, #a07818 100%);
   /* 누렇게 바랜 종이 바탕. 결과 카드, 포스터, 창이 같이 씀. 결·얼룩·탄 가장자리는 paper.ts가 --paper-* 변수로 넣음 */
   --paper: radial-gradient(ellipse closest-side, #ecd5a0 55%, #c2964f 120%);
+}
+
+:root:lang(ja) {
+  --display: 'Holtwood One SC', 'Kelly Slab', 'Zen Antique', 'Hahmlet', 'Sheep Myeongjo', serif;
+  --text: 'Rokkitt', 'Podkova', 'Zen Old Mincho', 'Song Myung', 'Sheep Myeongjo', serif;
+}
+
+:root:lang(zh) {
+  --display: 'Holtwood One SC', 'Kelly Slab', 'ZCOOL XiaoWei', 'Hahmlet', 'Sheep Myeongjo', serif;
+  --text: 'Rokkitt', 'Podkova', 'Noto Serif SC', 'Song Myung', 'Sheep Myeongjo', serif;
 }
 
 /* 바랜 종이 (시스템 기획서 HUD 사격 결과 카드, 방 화면 포스터). 종이는 ::after 한 겹에만 그리고 깎는 마스크도
@@ -143,30 +210,117 @@ body {
   pointer-events: none;
 }
 
-/* 자막 카드. 술집 주인 말풍선과 같은 검은 판에 흰 이중 테. 왼쪽 초상화, 가운데 쓰러뜨린 사람, 오른쪽 맞은 자리, 아래 한 줄 */
+/* 쓰러짐 장면 (시안 B, SHEEP-193). 서부 영화처럼 위아래에 검은 띠가 밀려 들어오고 아래 띠 안에 자막을 띄움. 화면 가운데는 가리지 않음.
+   왼쪽 초상화, 가운데 위 쓰러뜨린 사람, 그 아래 한 줄, 오른쪽 맞은 자리. 판 끝 마지막 쓰러짐 보기(SHEEP-180)도 같은 띠를 씀.
+   키프레임 애니메이션은 hidden이 풀려 다시 보일 때마다 처음부터 돎 */
 #kill-card {
   position: absolute;
-  left: 50%;
-  bottom: 4cqw;
-  translate: -50% 0;
+  inset: 0;
   margin: 0;
-  display: grid;
-  grid-template-columns: auto auto auto;
-  grid-template-areas: 'face who fig' 'line line line';
-  align-items: center;
-  gap: 0.6cqw 1.6cqw;
-  padding: 1.2cqw 2cqw 1cqw;
-  background: #111;
-  color: #f4efe2;
-  border: 0.2cqw solid #f4efe2;
-  outline: 0.35cqw solid #111;
-  box-shadow: inset 0 0 0 0.35cqw #111, inset 0 0 0 0.5cqw #f4efe2aa;
   pointer-events: none;
 }
 
-/* display: grid가 hidden을 덮어 다시 숨김 */
-#kill-card[hidden] {
-  display: none;
+#kill-card::before,
+#kill-card .band {
+  position: absolute;
+  left: 0;
+  right: 0;
+  background: #000;
+  animation: 0.4s ease-out both;
+}
+
+#kill-card::before {
+  content: '';
+  top: 0;
+  height: 13%;
+  animation-name: bar-down;
+}
+
+#kill-card .band {
+  bottom: 0;
+  min-height: 21%;
+  box-sizing: border-box;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  grid-template-areas: 'face who fig' 'face line fig';
+  align-content: center;
+  align-items: center;
+  gap: 0.6cqw 2cqw;
+  padding: 1cqw 6cqw;
+  color: #f4efe2;
+  animation-name: bar-up;
+}
+
+@keyframes bar-down {
+  from {
+    translate: 0 -100%;
+  }
+}
+
+@keyframes bar-up {
+  from {
+    translate: 0 100%;
+  }
+}
+
+#kill-face {
+  grid-area: face;
+  width: 6.5cqw;
+  aspect-ratio: 1;
+  image-rendering: pixelated;
+  border: 0.2cqw solid #cfc6b2;
+}
+
+#kill-card .who {
+  grid-area: who;
+  align-self: end;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.3cqw 1cqw;
+}
+
+#kill-kicker {
+  font: 1.5cqw / 1 var(--text);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: #cfc6b2;
+}
+
+#kill-name {
+  font: 2.6cqw / 1 var(--display);
+  letter-spacing: 0.04em;
+  overflow-wrap: anywhere;
+}
+
+#kill-line {
+  grid-area: line;
+  align-self: start;
+  margin: 0;
+  font: 2.2cqw / 1.2 var(--text);
+}
+
+#kill-card svg {
+  grid-area: fig;
+  width: 6.5cqw;
+  height: 6.5cqw;
+}
+
+#kill-card .figure {
+  fill: #8d8578;
+}
+
+#kill-hole {
+  fill: #c0262d;
+}
+
+#kill-old {
+  fill: #c0262d66;
+}
+
+/* 쓰러짐 장면 동안 실린더는 아래 띠의 초상화를 가려 숨김. 쓰러져 쏠 수도 없음 */
+#kill-card:not([hidden]) ~ #ammo {
+  visibility: hidden;
 }
 
 #saloon.leaving > :is(#saloon-sign, #chalkboard) {

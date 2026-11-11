@@ -31,7 +31,7 @@ import { banner, DUEL_LIMIT, dueling, formatTime, GO_SHOWN, joins, locked, resul
 import { bartenderFigure, BOUNTY, bubbleX, COPIED_MS, copyKeys, drawSaloon, SALOON_CAMERA, seatSlots, seatSpot, seatTag, startBartender, startChatter, stepBartender, stepChatter, STOOL } from './saloon.ts'
 import { cut, replayWindow } from './replay.ts'
 import { balanceAt, boardTimes, coinTimes, END_FADE_MS, endingAt, FALL_CARD_AT, fallSlow, finishLanded, finishLook, finishMotion, finishSpin, finishZoom, HITSTOP_MS, lastFallMotion, lastFallView, onScreen, pullView, spinDelay, spinGun, STAMP_FALL, toCamera, TURN_AT, turnFacing, walkerAt, walkoffCamera, walkoffView, WALK_MS, zoomFov, type BoardKey, type View } from './ceremony.ts'
-import { fallEye, fallSide, LANDED_MS, SCENE_MS, suicideSide, TEXT_PAUSE } from './downscene.ts'
+import { fallEye, fallSide, LANDED_MS, sceneMs, suicideSide, TEXT_PAUSE } from './downscene.ts'
 import { barShift, DOOR_PUSH_AT, drawEntrance, ENTER_FADE, ENTER_MS, entranceAt, entranceTrack, WHOOSH_AT, WHOOSH_MS } from './entrance.ts'
 // 지금 언어의 문구. 이 파일은 t를 시각 변수로 많이 써 문구는 copy로 부름
 import { copyOf, HTML_LANG, LANGUAGES, setLanguage, t as copy, textAt, type Language } from './i18n/index.ts'
@@ -80,10 +80,6 @@ const INTERP_DELAY = 100
 const OTHER_RELOAD_GAIN = 0.35
 // 한 번 맞출 때 재는 횟수. 그중 왕복이 가장 짧은 값을 씀 (기술 설계서 시간 맞추기)
 const SYNC_COUNT = 5
-// ms. 쓰러져 쓰러짐 장면(SHEEP-119)을 보인 뒤 관전으로 넘어가기까지. 함께 쓰러짐으로 늦게 오는 내 shotResult(맞고 D 안에 쏜 발사)가
-// 그 안에 다 와서, 관전을 시작한 뒤 오는 shotResult는 관전 대상의 복사본임 (시스템 기획서 HUD 관전)
-const SPECTATE_AFTER = SCENE_MS
-// px. 쓰러짐 장면의 위아래 검은 띠 높이(화면 높이의 9%)
 
 const canvas = document.querySelector<HTMLCanvasElement>('#screen')!
 canvas.width = W
@@ -256,10 +252,13 @@ function eyes(now: number) {
   return { id: myId!, x: me.x, y: me.y, angle: inputLocked(now) ? me.angle : angle, pitch }
 }
 
-// 쓰러지고 SPECTATE_AFTER가 지나면 관전함. 보던 사람이 쓰러지거나 나가면 다음 사람, 아무도 서 있지 않으면 내 화면.
-// 마지막 state로 가려 서버가 받아 주는 대상(서 있는 사람)과 같음
+// 쓰러져 쓰러짐 장면(SHEEP-119, SHEEP-193)이 끝나면 관전함. 보던 사람이 쓰러지거나 나가면 다음 사람, 아무도 서 있지 않으면 내 화면.
+// 마지막 state로 가려 서버가 받아 주는 대상(서 있는 사람)과 같음. 함께 쓰러짐으로 늦게 오는 내 shotResult(맞고 D 안에 쏜 발사)가
+// 장면 안에 다 와서, 관전을 시작한 뒤 오는 shotResult는 관전 대상의 복사본임 (시스템 기획서 HUD 관전)
 function pickWatch(now: number) {
-  if (myId === null || !isDown(myId, now - INTERP_DELAY - SPECTATE_AFTER)) return
+  if (myId === null) return
+  const down = downs.get(myId)
+  if (!down || now - INTERP_DELAY < down.at + sceneMs(down.reason)) return
   if (watch && roster.some((p) => p.id === watch!.id && p.pose !== 'down')) return
   watchPlayer(nextTarget(roster, myId, watch?.id ?? null))
 }
@@ -913,11 +912,11 @@ function frame(now: number) {
   // 내가 쓰러진 것을 보인 때부터 장면 시간(ms). 다시 보기와 관전 중에는 장면이 없음 (시스템 기획서 HUD 쓰러짐)
   const mine = !r && !watch && myId !== null ? downs.get(myId) : undefined
   const sceneT = mine ? now - INTERP_DELAY - mine.at : -1
-  const inScene = mine !== undefined && sceneT >= 0 && sceneT < SCENE_MS
+  const inScene = mine !== undefined && sceneT >= 0 && sceneT < sceneMs(mine.reason)
   // 장면이 끝나도 관전할 서 있는 사람이 없으면(함께 쓰러져 재대결 등) 다시 서지 않고 누운 눈 그대로 둠. 재대결로 다시 서면 끝남 (사용자 결정 2026-11-11, SHEEP-175)
   const lying = mine !== undefined && sceneT >= 0
-  // 재대결 글자는 바닥에 닿고 뜸을 들인 뒤 누운 화면 위에 띄움 (사용자 결정 2026-11-11, SHEEP-175)
-  const settled = mine !== undefined && sceneT >= LANDED_MS + TEXT_PAUSE + (mine.reason === 'timeout' ? SUICIDE_AIM + SUICIDE_FLASH : 0)
+  // 재대결 글자는 장면이 끝나 자막이 걷히고 뜸을 들인 뒤 누운 화면 위에 띄움 (사용자 결정 2026-11-11, SHEEP-175, SHEEP-193)
+  const settled = mine !== undefined && sceneT >= sceneMs(mine.reason) + TEXT_PAUSE
   // 술집에서 모두 준비해 카운트다운을 기다리는 동안은 바에서 뒤돌아 문을 나서는 장면을 보이고, 카운트다운 시각에 술집을 닫음 (SHEEP-137).
   // 시계를 맞추기 전이면 바로 닫음
   const serverNow = clock ? toServerTime(now, clock.offset) : Infinity
@@ -1124,7 +1123,7 @@ function frame(now: number) {
   // 승리는 글자 대신 이긴 사람의 포스터를 띄움
   const shown = result && now - INTERP_DELAY >= result.at ? result : null
   // 판 끝에는 글자 대신 결과 보드로 알림. 이긴 사람이 그사이 나가 보드가 없으면 글자로 알림
-  const text = (lying && (!settled || (inScene && shown?.outcome !== 'rematch'))) || (ending && winnerName !== '')
+  const text = (lying && !settled) || (ending && winnerName !== '')
     ? ''
     : r
       ? clock
