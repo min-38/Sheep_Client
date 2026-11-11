@@ -23,7 +23,7 @@ import { banner, DUEL_LIMIT, dueling, formatTime, joins, locked, resultText, sta
 import { bartenderFigure, bountyText, bubbleX, COPIED_MS, copyKeys, drawSaloon, SALOON_CAMERA, seatSlots, seatSpot, seatTag, startBartender, startChatter, stepBartender, stepChatter, STOOL } from './saloon.ts'
 import { cut, replayWindow } from './replay.ts'
 import { endingAt, fallSlow, irisOpen, lastFallCamera, lastFallMotion, stampHitAt, walkerAt, walkoffCamera } from './ceremony.ts'
-import { fallEye, fallSide, LANDED_MS, SCENE_MS, suicideSide } from './downscene.ts'
+import { fallEye, fallSide, LANDED_MS, SCENE_MS, suicideSide, TEXT_PAUSE } from './downscene.ts'
 import { barShift, DOOR_PUSH_AT, drawEntrance, ENTER_FADE, ENTER_MS, entranceAt, entranceTrack, WHOOSH_AT, WHOOSH_MS } from './entrance.ts'
 // 지금 언어의 문구. 이 파일은 t를 시각 변수로 많이 써 문구는 copy로 부름
 import { copyOf, HTML_LANG, LANGUAGES, setLanguage, t as copy, textAt, type Language } from './i18n/index.ts'
@@ -137,6 +137,8 @@ const revolver = revolverData as Rig
 let reloading = false
 // 이번 결투에서 내가 D 키로 총을 뽑기 시작한 시각(ms, 내 시계). 안 뽑았으면 null. 카운트다운마다 비움 (SHEEP-123)
 let drawnAt: number | null = null
+// 재대결 카운트다운을 알려 온 때 총을 뽑아 들고 있던 사람. 재대결 결과 동안 1인칭 총을 내리지 않고 든 채 장전으로 넘어감 (SHEEP-175)
+let holding = new Set<string>()
 // 다른 사람이 마지막으로 쏜 것과 쓰러진 것을 받은 시각(ms). state처럼 INTERP_DELAY 뒤에 보여 줘 돌기, 발사, 쓰러짐의 순서를 지킴.
 // ponytail: 사람마다 마지막 발사 하나만 둠. 발사 간격(250ms)이 불꽃(100ms)보다 길어 겹치지 않음. 지연이 크게 흔들려 둘이 붙어 오면 앞 불꽃이 빠짐
 const shots = new Map<string, Shot>()
@@ -346,8 +348,9 @@ function othersAt(t: number, viewer: string, scene: Scene): Thing[] {
       const body = characterBody(look.character, look.color, look.hand)
       // "시작!"부터 서 있는 사람은 D로 뽑으면 총을 들어 겨눈 모습, 뽑기 전에는 권총집에 넣은 채 (SHEEP-123). 머리와 팔은 그 사람의 위아래 시선대로
       const drawn = s.drawnAt !== null && clock !== null ? toServerTime(t, clock.offset) - s.drawnAt : -1
-      // 결투 중 뽑기 전에는 곧게 선 틀 모습(rest). 서기 동작은 다리를 벌리고 있어 뽑기 시작할 때 다리가 튐
-      const upright = duel ? (drawn >= 0 ? body.draw(drawn, s.pitch) : body.rest) : s.pose === 'walk' ? stepping(body) : reloadingFor !== null && reloadingFor < RELOAD_END ? body.reload(reloadingFor) : body.stand(t)
+      // 결투 중 뽑기 전에는 곧게 선 틀 모습(rest). 서기 동작은 다리를 벌리고 있어 뽑기 시작할 때 다리가 튐.
+      // 재대결 결과 동안(카운트다운 전)은 뽑아 든 총을 내리지 않음. 뽑은 시각은 서버가 카운트다운 시각에 비움 (SHEEP-175)
+      const upright = duel || (counted !== null && counted < 0 && drawn >= 0) ? (drawn >= 0 ? body.draw(drawn, s.pitch) : body.rest) : s.pose === 'walk' ? stepping(body) : reloadingFor !== null && reloadingFor < RELOAD_END ? body.reload(reloadingFor) : body.stand(t)
       // 불꽃 동안은 쏜 각도로 그림. 돌고 바로 쏘면 돌아간 각도는 다음 state로 늦게 옴
       const down = scene.downs.get(id)
       const fallen = down && { landed: t - down.at - fallDelay(down.reason), reason: down.reason }
@@ -648,6 +651,10 @@ function frame(now: number) {
   const mine = !r && !watch && myId !== null ? downs.get(myId) : undefined
   const sceneT = mine ? now - INTERP_DELAY - mine.at : -1
   const inScene = mine !== undefined && sceneT >= 0 && sceneT < SCENE_MS
+  // 장면이 끝나도 관전할 서 있는 사람이 없으면(함께 쓰러져 재대결 등) 다시 서지 않고 누운 눈 그대로 둠. 재대결로 다시 서면 끝남 (사용자 결정 2026-11-11, SHEEP-175)
+  const lying = mine !== undefined && sceneT >= 0
+  // 재대결 글자는 바닥에 닿고 뜸을 들인 뒤 누운 화면 위에 띄움 (사용자 결정 2026-11-11, SHEEP-175)
+  const settled = mine !== undefined && sceneT >= LANDED_MS + TEXT_PAUSE + (mine.reason === 'timeout' ? SUICIDE_AIM + SUICIDE_FLASH : 0)
   // 술집에서 모두 준비해 카운트다운을 기다리는 동안은 바에서 뒤돌아 문을 나서는 장면을 보이고, 카운트다운 시각에 술집을 닫음 (SHEEP-137).
   // 시계를 맞추기 전이면 바로 닫음
   const serverNow = clock ? toServerTime(now, clock.offset) : Infinity
@@ -726,7 +733,7 @@ function frame(now: number) {
       renderFrame(pixels, W, H, grid, cam, things, SKIES[timeOfDay(standing ?? history.size)])
       ctx.putImageData(image, 0, 0)
     }
-  } else if (grid && view && inScene) {
+  } else if (grid && view && lying) {
     // 내 눈 그대로 맞은 쪽으로 넘어져 바닥에 누움. 시간 초과는 총 든 손으로 옆머리를 쏴 반대쪽으로 넘어짐 (SHEEP-166).
     // 쏜 사람은 downedBy로 알고, 그 전 한두 프레임은 아직 거의 서 있어 뒤로 넘어지는 셈으로 둠
     const me = sampleAt(history.get(myId!)!, now - INTERP_DELAY)
@@ -763,7 +770,7 @@ function frame(now: number) {
     // 내 총은 설정의 손을 바로 따름. 다른 사람에게는 다음에 방에 들어갈 때 반영됨
     const loading = r || watch ? true : reloading
     const hand = (r || watch ? scene.characters.get(view.id)?.hand : undefined) ?? settings.hand
-    const hold = clock ? lift(scene.schedule, toServerTime(t, clock.offset), loading, viewDrawn) : { lower: 1, kick: 0 }
+    const hold = clock ? lift(scene.schedule, toServerTime(t, clock.offset), loading, viewDrawn, !r && holding.has(view.id)) : { lower: 1, kick: 0 }
     const plays = clock ? gunClips(scene.schedule, toServerTime(t, clock.offset), loading, toServerTime(fired, clock.offset), viewDrawn) : []
     const kick = Math.max(hold.kick, 1 - (t - fired) / RECOIL_MS)
     const muzzle = drawGun(ctx, revolverMesh(revolver, plays, rounds ?? 0), { ...s, kick, lower: hold.lower }, W, H, GUN_PROJ, hand === 'left' ? -1 : 1)
@@ -830,7 +837,7 @@ function frame(now: number) {
   }
   if (ending?.stage !== 'poster') winView.hidden = true
   // 판 끝에는 글자 대신 포스터와 자막 카드로 알림. 이긴 사람이 그사이 나가 포스터가 없으면 글자로 알림
-  const text = inScene || (ending && winnerName !== '')
+  const text = (lying && (!settled || (inScene && shown?.outcome !== 'rematch'))) || (ending && winnerName !== '')
     ? ''
     : r
       ? clock
@@ -1372,6 +1379,7 @@ function clearMatch() {
   schedule = {}
   standing = null
   pitch = 0
+  holding = new Set()
   downs.clear()
   hits.clear()
   gun = loaded(ROUNDS)
@@ -1474,6 +1482,9 @@ function receive(data: string) {
         // 재대결이면 재대결하는 사람만, 새 판이면 방 사람 모두가 섬. 앞 판 결과는 이 시각에 끝나므로 아직 남아 있음
         standing = result?.outcome === 'rematch' ? result.playerIds.length : history.size
         reloading = myId !== null && joins(result, myId)
+        // 다른 사람이 뽑은 시각은 서버가 카운트다운 시각에 비울 때까지 state로 남아 있음
+        const drew = (id: string) => (id === myId ? drawnAt !== null : history.has(id) && sampleAt(history.get(id)!, performance.now()).drawnAt !== null)
+        holding = new Set(result?.outcome === 'rematch' ? result.playerIds.filter(drew) : [])
         drawnAt = null
         // 판이 시작되면 화면을 누르지 않아도 돌 수 있게 바로 잠금 (SHEEP-152). 마지막에 준비를 누른 사람은 그 입력으로,
         // 판이 끝날 때 코드로 푼 사람은 입력 없이도 잠기는 브라우저가 많음. 안 되면 안내를 보고 화면을 누름

@@ -239,6 +239,19 @@ describe('lift', () => {
   test('장전하지 않는(재대결에 끼지 못한) 카운트다운에는 내린 채', () => {
     expect(lift({ countdown: 1000, walk: 4000 }, 2000, false)).toEqual({ lower: 1, kick: 0 })
   })
+
+  test('재대결 결과 동안 뽑아 든 총은 든 채 두고, 그 자리에서 장전하러 더 높이 듦 (SHEEP-175)', () => {
+    // 재대결 카운트다운을 알려 오면 판 시각을 비우고 카운트다운 시각만 남음
+    const s = { countdown: 7000 }
+    expect(lift(s, 2000, true, null, true)).toEqual({ lower: 0, kick: 0 })
+    expect(lift(s, 2000, true, null, false)).toEqual({ lower: 1, kick: 0 })
+    // 장전은 내려 둔 자리가 아니라 겨누던 자리에서 시작해 튀지 않음
+    expect(lift(s, 7000, true, null, true).lower).toBeCloseTo(0)
+    const rising = lift(s, 7000 + RAISE_MS / 2, true, null, true).lower
+    expect(rising).toBeLessThan(0)
+    expect(rising).toBeGreaterThan(lift(s, 7000 + RAISE_MS, true, null, true).lower)
+    expect(lift(s, 7000 + RAISE_MS, true, null, true).lower).toBe(lift(s, 7000 + RAISE_MS, true).lower)
+  })
 })
 
 describe('gunClips', () => {

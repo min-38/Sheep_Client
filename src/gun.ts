@@ -98,8 +98,9 @@ export function transform(mesh: Mesh, pose: GunPose, side: Side = 1): Vec3[] {
 
 // now(서버 시계)에 총을 내린 정도와 공이치기 반동. "시작!" 전과 판 사이에는 내려 두어 결투가 시작됐음을 화면으로도 알림.
 // "시작!" 뒤 D 키로 뽑은 때(drawnAt, 서버 시계)부터 DRAW_MS 동안 처음에 빨리 들고(ease-out), 다 든 순간 공이치기 소리와 함께 작게 튐. 뽑기 전에는 내린 채 (SHEEP-123). 판 결과가 끝나 schedule을 비우면 다시 내림.
-// reloading(이번 카운트다운에 내가 장전함)이면 카운트다운에도 같이 들되 RELOAD_LIFT만큼 더 높이 들어 장전하고, 장전 클립이 끝나면 HOLSTER_MS 동안 내려 권총집에 넣음(ease-in)
-export function lift(s: Schedule, now: number, reloading: boolean, drawnAt: number | null = null): { lower: number; kick: number } {
+// reloading(이번 카운트다운에 내가 장전함)이면 카운트다운에도 같이 들되 RELOAD_LIFT만큼 더 높이 들어 장전하고, 장전 클립이 끝나면 HOLSTER_MS 동안 내려 권총집에 넣음(ease-in).
+// held(재대결 카운트다운을 알려 온 때 총을 뽑아 들고 있었음)면 재대결 결과 동안 내리지 않고 든 채 두고, 장전도 겨누던 자리에서 더 높이 듦 (SHEEP-175)
+export function lift(s: Schedule, now: number, reloading: boolean, drawnAt: number | null = null, held = false): { lower: number; kick: number } {
   if (dueling(s, now)) {
     // 뽑기 전에는 권총집에 넣은 채라 다 내림 (SHEEP-123)
     if (drawnAt === null || now < drawnAt) return { lower: 1, kick: 0 }
@@ -107,10 +108,13 @@ export function lift(s: Schedule, now: number, reloading: boolean, drawnAt: numb
     if (since < DRAW_MS) return { lower: Math.max(0, 1 - since / DRAW_MS) ** 3, kick: 0 }
     return { lower: 0, kick: COCK_KICK * Math.max(0, 1 - (since - DRAW_MS) / RECOIL_MS) }
   }
-  if (!reloading || s.countdown === undefined || now < s.countdown) return { lower: 1, kick: 0 }
+  if (s.countdown === undefined || now < s.countdown) return { lower: held ? 0 : 1, kick: 0 }
+  if (!reloading) return { lower: 1, kick: 0 }
   const since = now - s.countdown
   const after = since - RELOAD_AT - RELOAD_MS
-  const down = after < 0 ? raised(since) : Math.min(1, after / HOLSTER_MS) ** 3
+  // 든 채면 lower 0(겨누던 자리)에서 시작하는 몫
+  const from = held ? RELOAD_LIFT / (1 + RELOAD_LIFT) : 1
+  const down = after < 0 ? raised(since) * from : Math.min(1, after / HOLSTER_MS) ** 3
   return { lower: down * (1 + RELOAD_LIFT) - RELOAD_LIFT, kick: 0 }
 }
 
