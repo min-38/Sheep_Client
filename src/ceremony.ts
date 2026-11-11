@@ -28,13 +28,21 @@ export const BLEED = 4
 // 시간 초과(자살)를 늦추는 배율. 옆머리를 쏘는 동작(0.7초)부터 틀어 SLOW로는 위에서 보는 동안 바닥에 닿지 못해 더 빨리 틂 (SHEEP-172)
 export const SUICIDE_SLOW = 0.8
 
-// 결과 보드가 뜨는 때(걷기 시작부터 ms). 어두워짐, 포스터, 도장, 서부 문구, 전 잔고, +$100, 잔고 세어 올리기 시작과 끝, 킬 수.
+// 결과 보드가 뜨는 때(걷기 시작부터 ms). 포스터, 도장, 서부 문구, 전 잔고, +$100, 잔고 세어 올리기 시작과 끝, 킬 수.
 // 앞 것이 자리 잡고 뜸을 들인 뒤 다음 것을 띄움 (사용자 결정 2026-11-11, SHEEP-187). ponytail: 임시 값. 플레이해 보며 정함
-const WON_BOARD = { dim: 0, poster: 1500, stamp: 2100, phrase: 3600, money: 4800, plus: 5600, count: 6100, counted: 7300, kills: 8500 }
+const WON_BOARD = { poster: 1500, stamp: 2100, phrase: 3600, money: 4800, plus: 5600, count: 6100, counted: 7300, kills: 8500 }
 export type BoardKey = keyof typeof WON_BOARD
 // 진 사람은 받는 돈이 없어 지금 잔고만 보이고(+$100과 세어 올리기 없음), 킬 수를 잔고 뒤 같은 뜸으로 당김 (사용자 결정 2026-11-11)
 export const boardTimes = (won: boolean): Record<BoardKey, number | null> =>
   won ? WON_BOARD : { ...WON_BOARD, plus: null, count: null, counted: null, kills: WON_BOARD.money + (WON_BOARD.money - WON_BOARD.phrase) }
+// ms. 걷기 시작부터 이만큼 동안 가장자리부터 점점 어두워짐 (사용자 결정 2026-11-11, SHEEP-197). CSS transition은 막 보이게 된 요소에서
+// 돌지 않아 한 번에 어두워졌으므로, 프레임마다 지난 시간으로 짙기를 정함. ponytail: 임시 값. 플레이해 보며 정함
+export const DIM_MS = 1500
+// 걷기 시작부터 elapsed(ms)의 어두워짐 짙기(0~1). 카메라가 빠지는 동안은 elapsed가 음수라 0
+export const dimAt = (elapsed: number) => Math.min(1, Math.max(0, elapsed / DIM_MS))
+// ms. 걷는 사람 머리 위 닉네임이 처음 보이고 다 짙어지기까지. 카메라가 빠지며 몸이 보일 때부터 띄워 돌아선 뒤 갑자기 생기지 않게 함 (SHEEP-197)
+export const NAME_FADE = 400
+
 // ms. 도장이 돌며 떨어져 종이에 찍히기까지. style.css #ending .stamp 애니메이션과 같은 값. 찍히는 소리를 이때 냄
 export const STAMP_FALL = 240
 

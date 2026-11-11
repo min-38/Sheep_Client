@@ -30,7 +30,7 @@ import type { Rig } from './rig.ts'
 import { banner, DUEL_LIMIT, dueling, formatTime, GO_SHOWN, joins, locked, resultText, standingCount, stepIndex, STEPS_FROM, timeLeft, TURN_MS, walking, type Schedule } from './round.ts'
 import { bartenderFigure, BOUNTY, bubbleX, COPIED_MS, copyKeys, drawSaloon, SALOON_CAMERA, seatSlots, seatSpot, seatTag, startBartender, startChatter, stepBartender, stepChatter, STOOL } from './saloon.ts'
 import { cut, replayWindow } from './replay.ts'
-import { balanceAt, boardTimes, coinTimes, END_FADE_MS, endingAt, FALL_CARD_AT, fallSlow, finishLanded, finishLook, finishMotion, finishSpin, finishZoom, HITSTOP_MS, lastFallMotion, lastFallView, onScreen, pullView, spinDelay, spinGun, STAMP_FALL, toCamera, TURN_AT, turnFacing, walkerAt, walkoffCamera, walkoffView, WALK_MS, zoomFov, type BoardKey, type View } from './ceremony.ts'
+import { balanceAt, boardTimes, coinTimes, dimAt, END_FADE_MS, endingAt, FALL_CARD_AT, fallSlow, finishLanded, finishLook, finishMotion, finishSpin, finishZoom, HITSTOP_MS, lastFallMotion, lastFallView, NAME_FADE, onScreen, PULL_MS, pullView, spinDelay, spinGun, STAMP_FALL, toCamera, TURN_AT, turnFacing, walkerAt, walkoffCamera, walkoffView, WALK_MS, zoomFov, type BoardKey, type View } from './ceremony.ts'
 import { fallEye, fallSide, LANDED_MS, sceneMs, suicideSide, TEXT_PAUSE } from './downscene.ts'
 import { barShift, DOOR_PUSH_AT, drawEntrance, ENTER_FADE, ENTER_MS, entranceAt, entranceTrack, WHOOSH_AT, WHOOSH_MS } from './entrance.ts'
 // 지금 언어의 문구. 이 파일은 t를 시각 변수로 많이 써 문구는 copy로 부름
@@ -1001,7 +1001,8 @@ function frame(now: number) {
     const things = [...othersAt(now - INTERP_DELAY, winnerId, staged), ...(inside ? [] : [walker]), ...bloodAt(now - INTERP_DELAY, staged), ...seen]
     renderFrame(pixels, W, H, grid, cam, things, sky())
     ctx.putImageData(image, 0, 0)
-    walkerHead = strolling ? onScreen(cam, spot.x, spot.y, NAME_Z, W, H) : null
+    // 닉네임은 카메라가 빠지며 몸이 보일 때부터 띄워, 돌아서는 동안에도 떠 있음 (SHEEP-197)
+    walkerHead = inside ? null : onScreen(cam, spot.x, spot.y, NAME_Z, W, H)
   } else if (grid && view && lying) {
     // 내 눈 그대로 맞은 쪽으로 넘어져 바닥에 누움. 시간 초과는 총 든 손으로 옆머리를 쏴 반대쪽으로 넘어짐 (SHEEP-166).
     // 쏜 사람은 downedBy로 알고, 그 전 한두 프레임은 아직 거의 서 있어 뒤로 넘어지는 셈으로 둠
@@ -1096,9 +1097,11 @@ function frame(now: number) {
   game.classList.toggle('replaying', r !== null)
   // 판 끝 동안은 HUD를 숨김 (SHEEP-136)
   game.classList.toggle('ceremony', ending !== null)
-  // 걷는 동안 결과 보드와 이긴 사람 머리 위 닉네임. 이긴 사람이 그사이 나갔으면 띄우지 않음 (SHEEP-187)
+  // 카메라가 빠질 때부터 결과 보드와 이긴 사람 머리 위 닉네임. 보드는 걷기 시작부터 잰 때라 빠지는 동안은 음수로 비어 있고 닉네임만 보임 (SHEEP-197).
+  // 이긴 사람이 그사이 나갔으면 띄우지 않음 (SHEEP-187)
   const winnerName = winnerId === null ? '' : (roster.find((p) => p.id === winnerId)?.nickname ?? '')
-  showBoard(ending?.stage === 'walk' && winnerName !== '' ? ending.elapsed : null, winnerName, walkerHead)
+  const boardAt = ending && ending.stage !== 'fall' ? ending.elapsed - (ending.stage === 'pull' ? PULL_MS : 0) : null
+  showBoard(boardAt !== null && winnerName !== '' ? boardAt : null, winnerName, walkerHead)
   // 마지막 쓰러짐 보기 동안은 뜸을 들인 뒤 진 사람 모두에게 그 사람을 쓰러뜨린 이를 띄움 (SHEEP-180). 내 쓰러짐 장면 카드는 판 끝이 되면 닫음
   const fallCard = lastFall !== null && !asWinner && result !== null && now - INTERP_DELAY - result.at >= FALL_CARD_AT
   const fallKey = fallCard ? `${lastFall[0]}:${lastFall[1].at}` : null
@@ -1293,6 +1296,7 @@ const endPlus = document.querySelector<HTMLElement>('#end-plus')!
 const endBalance = document.querySelector<HTMLElement>('#end-balance')!
 const endKills = document.querySelector<HTMLElement>('#end-kills')!
 const endFade = document.querySelector<HTMLDivElement>('#end-fade')!
+const endDim = document.querySelector<HTMLDivElement>('#end-dim')!
 const walkerName = document.querySelector<HTMLElement>('#walker-name')!
 const walkerNick = document.querySelector<HTMLElement>('#walker-nick')!
 
@@ -1302,12 +1306,18 @@ document.documentElement.style.setProperty('--paper-ink', PAPER_INK)
 document.querySelectorAll<HTMLElement>('#hit-card, .poster').forEach((el, i) => dressPaper(el, i + 1))
 document.querySelectorAll<HTMLElement>('.sheet').forEach((el, i) => dressPaper(el, i + 20, false))
 
-// 판 끝 결과 보드 (SHEEP-187 시안 A). elapsed는 걷기 시작부터 ms이고 걷는 동안이 아니면 null. 결과마다 처음 부를 때 채우고(fillBoard),
+// 걷는 사람 머리 위 닉네임이 처음 보인 때(ms, 내 시계). 안 보이면 null. 이때부터 NAME_FADE 동안 짙어짐 (SHEEP-197)
+let nameSince: number | null = null
+
+// 판 끝 결과 보드 (SHEEP-187 시안 A). elapsed는 걷기 시작부터 ms이고(카메라가 빠지는 동안은 음수) 그 밖에는 null. 결과마다 처음 부를 때 채우고(fillBoard),
 // 그 뒤로는 boardTimes에 맞춰 칸마다 on을 붙임. 끝 END_FADE_MS 동안 검게 닫힘. head는 걷는 사람 머리 위 점(px)
 function showBoard(elapsed: number | null, winnerName: string, head: { x: number; y: number } | null) {
   if (elapsed !== null && result && board?.at !== result.at) board = fillBoard(result, winnerName)
   endingView.hidden = elapsed === null || !board
-  if (elapsed === null || !board) return
+  if (elapsed === null || !board) {
+    nameSince = null
+    return
+  }
   const times = boardTimes(board.won)
   const hit = times.stamp! + STAMP_FALL
   const at = (key: string) => (key === 'hit' ? hit : times[key as BoardKey])
@@ -1321,8 +1331,11 @@ function showBoard(elapsed: number | null, winnerName: string, head: { x: number
   if (endBalance.textContent !== balance) endBalance.textContent = balance
   endBalance.classList.toggle('counting', times.count !== null && elapsed >= times.count && elapsed < times.counted!)
   endFade.style.setProperty('--fade', String(Math.min(1, Math.max(0, (elapsed - (WALK_MS - END_FADE_MS)) / END_FADE_MS))))
+  endDim.style.setProperty('--dim', String(dimAt(elapsed)))
   walkerName.hidden = head === null
+  nameSince = head === null ? null : (nameSince ?? performance.now())
   if (head) {
+    walkerName.style.opacity = String(Math.min(1, (performance.now() - nameSince!) / NAME_FADE))
     walkerName.style.left = `${(head.x * 100) / W}%`
     walkerName.style.top = `${(head.y * 100) / H}%`
   }
