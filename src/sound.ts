@@ -215,6 +215,31 @@ export function playStamp(audio: AudioContext, when: number) {
   slap.start(when)
 }
 
+// 단추를 누르는 소리를 when(AudioContext 시각, 초)에 냄 (시스템 기획서 사운드 클릭 소리, SHEEP-209 시안 A).
+// 나무 판을 손가락 마디로 톡 두드림: 결이 있는 잡음을 1.7kHz 언저리로 걸러 짧게 줄이고, 낮게 떨어지는 판 울림을 더함
+export function playClick(audio: AudioContext, when: number) {
+  const out = effectsOut(audio)
+  const noise = new AudioBuffer({ length: Math.round(audio.sampleRate * 0.06), sampleRate: audio.sampleRate })
+  const data = noise.getChannelData(0)
+  for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1
+  const grain = new AudioBufferSourceNode(audio, { buffer: noise })
+  const wood = new BiquadFilterNode(audio, { type: 'bandpass', frequency: 1700, Q: 2.5 })
+  const tap = new GainNode(audio, { gain: 0.0001 })
+  tap.gain.exponentialRampToValueAtTime(0.5, when + 0.002)
+  tap.gain.exponentialRampToValueAtTime(0.0001, when + 0.05)
+  grain.connect(wood).connect(tap).connect(out)
+  grain.start(when)
+  const ring = new OscillatorNode(audio, { type: 'sine', frequency: 240 })
+  ring.frequency.setValueAtTime(240, when)
+  ring.frequency.exponentialRampToValueAtTime(140, when + 0.06)
+  const body = new GainNode(audio, { gain: 0.0001 })
+  body.gain.exponentialRampToValueAtTime(0.35, when + 0.002)
+  body.gain.exponentialRampToValueAtTime(0.0001, when + 0.08)
+  ring.connect(body).connect(out)
+  ring.start(when)
+  ring.stop(when + 0.1)
+}
+
 // 금속 종을 친 듯한 맑은 소리. 배음 몇 개를 같이 울려 짧게 줄임. gain은 크기, seconds는 줄어드는 시간
 function bell(audio: AudioContext, when: number, partials: readonly number[], gain: number, seconds: number) {
   const out = effectsOut(audio)
