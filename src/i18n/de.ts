@@ -163,8 +163,8 @@ export const de: Copy = {
     ],
   },
   settings: {
-    music: 'Musik',
-    effects: 'Soundeffekte',
+    music: en.settings.music, // 영어 그대로 (SHEEP-201)
+    effects: en.settings.effects, // 영어 그대로 (SHEEP-201)
     hand: 'Waffenhand',
     right: 'Rechts',
     left: 'Links',

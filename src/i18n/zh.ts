@@ -162,8 +162,8 @@ export const zh: Copy = {
     ],
   },
   settings: {
-    music: '音乐',
-    effects: '音效',
+    music: en.settings.music, // 영어 그대로 (SHEEP-201)
+    effects: en.settings.effects, // 영어 그대로 (SHEEP-201)
     hand: '持枪手',
     right: '右手',
     left: '左手',

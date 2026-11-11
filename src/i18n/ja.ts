@@ -162,8 +162,8 @@ export const ja: Copy = {
     ],
   },
   settings: {
-    music: 'BGM',
-    effects: '効果音',
+    music: en.settings.music, // 영어 그대로 (SHEEP-201)
+    effects: en.settings.effects, // 영어 그대로 (SHEEP-201)
     hand: '利き手',
     right: '右手',
     left: '左手',

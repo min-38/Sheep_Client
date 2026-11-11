@@ -194,6 +194,7 @@ export const en = {
     ],
   },
   settings: {
+    // 배경음악과 효과음 크기 칸 이름. 모든 언어가 이 영어를 그대로 씀 (사용자 결정 2026-11-11, SHEEP-201)
     music: 'Music',
     effects: 'SFX',
     hand: 'Gun hand',

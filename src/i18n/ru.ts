@@ -163,8 +163,8 @@ export const ru: Copy = {
     ],
   },
   settings: {
-    music: 'Музыка',
-    effects: 'Эффекты',
+    music: en.settings.music, // 영어 그대로 (SHEEP-201)
+    effects: en.settings.effects, // 영어 그대로 (SHEEP-201)
     hand: 'Рука',
     right: 'Правая',
     left: 'Левая',
