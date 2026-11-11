@@ -176,8 +176,8 @@ export const es: Copy = {
     ],
   },
   settings: {
-    music: 'Música',
-    effects: 'Efectos',
+    music: en.settings.music, // 영어 그대로 (SHEEP-201)
+    effects: en.settings.effects, // 영어 그대로 (SHEEP-201)
     hand: 'Mano',
     right: 'Derecha',
     left: 'Izquierda',

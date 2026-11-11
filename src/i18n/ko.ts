@@ -175,8 +175,8 @@ export const ko: Copy = {
     ],
   },
   settings: {
-    music: '배경음악',
-    effects: '효과음',
+    music: en.settings.music, // 영어 그대로 (SHEEP-201)
+    effects: en.settings.effects, // 영어 그대로 (SHEEP-201)
     hand: '총을 든 손',
     right: '오른손',
     left: '왼손',
