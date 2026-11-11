@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'vitest'
-import { bartenderBody, brimOf, CELL, CHARACTERS, characterBody, corners, drawFigure, FALL_LAND_MS, inWorld, pinWound, toModel, woundBox, keyColor, PORTRAIT_SIZE, portraitPixels, savedCharacter, savedColor, SUICIDE_AIM, SUICIDE_FLASH, suicideStage, type Box, type Pose } from './character.ts'
+import { bartenderBody, brimOf, CELL, CHARACTERS, characterBody, corners, drawFigure, FALL_LAND_MS, inWorld, pinWound, toModel, woundBox, keyColor, PORTRAIT_SIZE, portraitPixels, restOn, savedCharacter, savedColor, SUICIDE_AIM, SUICIDE_FLASH, suicideStage, type Box, type Figure, type Pose } from './character.ts'
+import { pool } from './blood.ts'
 import revolverData from './assets/revolver-rig.json'
 import { DRAW_MS, RELOAD_AT, RELOAD_END, RELOAD_MS, revolverMesh } from './gun.ts'
 import { makeCamera, type RGB } from './render.ts'
@@ -583,6 +584,49 @@ describe('상처 (SHEEP-126)', () => {
     const box = woundBox(body.rest.boxes, wound)
     const faces = box.c.map((v, i) => Math.abs(Math.abs(v - trunk.c[i]) - trunk.half[i]) < 1e-9)
     expect(faces.some(Boolean)).toBe(true)
+  })
+})
+
+describe('restOn (SHEEP-181)', () => {
+  const lying = characterBody(0).fall(5000)
+  const at = (x: number, y: number, facing: number, pose: Pose = lying): Figure => ({ x, y, facing, ...pose })
+  // 사람의 상자 꼭짓점들(격자 x, 격자 y, 높이)
+  const points = (f: Figure) => f.boxes.flatMap((b) => corners(b).map((c) => inWorld(f.x, f.y, f.facing, c)))
+  const lowest = (f: Figure) => Math.min(...points(f).map((p) => p[2]))
+  // 점이 사람 f의 상자 안에 깊이(블록) 넘게 들어가 있는지. 겉면끼리 닿는 것은 봐줌
+  const inside = (f: Figure, p: readonly number[], depth = 0.1) =>
+    f.boxes.some((b) => {
+      const l = toModel(f.x, f.y, f.facing, p[0], p[1], p[2])
+      return b.axes.every((a, i) => Math.abs(a.reduce((s, v, k) => s + v * (l[k] - b.c[k]), 0)) < b.half[i] - depth)
+    })
+
+  test('같은 자리에 누우면 나중 몸을 먼저 몸 위로 올려 서로 파고들지 않음', () => {
+    const first = at(3, 3, 0)
+    const later = restOn(at(3.05, 3.02, 0.4), [first])
+    expect(lowest(later)).toBeGreaterThan(0.01)
+    expect(points(later).filter((p) => inside(first, p))).toEqual([])
+    expect(points(first).filter((p) => inside(later, p))).toEqual([])
+  })
+
+  test('겹치지 않으면 그대로 둠', () => {
+    const far = at(6, 3, 0)
+    expect(restOn(far, [at(3, 3, 0)])).toBe(far)
+    expect(restOn(far, [])).toBe(far)
+  })
+
+  test('피 웅덩이는 바닥에 그대로 두고 몸만 올림', () => {
+    const puddle = pool([0, 0], 9000)
+    const later = restOn(at(3, 3, 0.2, { ...lying, boxes: [...lying.boxes, ...puddle] }), [at(3, 3, 0)])
+    expect(later.boxes.slice(-puddle.length)).toEqual(puddle)
+    expect(later.boxes[0].c[1]).toBeGreaterThan(lying.boxes[0].c[1])
+  })
+
+  test('셋이 겹치면 셋째는 둘 위에 얹힘', () => {
+    const first = at(3, 3, 0)
+    const second = restOn(at(3, 3, 0.3), [first])
+    const third = restOn(at(3, 3, -0.3), [first, second])
+    expect(lowest(third)).toBeGreaterThan(lowest(second) + 0.01)
+    expect(points(third).filter((p) => inside(second, p) || inside(first, p))).toEqual([])
   })
 })
 

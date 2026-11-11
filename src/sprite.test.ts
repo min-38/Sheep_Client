@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'vitest'
+import { CELL, type Box, type Figure } from './character.ts'
 import { makeCamera, pack, type RGB } from './render.ts'
 import { drawSprites, frameIndex, PX_PER_CELL, type Sprite, type Thing } from './sprite.ts'
 
@@ -160,3 +161,26 @@ describe('drawSprites 연기 (SHEEP-124)', () => {
   })
 })
 
+
+describe('drawSprites 쓰러진 몸 (SHEEP-181)', () => {
+  // 바닥에 누운 두께 4블록의 납작한 상자 하나만 있는 사람. back은 상자를 사람 자리에서 카메라 쪽으로 당긴 거리(칸). 총은 없음
+  const slab = (x: number, back: number, rgb: RGB, downAt: number): Figure => {
+    const box: Box = { c: [0, 2, -back / CELL], axes: [[1, 0, 0], [0, 1, 0], [0, 0, 1]], half: [8, 2, 8], rgb }
+    return { x, y: 0, facing: 0, boxes: [box], gun: [], downAt }
+  }
+
+  test('같은 자리에 누운 두 몸은 나중에 쓰러진 몸이 위에 보임', () => {
+    // 두 상자는 x = 2 같은 자리. 나중 몸(파랑)은 사람 자리가 카메라에서 더 멀어, 먼 것부터 그리면 먼저 몸(빨강)이 덮음
+    const pitch = -0.6
+    const above = { ...makeCamera(0, 0, 0, 90, pitch), z: 1.2 }
+    const first = slab(2, 0, [255, 0, 0], 100)
+    const later = slab(2.08, 0.08, [0, 0, 255], 200)
+    // 나중 몸은 먼저 몸 두께만큼 올라가 윗면이 8블록 높이. 그 윗면 가운데(거리 2)가 보이는 줄
+    const row = Math.floor(H / 2 + (W / 2) * Math.tan(pitch) + ((W / 2) * (1.2 - 8 * CELL)) / 2)
+    for (const things of [[first, later], [later, first]]) {
+      const c = draw(things, undefined, above)[row * W + W / 2]
+      expect(c & 255).toBe(0)
+      expect((c >>> 16) & 255).toBeGreaterThan(100)
+    }
+  })
+})
