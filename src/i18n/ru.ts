@@ -49,7 +49,7 @@ export const ru: Copy = {
     leave: 'Выйти',
     ready: 'Готов',
     unready: 'Погоди',
-    changeDuds: 'Сменить шмотки',
+    changeCharacter: 'Персонаж',
     settings: 'Настройки',
     mySeat: 'Моё место',
     wins: (n) => `Побед: ${n}`,

@@ -49,7 +49,7 @@ export const de: Copy = {
     leave: 'Verlassen',
     ready: 'Bereit',
     unready: "Noch nich'",
-    changeDuds: 'Kluft wechseln',
+    changeCharacter: 'Figur',
     settings: 'Einstellungen',
     mySeat: 'Mein Platz',
     wins: (n) => `${n} Sieg${n === 1 ? '' : 'e'}`,

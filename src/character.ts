@@ -46,6 +46,8 @@ export type Body = {
   draw: (ms: number, pitch: number) => Pose
   fire: (pitch: number) => Pose
   suicide: Pose[]
+  // 시간 초과로 옆머리를 쏜 상처. 총 든 손 쪽 관자놀이에서 가장 가까운 상자 겉면에 붙임 (SHEEP-176)
+  templeWound: Wound
   // drop이면 바닥에 닿을 때 총을 놓쳐 손 옆 모래 위에 눕힘(맞아 쓰러짐). 아니면 누운 뒤에도 쥠(자살) (사용자 결정 2026-11-10, SHEEP-119)
   fall: (ms: number, drop?: boolean) => Pose
   // 술집 바 의자에 앉은 모습. 엉덩이가 서 있을 때 높이(16블록) 그대로이고, 허벅지는 앞으로 눕고 아래팔은 카운터 위에 얹음 (SHEEP-115)
@@ -449,6 +451,7 @@ function build(data: CharacterData, key: string | undefined, hand: Hand): Body {
     },
     fire: (pitch) => aimed(pitch, ahead(pitch + RECOIL), true),
     suicide: [temple(false), temple(true)],
+    templeWound: pinWound(holstered(moves(rest)).boxes, mirrored(TEMPLE)),
     // 맞거나 쏜 뒤라 총을 손에 쥔 채 넘어짐. 맞았으면 바닥에 닿을 때 놓침
     fall: (ms, drop = false) =>
       drop && ms >= FALL_LAND_MS ? { ...ground({ boxes: posed(motionMoves(fall, frames(ms))).boxes, gun: [] }), gun: dropped } : play(fall, frames(ms), held),

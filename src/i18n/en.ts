@@ -61,7 +61,8 @@ export const en = {
     leave: 'Leave',
     ready: 'Ready',
     unready: 'Not yet',
-    changeDuds: 'Change Duds',
+    // 캐릭터·색 고르기 판을 펼치는 칠판 아래 버튼. 판 폭(내부 53px)에 말줄임 없이 들어가게 짧게 씀 (SHEEP-173)
+    changeCharacter: 'Character',
     settings: 'Settings',
     mySeat: 'My seat',
     // 좌석 꼬리표에 적는 이긴 횟수. 0승도 "0 Win"으로 적음 (사용자 결정 2026-11-10, SHEEP-148)
