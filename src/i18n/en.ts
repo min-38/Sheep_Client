@@ -204,7 +204,7 @@ export const en = {
       { role: 'Revolver model', who: 'Loafbrr', detail: 'Revolver pack · CC BY 1.0 · loafbrr.itch.io' },
       { role: 'Gun sounds', who: 'f8studios', detail: "Snake's SECOND Authentic Gun Sounds Pack · Public domain · f8studios.itch.io" },
       { role: 'Motions', who: 'Quaternius', detail: 'Universal Animation Library · CC0 1.0 · quaternius.itch.io' },
-      { role: 'Fonts', who: 'Holtwood One SC · Rokkitt · Gasoek One · Nanum Myeongjo', detail: 'SIL Open Font License 1.1 · fonts.google.com' },
+      { role: 'Fonts', who: 'Holtwood One SC · Rokkitt · Kelly Slab · Podkova · Zen Antique · Zen Old Mincho · ZCOOL XiaoWei · Noto Serif SC · Hahmlet · Song Myung · Nanum Myeongjo', detail: 'SIL Open Font License 1.1 · fonts.google.com' },
       { role: 'Music', who: 'Made with Suno', detail: 'Last One Standing · Dusty Saloon · High Noon Standoff · Quickest Hand in Town' },
     ],
   },
