@@ -121,7 +121,7 @@ export const en = {
     roomList: 'Room list',
     code: 'Room code',
     join: 'Join',
-    // 첫 화면 메뉴와 입장 게시판 (시스템 기획서 방 화면 M8 첫 화면). 연습은 아직 없어 막아 둠
+    // 첫 화면 메뉴와 입장 게시판 (시스템 기획서 방 화면 M8 첫 화면, 연습)
     play: 'Play',
     practice: 'Practice',
     rooms: 'Rooms',

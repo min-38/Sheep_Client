@@ -3,10 +3,10 @@ import revolverData from './assets/revolver-rig.json'
 import { orbit } from './backdrop.ts'
 import { bartenderBody, brimOf, CHARACTERS, characterBody, drawFigure, inWorld, keyColor, pinWound, portraitUrl, savedCharacter, savedColor, SUICIDE_AIM, SUICIDE_FLASH, suicideStage, toModel, woundBox, type Body, type Figure, type Pose, type Wound } from './character.ts'
 import { best, measure, toLocalTime, toServerTime, type ClockSample } from './clock.ts'
-import { CYLINDER_TURN, cylinderSvg } from './cylinder.ts'
+import { CHAMBERS, CYLINDER_TURN, cylinderSvg } from './cylinder.ts'
 import { makeProps, SKIES, timeOfDay } from './desert.ts'
 import { enhanceSelect } from './dropdown.ts'
-import { aimed, DRAW_MS, drawGun, gunClips, lift, RECOIL_MS, RELOAD_END, RELOAD_SEATED, RELOAD_SHUT, reloadNod, reloadSoundAt, revolverMesh, templeAim, VIEW_NOD } from './gun.ts'
+import { aimed, DRAW_MS, drawGun, gunClips, HOLSTER_MS, lift, RECOIL_MS, RELOAD_END, RELOAD_SEATED, RELOAD_SHUT, reloadNod, reloadSoundAt, revolverMesh, templeAim, VIEW_NOD } from './gun.ts'
 import { dotPosition, noBlood, onGameEnd, onRevived, onWalk, onWounded, resultLabel } from './hitcard.ts'
 import { record, sampleAt, viewSample, type Sample } from './interpolate.ts'
 import { drawMessage, fireMessage, parseServerMessage, type ClientMessage, type HitPoint, type PlayerState, type RoundResult, type ShotResult } from './net.ts'
@@ -19,7 +19,7 @@ import { playMusic, setMusicVolume, trackAt } from './music.ts'
 import { makeCamera, renderFrame } from './render.ts'
 import { loaded, pull, ROUNDS } from './revolver.ts'
 import type { Rig } from './rig.ts'
-import { banner, DUEL_LIMIT, dueling, formatTime, joins, locked, resultText, standingCount, stepIndex, STEPS_FROM, timeLeft, TURN_MS, walking, type Schedule } from './round.ts'
+import { banner, DUEL_LIMIT, dueling, formatTime, GO_SHOWN, joins, locked, resultText, standingCount, stepIndex, STEPS_FROM, timeLeft, TURN_MS, walking, type Schedule } from './round.ts'
 import { bartenderFigure, BOUNTY, bubbleX, COPIED_MS, copyKeys, drawSaloon, SALOON_CAMERA, seatSlots, seatSpot, seatTag, startBartender, startChatter, stepBartender, stepChatter, STOOL } from './saloon.ts'
 import { cut, replayWindow } from './replay.ts'
 import { balanceAt, boardTimes, coinTimes, END_FADE_MS, endingAt, FALL_CARD_AT, fallSlow, finishLanded, finishLook, finishMotion, finishSpin, finishZoom, HITSTOP_MS, lastFallMotion, lastFallView, onScreen, pullView, spinDelay, spinGun, STAMP_FALL, toCamera, TURN_AT, turnFacing, walkerAt, walkoffCamera, walkoffView, WALK_MS, zoomFov, type BoardKey, type View } from './ceremony.ts'
@@ -31,13 +31,14 @@ import { readSettings, RADIANS_PER_PIXEL, type Crosshair, type Hand, type Settin
 import { oneTab } from './tablock.ts'
 import { nextTarget } from './spectate.ts'
 import { drawSmoke, HALO_ALPHA, HALO_SIZE, smoke, SMOKE_MS, SMOKE_PX } from './smoke.ts'
-import { along, bulletDots, bulletRange, EYE_HEIGHT, FLIGHT_MS } from './bullet.ts'
+import { along, bulletDots, bulletRange, EYE_HEIGHT, firstHit, FLIGHT_MS } from './bullet.ts'
 import { bulletDir, burst, BURST_MS, exitPoint, pool } from './blood.ts'
 import { fallDelay, heardFrom, loadEffects, play, playCoin, playDing, playDoor, playFall, playSignal, playStamp, playStep, playWhoosh, setEffectsVolume, stampOf, toAudioTime } from './sound.ts'
 import { darkness, stepDip } from './tension.ts'
 import type { Thing } from './sprite.ts'
 import { afterTurn, aimAt, crosshairOffset, scaleAt, steady, sway, type Unsteady } from './sway.ts'
 import { tilt, turn } from './turn.ts'
+import { addHole, HOLE_MS, liveHoles, practiceSpots, targetLooks, type Hole } from './practice.ts'
 
 // 내부 해상도. 이 크기로 그리고 CSS로 확대함 (기술 설계서 렌더링)
 const W = 480
@@ -118,6 +119,10 @@ let grid: Grid | null = null
 let props: Thing[] = []
 // 그 라운드에 선 사람 수. 카운트다운이 시작할 때 정해 판 도중에 쓰러져도 하늘 시간대가 바뀌지 않음. 판 사이에는 null이고 방 인원을 씀
 let standing: number | null = null
+// 연습 중인지 (시스템 기획서 방 화면 연습, SHEEP-195). 방 밖에서 혼자 결투장에 서서 과녁을 쏨
+let practice = false
+// 결투장 하늘. 연습은 석양
+const sky = () => SKIES[practice ? 'sunset' : timeOfDay(standing ?? history.size)]
 // 입장 응답으로 받은 내 id. 받기 전의 state는 무시함 (기술 설계서 메시지)
 let myId: string | null = null
 // 내 위치는 서버가 정함. 처음 state를 받아 자리를 잡기 전에는 그리지 않음
@@ -141,6 +146,11 @@ const revolver = revolverData as Rig
 let reloading = false
 // 이번 결투에서 내가 D 키로 총을 뽑기 시작한 시각(ms, 내 시계). 안 뽑았으면 null. 카운트다운마다 비움 (SHEEP-123)
 let drawnAt: number | null = null
+// 연습에서 D로 총을 권총집에 넣기 시작한 시각(ms, 내 시계). 넣지 않았으면 null (SHEEP-195)
+let holsteredAt: number | null = null
+// 연습의 사격 결과 카드에 찍은 구멍과 마지막으로 쏜 시각(ms, 내 시계) (SHEEP-195)
+let practiceHoles: Hole[] = []
+let practiceShotAt = -Infinity
 // 재대결 카운트다운을 알려 온 때 총을 뽑아 들고 있던 사람. 재대결 결과 동안 1인칭 총을 내리지 않고 든 채 장전으로 넘어감 (SHEEP-175)
 let holding = new Set<string>()
 // 다른 사람이 마지막으로 쏜 것과 쓰러진 것을 받은 시각(ms). state처럼 INTERP_DELAY 뒤에 보여 줘 돌기, 발사, 쓰러짐의 순서를 지킴.
@@ -683,6 +693,43 @@ function showHitCard(r: ShotResult) {
   hitHole.setAttribute('transform', `translate(${dot.x} ${dot.y})`)
 }
 
+// 연습의 발사를 판정함 (시스템 기획서 방 화면 연습, SHEEP-195). 서버 대신 판과 같은 식(firstHit)으로 정하고,
+// 맞으면 판처럼 상처와 튀는 피를 남기고 사격 결과 카드에 구멍을 찍음. 도장은 그 발의 결과이고 과녁은 쓰러지지 않음
+function practiceShot(shotAngle: number, shotPitch: number, at: number) {
+  const me = history.get(myId!)![0]
+  const targets = [...history].filter(([id]) => id !== myId)
+  const wall = castRay(grid!, me.x, me.y, Math.cos(shotAngle), Math.sin(shotAngle))?.dist ?? Infinity
+  const hit = firstHit({ x: me.x, y: me.y, z: EYE_HEIGHT, angle: shotAngle, pitch: shotPitch }, wall, targets.map(([, samples]) => samples[0]))
+  practiceShotAt = at
+  hitStamp.value = resultLabel({ zone: hit?.zone ?? null, down: false })
+  if (!hit) return
+  const id = targets[hit.index][0]
+  addHit(id, { zone: hit.zone, height: hit.height, x: hit.x, y: hit.y })
+  practiceHoles = addHole(practiceHoles, { target: id, offset: hit.offset, height: hit.height, at })
+}
+
+// 연습의 사격 결과 카드. 마지막 발사 HOLE_MS 뒤 닫고, 구멍은 하나씩 HOLE_MS 뒤 사라짐.
+// 판의 카드는 구멍이 하나라 구멍 그림(hitHole)을 그대로 두고, 연습은 그 그림을 숨기고(startPractice) 복사본을 구멍마다 찍음. 구멍이 바뀔 때만 다시 찍음
+let shownHoles = ''
+const clearHoles = () => hitCard.querySelectorAll('.practice-hole').forEach((n) => n.remove())
+function showPracticeCard(now: number) {
+  hitCard.hidden = now - practiceShotAt >= HOLE_MS
+  const holes = liveHoles(practiceHoles, now)
+  const key = holes.map((h) => h.at).join()
+  if (key === shownHoles) return
+  shownHoles = key
+  clearHoles()
+  for (const h of holes) {
+    const hole = hitHole.cloneNode(true) as SVGGElement
+    hole.removeAttribute('id')
+    hole.classList.add('practice-hole')
+    hole.style.visibility = ''
+    const dot = dotPosition(h.offset, h.height)
+    hole.setAttribute('transform', `translate(${dot.x} ${dot.y})`)
+    hitHole.after(hole)
+  }
+}
+
 // 사람마다 마지막으로 발소리를 낸 걸음 번호. 걷기 시각을 받을 때 비움
 const lastStep = new Map<string, number>()
 
@@ -718,27 +765,39 @@ canvas.addEventListener('mousedown', (e) => {
     if (audio && gun.rounds <= 0) play(audio, 'dryFire', audio.currentTime)
     return
   }
-  gun = next
+  // 연습은 쏘아도 탄이 줄지 않음 (SHEEP-195)
+  gun = practice ? { ...next, rounds: gun.rounds } : next
   // 불꽃, 탄 수, 총소리는 바로 내고, 명중과 쓰러짐은 서버가 정해 알려 줌
   if (audio) play(audio, 'shot', audio.currentTime)
   // 총알은 시선이 아니라 흔들린 총이 가리키는 쪽으로 감. 조준점도 같은 식으로 그려 둘이 맞음
   const aim = aimAt(angle, pitch, e.timeStamp, scaleAt(unsteady, e.timeStamp))
-  send(fireMessage(aim.angle, aim.pitch, e.timeStamp, clock.offset))
+  if (practice) practiceShot(aim.angle, aim.pitch, e.timeStamp)
+  else send(fireMessage(aim.angle, aim.pitch, e.timeStamp, clock.offset))
   // 내 발사도 적어 둠. 내 총알과, 다시 보기에서 쓰러뜨린 사람 눈에 보이는 내 불꽃을 그림 (SHEEP-125)
   shots.set(myId!, { at: e.timeStamp, angle: aim.angle, pitch: aim.pitch })
 })
 
 // t(내 시계)에 D로 총을 뽑을 수 있는지. "시작!" 전, 쓰러진 뒤, 판 결과가 정해진 뒤, 이미 뽑았으면 아님.
-// 뽑기 키와 뽑으라는 안내(SHEEP-138)가 같이 씀
+// 연습에서 권총집에 넣는 동안도 아님. 뽑기 키와 뽑으라는 안내(SHEEP-138)가 같이 씀
 const canDraw = (t: number) =>
-  grid !== null && clock !== null && result === null && drawnAt === null && myId !== null && !downs.has(myId) && dueling(schedule, toServerTime(t, clock.offset))
+  grid !== null && clock !== null && result === null && drawnAt === null && myId !== null && !downs.has(myId) && dueling(schedule, toServerTime(t, clock.offset)) && !(holsteredAt !== null && t < holsteredAt + HOLSTER_MS)
 
 // D 키로 총을 뽑음 (사용자 결정 2026-11-09, SHEEP-123). 한글 입력 중에도 되게 글자가 아니라 키 자리(code)로 받음.
 // 포인터 잠금은 보지 않아 잠그기 전에도 뽑음
 document.addEventListener('keydown', (e) => {
-  if (e.code !== 'KeyD' || e.repeat || !clock || !canDraw(e.timeStamp)) return
+  if (e.code !== 'KeyD' || e.repeat || !clock) return
+  // 연습에서만 다 뽑은 총을 다시 D로 권총집에 넣음. 판에서는 넣지 못함 (SHEEP-195)
+  if (practice && drawnAt !== null) {
+    if (aimed(drawnAt, e.timeStamp)) {
+      drawnAt = null
+      holsteredAt = e.timeStamp
+    }
+    return
+  }
+  if (!canDraw(e.timeStamp)) return
   drawnAt = e.timeStamp
-  send(drawMessage(e.timeStamp, clock.offset))
+  holsteredAt = null
+  if (!practice) send(drawMessage(e.timeStamp, clock.offset))
   // 공이치기는 총을 다 들어 공이치기가 끝까지 젖혀지고 화면이 튀는 순간에 맞춤 (gun.ts lift, gunClips)
   if (audio) play(audio, 'cockHammer', toAudioTime(e.timeStamp + DRAW_MS, stampOf(audio)))
 })
@@ -761,7 +820,8 @@ replayButton.addEventListener('click', () => {
 // 쓰러진 뒤 판 도중에 나가기 (컨셉 기획서 규칙 탈락한 뒤). 술집의 나가기와 같이 답(left)이 오면 첫 화면으로 돌아감.
 // 판 도중이라 서버는 탈락으로 보고, 이 방의 현상금은 사라짐
 const leaveDown = document.querySelector<HTMLButtonElement>('#leave-down')!
-leaveDown.addEventListener('click', () => send({ type: 'leaveRoom' }))
+// 연습에서는 같은 버튼으로 메뉴로 돌아감 (SHEEP-195)
+leaveDown.addEventListener('click', () => (practice ? endPractice() : send({ type: 'leaveRoom' })))
 
 // 술집 주인. 프레임마다 지난 시간만큼 움직임
 let bartender = startBartender(performance.now())
@@ -776,6 +836,8 @@ function frame(now: number) {
   const view = r ? replayEyes(r.replay, r.t) : grid && placed ? eyes(now) : null
   const t = r ? r.t : now
   const scene = r ? r.replay : live()
+  // 연습의 상처는 HOLE_MS 뒤 사라짐 (SHEEP-195)
+  if (practice) for (const [id, list] of hits) hits.set(id, list.filter((h) => now - h.at < HOLE_MS))
   // 눈이 되는 사람이 총을 뽑은 시각(서버 시계). 나는 내가 누른 시각을 바로 쓰고, 관전·다시 보기는 그 사람의 state를 씀 (SHEEP-123)
   const viewSamples = view && (r || watch) ? scene.history.get(view.id) : undefined
   const viewDrawn = !clock ? null : viewSamples ? sampleAt(viewSamples, t).drawnAt : drawnAt === null ? null : toServerTime(drawnAt, clock.offset)
@@ -842,7 +904,7 @@ function frame(now: number) {
     // 나서는 장면 끝에는 하얀 화면 뒤로 내 눈에 보이는 결투장을 그림. 아직 카운트다운 전이라 모두 시작 자리에 서 있음 (SHEEP-145)
     const drawArena = () => {
       if (!grid || !view) return
-      renderFrame(pixels, W, H, grid, { ...makeCamera(view.x, view.y, view.angle, FOV, view.pitch), z: EYE_HEIGHT }, [...othersAt(now - INTERP_DELAY, view.id, scene), ...props], SKIES[timeOfDay(standing ?? history.size)])
+      renderFrame(pixels, W, H, grid, { ...makeCamera(view.x, view.y, view.angle, FOV, view.pitch), z: EYE_HEIGHT }, [...othersAt(now - INTERP_DELAY, view.id, scene), ...props], sky())
       ctx.putImageData(image, 0, 0)
     }
     if (leaving) drawEntrance(ctx, leaving, drawBar, drawArena)
@@ -868,7 +930,7 @@ function frame(now: number) {
     const figure = withWounds({ x: at.x, y: at.y, facing: at.angle, downAt: down.at, ...poseAt(body, { ...down, at: 0 }, motion, body.rest) }, body, hits.get(id), now - INTERP_DELAY, fallen, body.rest)
     const things = [figure, ...othersAt(now - INTERP_DELAY, id, live()), ...bulletsAt(now - INTERP_DELAY, id, live(), grid), ...bloodAt(now - INTERP_DELAY, live())]
     seenView = lastFallView(at.x, at.y, at.angle, now - INTERP_DELAY - down.at)
-    renderFrame(pixels, W, H, grid, toCamera(seenView, STAGED_FOV), things, SKIES[timeOfDay(standing ?? history.size)])
+    renderFrame(pixels, W, H, grid, toCamera(seenView, STAGED_FOV), things, sky())
     ctx.putImageData(image, 0, 0)
   } else if (grid && winnerId && ending && ending.stage !== 'fall' && history.has(winnerId) && characters.has(winnerId)) {
     // 카메라가 빠지는 동안(pull) 이긴 사람 눈(진 사람은 위에서 보던 자리)에서 그 사람 뒤로 빠지고, 이긴 사람은 해 쪽으로 돌아섬.
@@ -892,7 +954,7 @@ function frame(now: number) {
     // 카메라 바로 옆의 큰 선인장(SHEEP-163)은 화면을 가려 뺌
     const seen = props.filter((p) => Math.hypot(p.x - cam.x, p.y - cam.y) > NEAR_PROP)
     const things = [...othersAt(now - INTERP_DELAY, winnerId, staged), ...(inside ? [] : [walker]), ...bloodAt(now - INTERP_DELAY, staged), ...seen]
-    renderFrame(pixels, W, H, grid, cam, things, SKIES[timeOfDay(standing ?? history.size)])
+    renderFrame(pixels, W, H, grid, cam, things, sky())
     ctx.putImageData(image, 0, 0)
     walkerHead = strolling ? onScreen(cam, spot.x, spot.y, NAME_Z, W, H) : null
   } else if (grid && view && lying) {
@@ -904,7 +966,7 @@ function frame(now: number) {
     const side = from ? fallSide(me.x, me.y, me.angle, from.x, from.y) : mine.reason === 'timeout' ? suicideSide(characters.get(myId!)?.hand ?? settings.hand) : 'back'
     const fall = fallEye(me.x, me.y, me.angle, side, sceneT - (mine.reason === 'timeout' ? SUICIDE_AIM + SUICIDE_FLASH : 0), EYE_HEIGHT)
     const things = [...othersAt(now - INTERP_DELAY, myId!, scene), ...bulletsAt(now - INTERP_DELAY, myId!, scene, grid), ...bloodAt(now - INTERP_DELAY, scene), ...props]
-    renderFrame(pixels, W, H, grid, { ...makeCamera(fall.x, fall.y, fall.angle, FOV, fall.pitch), z: fall.z }, things, SKIES[timeOfDay(standing ?? history.size)])
+    renderFrame(pixels, W, H, grid, { ...makeCamera(fall.x, fall.y, fall.angle, FOV, fall.pitch), z: fall.z }, things, sky())
     putRolled(fall.roll)
     // 옆머리를 쏜 순간 화면이 하얗게 번쩍임
     // 시간 초과면 넘어지기 전에 1인칭 총을 옆으로 돌려 내 옆머리에 가져감. 쏘는 순간 반동 (SHEEP-190)
@@ -948,7 +1010,7 @@ function frame(now: number) {
     const eye = { ...makeCamera(view.x, view.y, look.angle + bump.tilt * STEP_SWAY, zoomFov(FOV, zoom), look.pitch - bump.dip * STEP_DIP - nod), z: EYE_HEIGHT }
     // 판 끝에 이긴 나는 이 눈에서 카메라가 뒤로 빠짐 (SHEEP-187)
     if (asWinner) seenView = { x: view.x, y: view.y, angle: view.angle, pitch: view.pitch, z: EYE_HEIGHT }
-    renderFrame(pixels, W, H, grid, eye, things, SKIES[timeOfDay(standing ?? history.size)])
+    renderFrame(pixels, W, H, grid, eye, things, sky())
     ctx.putImageData(image, 0, 0)
     playSteps(now)
     // 총은 시점에 붙어 있어 위아래 시선과 상관없이 같은 자리에 있고, 조준점과 같은 흔들림으로 돎.
@@ -958,7 +1020,9 @@ function frame(now: number) {
     // 관전하는 사람의 총은 그 사람이 총을 든 손에 그림 (SHEEP-133).
     // 내 총은 설정의 손을 바로 따름. 다른 사람에게는 다음에 방에 들어갈 때 반영됨
     const hand = (r || watch ? scene.characters.get(view.id)?.hand : undefined) ?? settings.hand
-    const hold = clock ? lift(scene.schedule, toServerTime(t, clock.offset), loading, viewDrawn, !r && holding.has(view.id)) : { lower: 1, kick: 0 }
+    // 연습에서 D로 넣는 총은 장전을 마치고 넣을 때처럼 내림 (SHEEP-195)
+    const holstering = practice && holsteredAt !== null ? { lower: Math.min(1, (now - holsteredAt) / HOLSTER_MS) ** 3, kick: 0 } : null
+    const hold = holstering ?? (clock ? lift(scene.schedule, toServerTime(t, clock.offset), loading, viewDrawn, !r && holding.has(view.id)) : { lower: 1, kick: 0 })
     const plays = clock ? gunClips(scene.schedule, toServerTime(t, clock.offset), loading, toServerTime(fired, clock.offset), viewDrawn) : []
     const kick = Math.max(hold.kick, 1 - (t - fired) / RECOIL_MS)
     // 판 끝에 이긴 나는 결정타 뒤 총을 손가락에 걸어 돌린 뒤 권총집에 넣음 (SHEEP-187). 뽑지 않고 이겼으면(상대 시간 초과) 넣은 채 둠
@@ -969,7 +1033,8 @@ function frame(now: number) {
     // 결정타 줌 동안은 내린 총의 연기가 화면 아래를 가려 그리지 않음 (SHEEP-194)
     if (zoom === 0) drawSmoke(ctx, muzzle, t - fired, SMOKE_PX, { x: W / 2, y: H / 2 })
     // 마우스 이벤트가 아니라 여기서 보내야 마지막으로 멈춘 각도도 빠지지 않고 감
-    if ((angle !== sentAngle || pitch !== sentPitch) && now - sentAt >= TURN_INTERVAL && ws?.readyState === WebSocket.OPEN) {
+    // 연습은 방 밖이라 보내지 않음
+    if (!practice && (angle !== sentAngle || pitch !== sentPitch) && now - sentAt >= TURN_INTERVAL && ws?.readyState === WebSocket.OPEN) {
       send({ type: 'turn', angle, pitch })
       sentAngle = angle
       sentPitch = pitch
@@ -1002,6 +1067,8 @@ function frame(now: number) {
   // 재대결 결과에 내가 끼면(모두 시간 초과 등으로 함께 쓰러짐) 곧 다시 서므로 결과를 보인 때부터 숨김 (SHEEP-188)
   const revived = result !== null && result.outcome === 'rematch' && myId !== null && result.playerIds.includes(myId) && now - INTERP_DELAY >= result.at
   leaveDown.hidden = revived || !(myId !== null && saloon.hidden && lobby.hidden && isDown(myId, now - INTERP_DELAY))
+  // 연습에서는 Esc로 포인터 잠금을 푼 동안 오른쪽 위에 보임 (SHEEP-195)
+  if (practice) leaveDown.hidden = document.pointerLockElement === canvas
   // 내부 px를 cqw로 바꿈. 화면 폭 100cqw가 내부 폭 W px임
   const aim = crosshairOffset(s, view?.pitch ?? pitch, PROJ)
   crosshair.style.transform = `translate(${(aim.x * 100) / W}cqw, ${(aim.y * 100) / W}cqw)`
@@ -1042,18 +1109,19 @@ function frame(now: number) {
   const watchText = r ? copy.hud.replayWho(who(r.replay.viewer)) : watch ? copy.hud.watchingWho(who(watch.id)) : ''
   watching.hidden = watchText === ''
   if (watching.value !== watchText) watching.value = watchText
-  // 결투 중에만 보임. 결과를 받으면 숨김 (시스템 기획서 HUD 남은 시간)
-  const left = clock && (r || !result) ? timeLeft(scene.schedule, toServerTime(t, clock.offset)) : null
+  // 결투 중에만 보임. 결과를 받으면 숨김 (시스템 기획서 HUD 남은 시간). 연습에는 없음 (SHEEP-195)
+  const left = !practice && clock && (r || !result) ? timeLeft(scene.schedule, toServerTime(t, clock.offset)) : null
   timer.hidden = left === null
   // 조준점은 남은 시간이 보이는 동안 눈이 되는 사람이 총을 다 뽑은 뒤부터 판 결과를 받을 때까지 (SHEEP-165). 눈이 되는 사람이 쓰러지면 숨김.
   // 쓰러진 것은 쓰러지는 그림과 같은 시각으로 봄 (시스템 기획서 HUD 조준점)
-  crosshair.hidden = left === null || !view || !clock || !aimed(viewDrawn, toServerTime(t, clock.offset)) || (scene.downs.get(view.id)?.at ?? Infinity) <= (r ? t : now - INTERP_DELAY)
+  crosshair.hidden = (left === null && !practice) || !view || !clock || !aimed(viewDrawn, toServerTime(t, clock.offset)) || (scene.downs.get(view.id)?.at ?? Infinity) <= (r ? t : now - INTERP_DELAY)
   const clockText = left === null ? '' : formatTime(left)
   if (timer.value !== clockText) timer.value = clockText
   // 남은 시간과 같이 보이고 숨음. 쓰러진 그림과 같은 시각으로 세어 그림보다 먼저 줄지 않음 (시스템 기획서 HUD 남은 인원)
   alive.hidden = left === null
   const aliveText = left === null ? '' : copy.hud.aliveCount(standingCount(scene.history.keys(), scene.downs, r ? t : now - INTERP_DELAY))
   if (alive.value !== aliveText) alive.value = aliveText
+  if (practice) showPracticeCard(now)
   // 화면 가장자리 어둠. 다 돈 때부터 고르게 짙어지며 가운데로 좁혀 들어와 "시작!"에 걷힘 (SHEEP-141, SHEEP-147)
   const dark = tense && clock ? darkness(schedule, toServerTime(now, clock.offset)) : 0
   tension.hidden = dark === 0
@@ -1077,6 +1145,7 @@ const roomList = document.querySelector<HTMLUListElement>('#room-list')!
 const roomHint = document.querySelector<HTMLParagraphElement>('#room-hint')!
 const menu = document.querySelector<HTMLDivElement>('#menu')!
 const enterButton = document.querySelector<HTMLButtonElement>('#enter')!
+const practiceButton = document.querySelector<HTMLButtonElement>('#practice')!
 const nameOk = document.querySelector<HTMLButtonElement>('#name-ok')!
 const codeInput = document.querySelector<HTMLInputElement>('#code')!
 const status = document.querySelector<HTMLParagraphElement>('#status')!
@@ -1456,6 +1525,7 @@ function showStep() {
   nameStep.disabled = !connected || !naming
   roomStep.disabled = !connected || roomStep.hidden
   enterButton.disabled = !connected
+  practiceButton.disabled = !connected
   clearInterval(roomsTimer)
   if (roomStep.hidden || !connected || lobby.hidden) return
   send({ type: 'listRooms' })
@@ -1474,6 +1544,60 @@ function backToMenu() {
   enterButton.focus()
 }
 document.querySelector('#back')!.addEventListener('click', backToMenu)
+
+// 연습으로 들어감 (시스템 기획서 방 화면 연습, SHEEP-195). 방에 들어가지 않고 첫 화면 배경과 같은 결투장에서, 8인 판이 걷기를 마친 자리 0번에
+// 내가, 나머지에 과녁이 가운데를 보고 섬. 판 시각은 "시작!"이 막 지난 결투 중으로 두어 판의 뽑기, 쏘기, 조준점을 그대로 씀.
+// 판 시각을 서버 시계로 재므로 시계를 맞춘 뒤에만 들어감
+const PRACTICE_ME = 'practice'
+function startPractice() {
+  if (!clock) return
+  practice = true
+  game.classList.add('practice')
+  lobby.hidden = true
+  grid = BACKDROP
+  props = makeProps(BACKDROP_MID, BACKDROP_MID)
+  const now = performance.now()
+  const [mine, ...spots] = practiceSpots(BACKDROP_MID, BACKDROP_MID)
+  const standAt = (s: { x: number; y: number; angle: number }): Sample[] => [{ at: now, ...s, pitch: 0, pose: 'stand', drawnAt: null }]
+  myId = PRACTICE_ME
+  history.clear()
+  history.set(myId, standAt(mine))
+  spots.forEach((s, i) => history.set(`target${i}`, standAt(s)))
+  characters = new Map([[myId, { character, color: color ?? 0, hand: settings.hand }], ...targetLooks(character).map((look, i) => [`target${i}`, look] as const)])
+  placed = true
+  angle = mine.angle
+  pitch = 0
+  schedule = { duel: toServerTime(now, clock.offset) - GO_SHOWN }
+  gun = loaded(CHAMBERS)
+  drawnAt = holsteredAt = null
+  practiceHoles = []
+  practiceShotAt = -Infinity
+  // 판의 구멍 그림은 숨기고 구멍마다 복사본을 찍음 (showPracticeCard)
+  hitHole.style.visibility = 'hidden'
+  lockPointer()
+}
+practiceButton.addEventListener('click', startPractice)
+
+// 연습에서 메뉴로 돌아감. 다음 방의 판이 처음 상태로 시작하게 연습에서 바꾼 것을 되돌림
+function endPractice() {
+  practice = false
+  game.classList.remove('practice')
+  document.exitPointerLock()
+  grid = null
+  myId = null
+  placed = false
+  history.clear()
+  shots.clear()
+  drawnAt = holsteredAt = null
+  practiceHoles = []
+  clearHoles()
+  shownHoles = ''
+  clearMatch()
+  lobby.hidden = false
+  view = 'menu'
+  showStep()
+  practiceButton.focus()
+}
 roomStep.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') backToMenu()
 })
@@ -1640,6 +1764,7 @@ function connect() {
   })
   // 처음부터 못 붙어도 여기로 옴. ponytail: 재접속 없음. 재접속 이슈에서 다시 붙어 방으로 돌아가게 함
   ws.addEventListener('close', () => {
+    if (practice) endPractice()
     document.exitPointerLock()
     connected = false
     createPanel.hidden = true
