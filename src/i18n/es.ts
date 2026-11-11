@@ -60,7 +60,7 @@ export const es: Copy = {
     wardrobe: 'Trapos y colores',
     keyParts: ['Pañuelo', 'Sombrero', 'Camisa', 'Corsé', 'Chaleco', 'Abrigo', 'Sombrero alto', 'Poncho'],
     partColor: (part) => `Color: ${part}`,
-    colors: ['Rojo', 'Celeste', 'Verde', 'Amarillo', 'Naranja', 'Rosa', 'Blanco', 'Negro'],
+    colors: ['Rojo', 'Celeste', 'Morado', 'Amarillo', 'Naranja', 'Rosa', 'Blanco', 'Negro'],
     colorTaken: (color) => `${color}, ya tiene dueño`,
     bartender: {
       tips: [

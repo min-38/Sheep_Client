@@ -77,7 +77,7 @@ export const en = {
     wardrobe: 'Duds and colors',
     keyParts: ['Neckerchief', 'Sombrero', 'Shirt', 'Corset', 'Waistcoat', 'Coat', 'Hat', 'Poncho'],
     partColor: (part: string) => `${part} color`,
-    colors: ['Red', 'Sky blue', 'Green', 'Yellow', 'Orange', 'Pink', 'White', 'Black'],
+    colors: ['Red', 'Sky blue', 'Purple', 'Yellow', 'Orange', 'Pink', 'White', 'Black'],
     // 방 안 다른 사람이 쓰는 색. 서부 사투리 말투 (CLAUDE.md Language)
     colorTaken: (color: string) => `${color}, spoken for`,
     // 술집 주인 말풍선 (SHEEP-116). 팁은 지금 규칙(시스템 기획서)을 알려 주고, 농담은 쓸데없는 말. 서부 사투리 말투 (CLAUDE.md Language)

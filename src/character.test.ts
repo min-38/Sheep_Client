@@ -102,7 +102,7 @@ describe('CHARACTERS 틀 검사 (시스템 기획서 캐릭터)', () => {
 const SILAS = 2
 const RED = 0
 const SKY = 1
-const GREEN = 2
+const PURPLE = 2
 const hexRgb = (hex: string) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16))
 
 describe('bartenderBody (SHEEP-139)', () => {
@@ -163,6 +163,11 @@ describe('keyColor', () => {
     expect(keyColor(0, SKY)).toBe('#4fb3e8')
     expect(keyColor(1, SKY)).toBe('#4fb3e8')
   })
+
+  test('2번 색은 선인장에 묻히는 초록 대신 보라 (사용자 결정 2026-11-11, SHEEP-179)', () => {
+    expect(keyColor(0, PURPLE)).toBe('#8e44d6')
+    expect(keyColor(SILAS, PURPLE)).toBe('#8e44d6')
+  })
 })
 
 describe('portraitPixels', () => {
@@ -174,14 +179,14 @@ describe('portraitPixels', () => {
 
   test('색을 바꾸면 핵심 파츠 자리만 다시 칠하고 나머지는 그대로 (SHEEP-118)', () => {
     const red = portraitPixels(SILAS, RED)
-    const green = portraitPixels(SILAS, GREEN)
+    const purple = portraitPixels(SILAS, PURPLE)
     let changed = 0
     for (let p = 0; p < red.length; p += 4) {
-      if (red[p] === green[p] && red[p + 1] === green[p + 1] && red[p + 2] === green[p + 2]) continue
+      if (red[p] === purple[p] && red[p + 1] === purple[p + 1] && red[p + 2] === purple[p + 2]) continue
       changed++
-      // 바뀐 칸은 빨강과 초록의 명암이라 그 색이 가장 셈
+      // 바뀐 칸은 빨강과 보라의 명암이라 빨강은 R, 보라는 B가 가장 셈
       expect(red[p]).toBeGreaterThan(Math.max(red[p + 1], red[p + 2]))
-      expect(green[p + 1]).toBeGreaterThan(Math.max(green[p], green[p + 2]))
+      expect(purple[p + 2]).toBeGreaterThan(Math.max(purple[p], purple[p + 1]))
     }
     // 셔츠가 가슴 아래를 채움. 목수건(하늘)은 바뀌지 않음
     expect(changed).toBeGreaterThan(100)
