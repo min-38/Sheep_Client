@@ -518,6 +518,17 @@ describe('총구와 inWorld (SHEEP-124)', () => {
   })
 })
 
+describe('장전 고개 (SHEEP-177)', () => {
+  test('총알을 넣는 동안 머리를 앞으로 숙이고, 다 넣고 권총집에 넣은 뒤에는 바로 섬', () => {
+    const body = characterBody(0)
+    const head = body.rest.boxes.reduce((m, b, i, all) => (b.c[1] > all[m].c[1] ? i : m), 0)
+    const loading = body.reload(1500).boxes[head].c
+    expect(loading[2]).toBeGreaterThan(body.rest.boxes[head].c[2] + 0.5)
+    const done = body.reload(RELOAD_END).boxes[head].c
+    done.forEach((v, i) => expect(v).toBeCloseTo(body.rest.boxes[head].c[i], 6))
+  })
+})
+
 describe('상처 (SHEEP-126)', () => {
   const body = characterBody(0)
 

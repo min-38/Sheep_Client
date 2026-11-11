@@ -9,7 +9,7 @@ import rosa from './assets/characters/rosa.json'
 import silas from './assets/characters/silas.json'
 import motionData from './assets/motions.json'
 import revolverData from './assets/revolver-rig.json'
-import { DRAW_MS, HOLSTER_MS, RELOAD_AT, RELOAD_END, RELOAD_MS, reloadTime, revolverMesh } from './gun.ts'
+import { DRAW_MS, HOLSTER_MS, RELOAD_AT, RELOAD_END, RELOAD_MS, reloadNod, reloadTime, revolverMesh } from './gun.ts'
 import { HEAD } from './hitcard.ts'
 import { horizonY, pack, tint, type Camera } from './render.ts'
 import { slerp, type Mesh, type Rig } from './rig.ts'
@@ -403,7 +403,8 @@ function build(data: CharacterData, key: string | undefined, hand: Hand): Body {
     const k = ms < RELOAD_AT ? ms / RELOAD_AT : ms < end ? 1 : 1 - (ms - end) / HOLSTER_MS
     const u = k * k * (3 - 2 * k)
     const toward = (from: V, to: V) => unit(add(from, sub(to, from), u))
-    const p = posed(moves({ ...rest, [gunArm]: [toward(DOWN, loadingGunArm[0]), toward(DOWN, loadingGunArm[1])], [otherArm]: [toward(DOWN, loadingOtherArm[0]), toward(DOWN, loadingOtherArm[1])] }))
+    // 1인칭 시선처럼 총을 보려고 고개를 숙였다가 권총집에 넣는 동안 듦 (SHEEP-177)
+    const p = posed(moves({ ...rest, look: -reloadNod(ms), [gunArm]: [toward(DOWN, loadingGunArm[0]), toward(DOWN, loadingGunArm[1])], [otherArm]: [toward(DOWN, loadingOtherArm[0]), toward(DOWN, loadingOtherArm[1])] }))
     const t = reloadTime(ms)
     const mesh = revolverMesh(revolverData as Rig, t === null ? [] : [{ clip: 'Reload', t }], ROUNDS)
     // 권총집에 꽂힌 총처럼 총열이 아래, 총 위가 앞인 데서 장전하는 방향으로 돎
