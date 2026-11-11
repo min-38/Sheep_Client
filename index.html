@@ -76,9 +76,10 @@
       <output id="room" data-i18n-label="hud.roomCode"></output>
       <!-- 승리 세레모니 끝에 화면을 동그랗게 닫는 검은 막 (SHEEP-136). 구멍 크기는 main.ts가 --iris로 줄임 -->
       <div id="iris" hidden></div>
-      <!-- 받은 돈 자막 (SHEEP-150, 시안 C). 세레모니 끝에 화면이 다 닫힌 뒤 검은 화면에 무성 영화 자막으로 띄움 -->
+      <!-- 판 끝 자막 카드 (SHEEP-169 시안 B). 뒷모습 끝에 화면이 다 닫힌 뒤 검은 화면에 무성 영화 자막으로 띄움.
+           이긴 사람에게만 받은 돈과 한 줄을, 모두에게 자기 킬 수를 보임 -->
       <div id="paid-card" hidden>
-        <p><span data-i18n="hud.paidLine"></span><b id="paid-amount"></b><span id="paid-to"></span></p>
+        <p><b id="paid-amount"></b><span id="paid-kills"></span><span id="paid-to"></span></p>
       </div>
       <!-- 세레모니 동안 이긴 사람 이름을 무성 영화 자막처럼 띄움. 포스터가 닫힌 뒤에도 누가 이겼는지 보임 (SHEEP-142) -->
       <p id="win-card" hidden><b id="win-card-name"></b><span data-i18n="hud.lastStanding"></span></p>
@@ -175,15 +176,14 @@
           </div>
         </form>
       </div>
-      <!-- 판 끝 포스터. 승리가 정해지면 모두의 화면을 어둡게 하고 이긴 사람의 포스터를 크게 띄움 (시스템 기획서 방 화면 M8 판 끝) -->
+      <!-- 판 끝 포스터. 마지막 쓰러짐을 위에서 본 뒤 검은 화면에 이긴 사람의 WINNER 포스터를 크게 띄움. 돈은 적지 않음
+           (시스템 기획서 방 화면 M8 판 끝, SHEEP-169 시안 B) -->
       <div id="win" hidden>
         <div class="poster">
-          <span class="wanted">WANTED</span>
+          <span class="wanted">WINNER</span>
           <img id="win-face" alt="" />
           <span class="nick" id="win-name"></span>
-          <span class="stamp" data-i18n="saloon.winStamp"></span>
         </div>
-        <output id="win-bounty"></output>
       </div>
       <!-- 설정 창. 첫 화면과 대기실에서 같은 판을 띄움. 바꾸면 바로 적용하고 브라우저에 기억함 (시스템 기획서 방 화면 설정) -->
       <div id="settings-panel" role="dialog" aria-modal="true" aria-labelledby="settings-title" hidden>

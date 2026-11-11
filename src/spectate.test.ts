@@ -14,6 +14,7 @@ const p = (id: string, pose: PlayerState['pose'] = 'stand'): PlayerState => ({
   nickname: id,
   color: 0,
   wins: 0,
+  kills: 0,
   character: 0,
   seat: 0,
   hand: 'right',
