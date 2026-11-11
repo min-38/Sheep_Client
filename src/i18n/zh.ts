@@ -141,6 +141,10 @@ export const zh: Copy = {
     ok: '创建',
     cancel: '取消',
   },
+  pause: {
+    menu: '游戏菜单',
+    resume: '返回游戏',
+  },
   help: {
     prev: '上一页',
     next: '下一页',

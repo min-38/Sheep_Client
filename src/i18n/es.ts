@@ -142,6 +142,10 @@ export const es: Copy = {
     ok: 'Crear',
     cancel: 'Cancelar',
   },
+  pause: {
+    menu: 'Menú del juego',
+    resume: 'Volver al juego',
+  },
   help: {
     prev: 'Atrás',
     next: 'Siguiente',

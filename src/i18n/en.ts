@@ -169,6 +169,11 @@ export const en = {
     cancel: 'Cancel',
   },
   // 설정 창
+  // 판과 연습의 Esc 메뉴 (시스템 기획서 HUD Esc 메뉴, SHEEP-199). menu는 화면 낭독기가 읽는 이름. 설정·나가기는 lobby.settings·hud.leave를 씀. 버튼이라 말투 없이
+  pause: {
+    menu: 'Game menu',
+    resume: 'Back to game',
+  },
   // 첫 화면 메뉴의 도움말 창 (시스템 기획서 방 화면 도움말, SHEEP-196). 창 이름은 lobby.help, 닫기는 settings.close.
   // pages는 장마다 한 줄이고 그림(src/assets/help/)과 같은 차례. 서부 말투 없이 바로 알아듣게, 창에서 한 줄에 들어가게 씀 (사용자 결정 2026-11-11, CLAUDE.md Language)
   help: {

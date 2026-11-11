@@ -141,6 +141,10 @@ export const ja: Copy = {
     ok: '作成',
     cancel: 'キャンセル',
   },
+  pause: {
+    menu: 'ゲームメニュー',
+    resume: 'ゲームに戻る',
+  },
   help: {
     prev: '前へ',
     next: '次へ',
