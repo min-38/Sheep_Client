@@ -174,6 +174,11 @@ body {
   pointer-events: none;
 }
 
+/* 술집을 나서는 동안 좌석 꼬리표, 칠판 아래 버튼, 캐릭터 고르기 판, 술집 주인 말풍선은 숨김 (시스템 기획서 방 화면 술집 나서기, SHEEP-189) */
+#saloon.leaving > :is(#seats, #board-buttons, #wardrobe, #bartender-line) {
+  visibility: hidden;
+}
+
 /* 승리 세레모니 (SHEEP-136). 이긴 사람이 해 쪽으로 걸어가는 동안 HUD를 숨김. 자막 카드는 마지막 쓰러짐 보기에 띄워 main.ts가 숨김 (SHEEP-180) */
 #game.ceremony :is(#blood, #crosshair, #flash, #hit-card, #ammo, #timer, #alive, #banner, #watching, #replay, #leave-down, #room) {
   visibility: hidden;
