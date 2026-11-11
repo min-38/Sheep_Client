@@ -253,9 +253,15 @@ body {
   padding-top: 0.5cqw;
 }
 
-/* 모두 준비해 술집을 나서는 동안(SHEEP-137)은 술집 위에 얹은 게시판, 좌석 꼬리표, 칠판, 버튼, 말풍선을 숨김. 그림은 캔버스가 돌림 */
-#saloon.leaving > * {
+/* 모두 준비해 술집을 나서는 동안(SHEEP-137)은 술집 위에 얹은 좌석 꼬리표, 버튼, 고르기 판, 말풍선을 숨김. 그림은 캔버스가 돌림.
+   간판과 칠판 글자는 그림의 일부라 남기고, 캔버스가 뒤돌며 술집 그림을 미는 만큼(--bar-shift, 내부 px) 같이 밂 (SHEEP-173) */
+#saloon.leaving > :not(#saloon-sign, #chalkboard) {
   visibility: hidden;
+}
+
+#saloon.leaving > :is(#saloon-sign, #chalkboard) {
+  translate: calc(var(--bar-shift, 0) * -100cqw / 480) 0;
+  pointer-events: none;
 }
 
 /* 승리 세레모니 (SHEEP-136). 이긴 사람이 해 쪽으로 걸어가는 동안 HUD를 숨김 */
