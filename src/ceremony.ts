@@ -13,6 +13,8 @@ export const POSTER_MS = 2500
 export const WALKOFF_MS = 2500
 export const IRIS_MS = 1200
 export const CARD_MS = 3000
+// ms. 마지막 쓰러짐을 위에서 보기 시작하고 이만큼 뒤에 쓰러뜨린 이 자막 카드를 띄워 포스터 전까지 둠 (SHEEP-180). 장면이 바뀌자마자 글자를 띄우지 않고 뜸을 들임
+export const FALL_CARD_AT = 1000
 // ms. 포스터가 뜨고 Winner 도장이 돌며 떨어지기 시작하는 때와, 떨어져 종이에 찍히기까지 (SHEEP-172 B안). style.css #win .stamp 애니메이션과 같은 값
 export const STAMP_AT = 600
 export const STAMP_FALL = 240

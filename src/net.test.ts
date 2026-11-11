@@ -212,14 +212,15 @@ describe('parseServerMessage', () => {
     expect(parseServerMessage('{"type":"shot","playerId":"p2","angle":"3.14","pitch":0}')).toBeNull()
   })
 
-  test('탈락은 쓰러진 사람과 사유를 받고, 맞아 쓰러졌으면 맞은 자리도 받음 (SHEEP-126)', () => {
-    expect(parseServerMessage('{"type":"eliminated","playerId":"p2","reason":"shot","zone":"head","height":0.85,"x":6.45,"y":5.5}')).toEqual({
+  test('탈락은 쓰러진 사람과 사유를 받고, 맞아 쓰러졌으면 맞은 자리와 쏜 사람도 받음 (SHEEP-126, SHEEP-180)', () => {
+    expect(parseServerMessage('{"type":"eliminated","playerId":"p2","reason":"shot","zone":"head","height":0.85,"x":6.45,"y":5.5,"shooterId":"p1"}')).toEqual({
       type: 'eliminated',
       playerId: 'p2',
       reason: 'shot',
       hit: { zone: 'head', height: 0.85, x: 6.45, y: 5.5 },
+      shooterId: 'p1',
     })
-    expect(parseServerMessage('{"type":"eliminated","playerId":"p2","reason":"timeout","zone":null,"height":null,"x":null,"y":null}')).toEqual({ type: 'eliminated', playerId: 'p2', reason: 'timeout', hit: null })
+    expect(parseServerMessage('{"type":"eliminated","playerId":"p2","reason":"timeout","zone":null,"height":null,"x":null,"y":null,"shooterId":null}')).toEqual({ type: 'eliminated', playerId: 'p2', reason: 'timeout', hit: null, shooterId: null })
     expect(parseServerMessage('{"type":"eliminated","playerId":"p2","reason":"shot","zone":"leg","height":0.5,"x":1,"y":1}')).toBeNull()
     expect(parseServerMessage('{"type":"eliminated","playerId":"p2","reason":"shot","zone":"body","height":"0.5","x":1,"y":1}')).toBeNull()
     expect(parseServerMessage('{"type":"eliminated","reason":"shot"}')).toBeNull()

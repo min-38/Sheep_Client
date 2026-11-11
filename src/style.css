@@ -264,8 +264,8 @@ body {
   pointer-events: none;
 }
 
-/* 승리 세레모니 (SHEEP-136). 이긴 사람이 해 쪽으로 걸어가는 동안 HUD를 숨김 */
-#game.ceremony :is(#blood, #crosshair, #flash, #hit-card, #kill-card, #ammo, #timer, #alive, #banner, #watching, #replay, #leave-down, #room) {
+/* 승리 세레모니 (SHEEP-136). 이긴 사람이 해 쪽으로 걸어가는 동안 HUD를 숨김. 자막 카드는 마지막 쓰러짐 보기에 띄워 main.ts가 숨김 (SHEEP-180) */
+#game.ceremony :is(#blood, #crosshair, #flash, #hit-card, #ammo, #timer, #alive, #banner, #watching, #replay, #leave-down, #room) {
   visibility: hidden;
 }
 

@@ -65,6 +65,15 @@ describe('문구', () => {
     expect([0, 1, 2, 10].map(copyOf(l).saloon.wins)).toEqual(['0 Wins', '1 Win', '2 Wins', '10 Wins'])
   })
 
+  test.each(LANGUAGES)('%s: 마지막 쓰러짐 자막은 쏜 이와 쓰러진 이의 이름을 모두 적음 (SHEEP-180)', (l) => {
+    const { fallLine } = copyOf(l).hud
+    for (const zone of ['head', 'body'] as const) {
+      expect(fallLine[zone]('Shooter', 'Fallen')).toContain('Shooter')
+      expect(fallLine[zone]('Shooter', 'Fallen')).toContain('Fallen')
+    }
+    expect(fallLine.timeout('Fallen')).toContain('Fallen')
+  })
+
   test.each(LANGUAGES)('%s: 캐릭터 이름 수가 영어와 같음', (l) => {
     expect(copyOf(l).lobby.characterNames).toHaveLength(en.lobby.characterNames.length)
   })

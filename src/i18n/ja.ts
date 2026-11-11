@@ -41,6 +41,13 @@ export const ja: Copy = {
       body: (name: string) => `${name}の二発目でお陀仏だ、相棒。`,
       timeout: '時間切れだぜ、相棒。',
     },
+    lastFall: '最後の一人の倒れざま',
+    shotDownBy: '撃ったのは',
+    fallLine: {
+      head: (shooter, fallen) => `${shooter}の弾が${fallen}の帽子をぶち抜いたぜ。`,
+      body: (shooter, fallen) => `${shooter}の二発目で${fallen}はお陀仏だ。`,
+      timeout: (fallen) => `時間切れで、${fallen}は自分に銃を向けちまった。`,
+    },
   },
   saloon: {
     seats: 'カウンターの連中',

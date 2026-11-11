@@ -41,6 +41,13 @@ export const ru: Copy = {
       body: (name: string) => `Стрелок ${name} — вторая пуля тебя и уложила, приятель.`,
       timeout: 'Время-то вышло, приятель.',
     },
+    lastFall: 'Как пал последний',
+    shotDownBy: 'Чья пуля',
+    fallLine: {
+      head: (shooter, fallen) => `Стрелок ${shooter} — и ${fallen} получает пулю под шляпу.`,
+      body: (shooter, fallen) => `Стрелок ${shooter} — вторая пуля, и ${fallen} лежит.`,
+      timeout: (fallen) => `Время вышло — и ${fallen} наводит ствол на себя.`,
+    },
   },
   saloon: {
     seats: 'Народ у стойки',

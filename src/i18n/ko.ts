@@ -41,6 +41,13 @@ export const ko: Copy = {
       body: (name: string) => `${name}의 두 번째 총알에 고꾸라졌구먼, 친구.`,
       timeout: '시간이 다 돼 버렸구먼, 친구.',
     },
+    lastFall: '마지막 사람이 쓰러진 사연',
+    shotDownBy: '쏘아 쓰러뜨린 이',
+    fallLine: {
+      head: (shooter, fallen) => `${shooter}의 총알이 ${fallen}의 모자를 꿰뚫었구먼.`,
+      body: (shooter, fallen) => `${fallen}, ${shooter}의 두 번째 총알에 고꾸라졌구먼.`,
+      timeout: (fallen) => `시간이 다 되자 ${fallen}, 제 손으로 방아쇠를 당겼구먼.`,
+    },
   },
   saloon: {
     seats: '바에 앉은 사람들',
