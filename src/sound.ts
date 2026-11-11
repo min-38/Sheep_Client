@@ -187,24 +187,50 @@ export function playDoor(audio: AudioContext, when: number) {
   }
 }
 
+// 판 끝 포스터에 Winner 도장이 쾅 찍히는 소리 (SHEEP-172). 나무 판에 댄 종이를 고무 도장으로 내려치는 낮은 쿵에, 종이가 눌리는 짧은 탁.
+// ponytail: 합성한 임시음. 들어 보고 CC0 효과음으로 바꿀지 정함 (시스템 기획서 사운드)
+export function playStamp(audio: AudioContext, when: number) {
+  const out = effectsOut(audio)
+  const thump = new OscillatorNode(audio, { type: 'sine', frequency: 110 })
+  thump.frequency.setValueAtTime(110, when)
+  thump.frequency.exponentialRampToValueAtTime(45, when + 0.2)
+  const body = new GainNode(audio, { gain: 0 })
+  body.gain.setValueAtTime(0.9, when)
+  body.gain.exponentialRampToValueAtTime(0.001, when + 0.25)
+  thump.connect(body).connect(out)
+  thump.start(when)
+  thump.stop(when + 0.25)
+  const noise = new AudioBuffer({ length: Math.round(audio.sampleRate * 0.06), sampleRate: audio.sampleRate })
+  const data = noise.getChannelData(0)
+  for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1
+  const slap = new AudioBufferSourceNode(audio, { buffer: noise })
+  const paper = new BiquadFilterNode(audio, { type: 'lowpass', frequency: 1800 })
+  const slapVolume = new GainNode(audio, { gain: 0 })
+  slapVolume.gain.setValueAtTime(0.6, when)
+  slapVolume.gain.exponentialRampToValueAtTime(0.001, when + 0.06)
+  slap.connect(paper).connect(slapVolume).connect(out)
+  slap.start(when)
+}
+
 // 탈락을 보여 주기 시작한 때부터 뒤로 넘어지는 동작이 바닥에 닿기까지(ms). 시간 초과는 자살 모습(총을 댐, 불꽃)이 끝난 뒤에 넘어짐
 export const fallDelay = (reason: 'shot' | 'timeout') => (reason === 'timeout' ? SUICIDE_AIM + SUICIDE_FLASH : 0) + FALL_LAND_MS
 
-// 쓰러지는 소리 한 번을 when(AudioContext 시각, 초)에 냄. 방향과 거리는 총소리와 같음. rate는 재생 빠르기이고
-// 내 쓰러짐 장면에서는 화면처럼 늦춰 낮고 길게 들림 (SHEEP-119).
+// 쓰러지는 소리 한 번을 when(AudioContext 시각, 초)에 냄. 방향과 거리는 총소리와 같음.
 // ponytail: 낮은 잡음으로 합성한 임시음(약 0.3초). CC0 효과음을 찾으면 소리 부분만 고침 (시스템 기획서 사운드)
-export function playFall(audio: AudioContext, when: number, from?: { right: number; front: number }, rate = 1) {
+// 예약한 소리 노드를 돌려줌. 판 끝에 마지막 쓰러짐을 느리게 보이면 아직 나지 않은 소리를 멈추고 다시 예약함 (SHEEP-169)
+export function playFall(audio: AudioContext, when: number, from?: { right: number; front: number }): AudioScheduledSourceNode {
   const noise = new AudioBuffer({ length: Math.round(audio.sampleRate * 0.3), sampleRate: audio.sampleRate })
   const data = noise.getChannelData(0)
   for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1
-  const source = new AudioBufferSourceNode(audio, { buffer: noise, playbackRate: rate })
+  const source = new AudioBufferSourceNode(audio, { buffer: noise })
   // 발소리보다 더 낮게 걸러 몸이 모래에 부딪히는 둔한 쿵으로
   const low = new BiquadFilterNode(audio, { type: 'lowpass', frequency: 180 })
   const volume = new GainNode(audio)
   volume.gain.setValueAtTime(0.8, when)
-  volume.gain.exponentialRampToValueAtTime(0.001, when + 0.3 / rate)
+  volume.gain.exponentialRampToValueAtTime(0.001, when + 0.3)
   place(audio, source.connect(low).connect(volume), from)
   source.start(when)
+  return source
 }
 
 // from이 있으면 그 자리에서 들리게(HRTF) 내보내고, 없으면 가운데서 들림

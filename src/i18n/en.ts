@@ -34,8 +34,8 @@ export const en = {
     // 세레모니 동안 이긴 사람 이름 아래에 적는 한 줄 (SHEEP-142). 이름은 위에 따로 크게 적음
     lastStanding: "Last one standin'",
     // 세레모니 끝 검은 화면의 받은 돈 자막 (SHEEP-150). 윗줄, 가운데 큰 금액(바꾸지 않음), 아랫줄의 이긴 사람 이름
-    paidLine: "The bounty's been paid out",
     paidTo: (name: string) => `to ${name}, fair an' square`,
+    kills: (n: number) => (n === 1 ? '1 kill' : `${n} kills`),
     lose: 'Not your day, partner',
     rematch: (n: number) => `${n} fellers go again`,
     // 내 사격 결과 카드의 도장
@@ -52,6 +52,14 @@ export const en = {
       body: (name: string) => `${name}'s second slug laid you low, partner.`,
       timeout: 'Ran plumb outta time, partner.',
     },
+    // 판 끝 마지막 쓰러짐 보기의 자막 카드 (SHEEP-180). 보는 사람 모두에게 3인칭으로 씀. 서부 사투리 말투 (CLAUDE.md Language)
+    lastFall: 'How the last one fell',
+    shotDownBy: 'Shot down by',
+    fallLine: {
+      head: (shooter: string, fallen: string) => `${shooter}'s bullet found ${fallen}'s hat.`,
+      body: (shooter: string, fallen: string) => `${shooter}'s second slug laid ${fallen} low.`,
+      timeout: (fallen: string) => `${fallen} ran outta time and turned the iron on their own self.`,
+    },
   },
   // 술집 대기실과 판 끝 포스터
   saloon: {
@@ -61,23 +69,23 @@ export const en = {
     leave: 'Leave',
     ready: 'Ready',
     unready: 'Not yet',
-    readyCount: (ready: number, total: number) => `${ready} of ${total} ready to draw`,
+    // 캐릭터·색 고르기 판을 펼치는 칠판 아래 버튼. 판 폭(내부 53px)에 말줄임 없이 들어가게 짧게 씀 (SHEEP-173)
+    changeCharacter: 'Character',
     settings: 'Settings',
     mySeat: 'My seat',
-    // 좌석 꼬리표에 적는 이긴 횟수. 0승도 "0 Win"으로 적음 (사용자 결정 2026-11-10, SHEEP-148)
-    wins: (n: number) => `${n} Win${n > 1 ? 's' : ''}`,
+    // 좌석 꼬리표에 적는 이긴 횟수. 모든 언어가 이 영어를 그대로 씀, 1만 단수 (사용자 결정 2026-11-11, SHEEP-178)
+    wins: (n: number) => `${n} Win${n === 1 ? '' : 's'}`,
     // 칠판의 방 코드 복사 (SHEEP-114). 서부 사투리 말투 (CLAUDE.md Language)
     copyCode: 'Copy room code',
     copied: 'Copied, partner',
     // 클립보드가 막혀 코드를 선택해 둠. keys는 Ctrl+C 또는 ⌘C
     copyFailed: (keys: string) => `Press ${keys}, partner`,
     readyStamp: 'Ready',
-    winStamp: 'Winner',
     // 왼쪽 벽 현상금 게시판의 캐릭터·색 바꾸기 (SHEEP-118). keyParts는 캐릭터 번호 순서의 핵심 파츠 이름, colors는 사람 색 번호 순서의 색 이름
     wardrobe: 'Duds and colors',
     keyParts: ['Neckerchief', 'Sombrero', 'Shirt', 'Corset', 'Waistcoat', 'Coat', 'Hat', 'Poncho'],
     partColor: (part: string) => `${part} color`,
-    colors: ['Red', 'Sky blue', 'Green', 'Yellow', 'Orange', 'Pink', 'White', 'Black'],
+    colors: ['Red', 'Sky blue', 'Purple', 'Yellow', 'Orange', 'Pink', 'White', 'Black'],
     // 방 안 다른 사람이 쓰는 색. 서부 사투리 말투 (CLAUDE.md Language)
     colorTaken: (color: string) => `${color}, spoken for`,
     // 술집 주인 말풍선 (SHEEP-116). 팁은 지금 규칙(시스템 기획서)을 알려 주고, 농담은 쓸데없는 말. 서부 사투리 말투 (CLAUDE.md Language)

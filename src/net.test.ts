@@ -43,7 +43,7 @@ describe('parseServerMessage', () => {
   })
 
   test('상태의 닉네임은 문자열, 색은 0~7 정수만 받음 (기술 설계서 메시지 state)', () => {
-    const player = (extra: string) => `{"type":"state","tick":1,"players":[{"id":"p1","x":1,"y":1,"angle":0,"pose":"stand","ready":false,"wins":0,"pitch":0,"character":0,"seat":0,"hand":"right","drawnAt":null${extra}}]}`
+    const player = (extra: string) => `{"type":"state","tick":1,"players":[{"id":"p1","x":1,"y":1,"angle":0,"pose":"stand","ready":false,"wins":0,"kills":0,"pitch":0,"character":0,"seat":0,"hand":"right","drawnAt":null${extra}}]}`
     expect(parseServerMessage(player(',"nickname":"보안관","color":3'))).not.toBeNull()
     expect(parseServerMessage(player(',"color":3'))).toBeNull()
     expect(parseServerMessage(player(',"nickname":"보안관"'))).toBeNull()
@@ -53,7 +53,7 @@ describe('parseServerMessage', () => {
   })
 
   test('상태의 이긴 횟수는 0 이상 정수만 받음 (기술 설계서 메시지 state wins)', () => {
-    const player = (extra: string) => `{"type":"state","tick":1,"players":[{"id":"p1","x":1,"y":1,"angle":0,"pose":"stand","ready":false,"nickname":"보안관","color":3,"pitch":0,"character":0,"seat":0,"hand":"right","drawnAt":null${extra}}]}`
+    const player = (extra: string) => `{"type":"state","tick":1,"players":[{"id":"p1","x":1,"y":1,"angle":0,"pose":"stand","ready":false,"nickname":"보안관","color":3,"pitch":0,"character":0,"seat":0,"hand":"right","drawnAt":null,"kills":0${extra}}]}`
     expect(parseServerMessage(player(',"wins":2'))).not.toBeNull()
     expect(parseServerMessage(player(''))).toBeNull()
     expect(parseServerMessage(player(',"wins":-1'))).toBeNull()
@@ -62,7 +62,7 @@ describe('parseServerMessage', () => {
   })
 
   test('상태의 위아래 시선은 숫자만 받음 (기술 설계서 메시지 state pitch)', () => {
-    const player = (extra: string) => `{"type":"state","tick":1,"players":[{"id":"p1","x":1,"y":1,"angle":0,"pose":"stand","ready":false,"nickname":"보안관","color":3,"wins":0,"character":0,"seat":0,"hand":"right","drawnAt":null${extra}}]}`
+    const player = (extra: string) => `{"type":"state","tick":1,"players":[{"id":"p1","x":1,"y":1,"angle":0,"pose":"stand","ready":false,"nickname":"보안관","color":3,"wins":0,"kills":0,"character":0,"seat":0,"hand":"right","drawnAt":null${extra}}]}`
     expect(parseServerMessage(player(',"pitch":-0.25'))).toMatchObject({ players: [{ pitch: -0.25 }] })
     expect(parseServerMessage(player(''))).toBeNull()
     expect(parseServerMessage(player(',"pitch":"0.1"'))).toBeNull()
@@ -70,7 +70,7 @@ describe('parseServerMessage', () => {
   })
 
   test('상태의 캐릭터 번호는 0 이상 캐릭터 수 미만 정수만 받음 (기술 설계서 메시지 state character)', () => {
-    const player = (extra: string) => `{"type":"state","tick":1,"players":[{"id":"p1","x":1,"y":1,"angle":0,"pose":"stand","ready":false,"nickname":"보안관","color":3,"wins":0,"pitch":0,"seat":0,"hand":"right","drawnAt":null${extra}}]}`
+    const player = (extra: string) => `{"type":"state","tick":1,"players":[{"id":"p1","x":1,"y":1,"angle":0,"pose":"stand","ready":false,"nickname":"보안관","color":3,"wins":0,"kills":0,"pitch":0,"seat":0,"hand":"right","drawnAt":null${extra}}]}`
     expect(parseServerMessage(player(',"character":0'))).toMatchObject({ players: [{ character: 0, seat: 0, hand: 'right', drawnAt: null }] })
     expect(parseServerMessage(player(''))).toBeNull()
     expect(parseServerMessage(player(',"character":-1'))).toBeNull()
@@ -80,7 +80,7 @@ describe('parseServerMessage', () => {
   })
 
   test('상태의 좌석 번호는 0 이상 8 미만 정수만 받음 (기술 설계서 메시지 state seat)', () => {
-    const player = (extra: string) => `{"type":"state","tick":1,"players":[{"id":"p1","x":1,"y":1,"angle":0,"pose":"stand","ready":false,"nickname":"보안관","color":3,"wins":0,"pitch":0,"character":0,"hand":"right","drawnAt":null${extra}}]}`
+    const player = (extra: string) => `{"type":"state","tick":1,"players":[{"id":"p1","x":1,"y":1,"angle":0,"pose":"stand","ready":false,"nickname":"보안관","color":3,"wins":0,"kills":0,"pitch":0,"character":0,"hand":"right","drawnAt":null${extra}}]}`
     expect(parseServerMessage(player(',"seat":7'))).toMatchObject({ players: [{ seat: 7 }] })
     expect(parseServerMessage(player(''))).toBeNull()
     expect(parseServerMessage(player(',"seat":-1'))).toBeNull()
@@ -89,7 +89,7 @@ describe('parseServerMessage', () => {
   })
 
   test('상태의 뽑은 시각은 숫자나 null만 받음 (기술 설계서 메시지 state drawnAt, SHEEP-123)', () => {
-    const player = (extra: string) => `{"type":"state","tick":1,"players":[{"id":"p1","x":1,"y":1,"angle":0,"pose":"stand","ready":false,"nickname":"보안관","color":3,"wins":0,"pitch":0,"character":0,"seat":0,"hand":"right"${extra}}]}`
+    const player = (extra: string) => `{"type":"state","tick":1,"players":[{"id":"p1","x":1,"y":1,"angle":0,"pose":"stand","ready":false,"nickname":"보안관","color":3,"wins":0,"kills":0,"pitch":0,"character":0,"seat":0,"hand":"right"${extra}}]}`
     expect(parseServerMessage(player(',"drawnAt":12345.5'))).toMatchObject({ players: [{ drawnAt: 12345.5 }] })
     expect(parseServerMessage(player(',"drawnAt":null'))).toMatchObject({ players: [{ drawnAt: null }] })
     expect(parseServerMessage(player(''))).toBeNull()
@@ -97,7 +97,7 @@ describe('parseServerMessage', () => {
   })
 
   test('상태의 총을 든 손은 right 또는 left만 받음 (기술 설계서 메시지 state hand)', () => {
-    const player = (extra: string) => `{"type":"state","tick":1,"players":[{"id":"p1","x":1,"y":1,"angle":0,"pose":"stand","ready":false,"nickname":"보안관","color":3,"wins":0,"pitch":0,"character":0,"seat":0,"drawnAt":null${extra}}]}`
+    const player = (extra: string) => `{"type":"state","tick":1,"players":[{"id":"p1","x":1,"y":1,"angle":0,"pose":"stand","ready":false,"nickname":"보안관","color":3,"wins":0,"kills":0,"pitch":0,"character":0,"seat":0,"drawnAt":null${extra}}]}`
     expect(parseServerMessage(player(',"hand":"left"'))).toMatchObject({ players: [{ hand: 'left' }] })
     expect(parseServerMessage(player(''))).toBeNull()
     expect(parseServerMessage(player(',"hand":"up"'))).toBeNull()
@@ -128,20 +128,29 @@ describe('parseServerMessage', () => {
   })
 
   test('상태는 틱 번호와 모든 플레이어의 위치, 각도, 동작, 준비 여부를 받음', () => {
-    const text = '{"type":"state","tick":7,"players":[{"id":"p1","x":10.5,"y":4,"angle":1.57,"pose":"stand","ready":true,"nickname":"보안관","color":0,"wins":1,"pitch":0.3,"character":0,"seat":0,"hand":"right","drawnAt":null},{"id":"p2","x":10.5,"y":17,"angle":4.71,"pose":"walk","ready":false,"nickname":"떠돌이","color":1,"wins":0,"pitch":0,"character":0,"seat":0,"hand":"right","drawnAt":null}]}'
+    const text = '{"type":"state","tick":7,"players":[{"id":"p1","x":10.5,"y":4,"angle":1.57,"pose":"stand","ready":true,"nickname":"보안관","color":0,"wins":1,"pitch":0.3,"character":0,"seat":0,"hand":"right","drawnAt":null,"kills":0},{"id":"p2","x":10.5,"y":17,"angle":4.71,"pose":"walk","ready":false,"nickname":"떠돌이","color":1,"wins":0,"pitch":0,"character":0,"seat":0,"hand":"right","drawnAt":null,"kills":0}]}'
     expect(parseServerMessage(text)).toEqual({
       type: 'state',
       tick: 7,
       players: [
-        { id: 'p1', x: 10.5, y: 4, angle: 1.57, pose: 'stand', ready: true, nickname: '보안관', color: 0, wins: 1, pitch: 0.3, character: 0, seat: 0, hand: 'right', drawnAt: null },
-        { id: 'p2', x: 10.5, y: 17, angle: 4.71, pose: 'walk', ready: false, nickname: '떠돌이', color: 1, wins: 0, pitch: 0, character: 0, seat: 0, hand: 'right', drawnAt: null },
+        { id: 'p1', x: 10.5, y: 4, angle: 1.57, pose: 'stand', ready: true, nickname: '보안관', color: 0, wins: 1, pitch: 0.3, character: 0, seat: 0, hand: 'right', drawnAt: null, kills: 0 },
+        { id: 'p2', x: 10.5, y: 17, angle: 4.71, pose: 'walk', ready: false, nickname: '떠돌이', color: 1, wins: 0, pitch: 0, character: 0, seat: 0, hand: 'right', drawnAt: null, kills: 0 },
       ],
     })
   })
 
+  // 이번 판에 쏴서 쓰러뜨린 사람 수. 판 끝 자막 카드에 각자 자기 것을 보임 (SHEEP-169)
+  test('사람마다 킬 수를 받고, 없거나 음수면 버림', () => {
+    const at = (kills: string) => `{"type":"state","tick":9,"players":[{"id":"p1","x":1,"y":1,"angle":0,"pose":"stand","ready":false,"nickname":"보안관","color":0,"wins":0,"pitch":0,"character":0,"seat":0,"hand":"right","drawnAt":null${kills}}]}`
+    const state = parseServerMessage(at(',"kills":3'))
+    expect(state?.type === 'state' && state.players[0].kills).toBe(3)
+    expect(parseServerMessage(at(''))).toBeNull()
+    expect(parseServerMessage(at(',"kills":-1'))).toBeNull()
+  })
+
   test('쓰러진 사람의 동작은 down', () => {
-    const text = '{"type":"state","tick":9,"players":[{"id":"p1","x":1,"y":1,"angle":0,"pose":"down","ready":false,"nickname":"보안관","color":7,"wins":0,"pitch":0,"character":0,"seat":0,"hand":"right","drawnAt":null}]}'
-    expect(parseServerMessage(text)).toEqual({ type: 'state', tick: 9, players: [{ id: 'p1', x: 1, y: 1, angle: 0, pose: 'down', ready: false, nickname: '보안관', color: 7, wins: 0, pitch: 0, character: 0, seat: 0, hand: 'right', drawnAt: null }] })
+    const text = '{"type":"state","tick":9,"players":[{"id":"p1","x":1,"y":1,"angle":0,"pose":"down","ready":false,"nickname":"보안관","color":7,"wins":0,"pitch":0,"character":0,"seat":0,"hand":"right","drawnAt":null,"kills":0}]}'
+    expect(parseServerMessage(text)).toEqual({ type: 'state', tick: 9, players: [{ id: 'p1', x: 1, y: 1, angle: 0, pose: 'down', ready: false, nickname: '보안관', color: 7, wins: 0, pitch: 0, character: 0, seat: 0, hand: 'right', drawnAt: null, kills: 0 }] })
   })
 
   test('모양이 틀린 상태는 버림', () => {
@@ -203,14 +212,15 @@ describe('parseServerMessage', () => {
     expect(parseServerMessage('{"type":"shot","playerId":"p2","angle":"3.14","pitch":0}')).toBeNull()
   })
 
-  test('탈락은 쓰러진 사람과 사유를 받고, 맞아 쓰러졌으면 맞은 자리도 받음 (SHEEP-126)', () => {
-    expect(parseServerMessage('{"type":"eliminated","playerId":"p2","reason":"shot","zone":"head","height":0.85,"x":6.45,"y":5.5}')).toEqual({
+  test('탈락은 쓰러진 사람과 사유를 받고, 맞아 쓰러졌으면 맞은 자리와 쏜 사람도 받음 (SHEEP-126, SHEEP-180)', () => {
+    expect(parseServerMessage('{"type":"eliminated","playerId":"p2","reason":"shot","zone":"head","height":0.85,"x":6.45,"y":5.5,"shooterId":"p1"}')).toEqual({
       type: 'eliminated',
       playerId: 'p2',
       reason: 'shot',
       hit: { zone: 'head', height: 0.85, x: 6.45, y: 5.5 },
+      shooterId: 'p1',
     })
-    expect(parseServerMessage('{"type":"eliminated","playerId":"p2","reason":"timeout","zone":null,"height":null,"x":null,"y":null}')).toEqual({ type: 'eliminated', playerId: 'p2', reason: 'timeout', hit: null })
+    expect(parseServerMessage('{"type":"eliminated","playerId":"p2","reason":"timeout","zone":null,"height":null,"x":null,"y":null,"shooterId":null}')).toEqual({ type: 'eliminated', playerId: 'p2', reason: 'timeout', hit: null, shooterId: null })
     expect(parseServerMessage('{"type":"eliminated","playerId":"p2","reason":"shot","zone":"leg","height":0.5,"x":1,"y":1}')).toBeNull()
     expect(parseServerMessage('{"type":"eliminated","playerId":"p2","reason":"shot","zone":"body","height":"0.5","x":1,"y":1}')).toBeNull()
     expect(parseServerMessage('{"type":"eliminated","reason":"shot"}')).toBeNull()

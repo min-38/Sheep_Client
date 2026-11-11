@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'vitest'
 import revolverData from './assets/revolver-rig.json'
 import {
+  aimed,
   drawGun,
   DRAW_MS,
   faceNormal,
@@ -15,6 +16,7 @@ import {
   RELOAD_MS,
   RELOAD_SEATED,
   RELOAD_SHUT,
+  reloadNod,
   reloadSoundAt,
   revolverMesh,
   shade,
@@ -178,6 +180,19 @@ describe('transform 왼손', () => {
   })
 })
 
+// 조준점은 총을 다 뽑아 쏠 수 있을 때부터 보임 (SHEEP-165)
+describe('aimed', () => {
+  test('뽑기 전에는 없음', () => {
+    expect(aimed(null, 99999)).toBe(false)
+  })
+
+  test('뽑는 동안은 없고 다 뽑으면 보임', () => {
+    expect(aimed(1000, 1000)).toBe(false)
+    expect(aimed(1000, 1000 + DRAW_MS - 1)).toBe(false)
+    expect(aimed(1000, 1000 + DRAW_MS)).toBe(true)
+  })
+})
+
 describe('lift', () => {
   test('"시작!" 전과 판 사이에는 총을 다 내림', () => {
     expect(lift({}, 5000, false)).toEqual({ lower: 1, kick: 0 })
@@ -224,6 +239,40 @@ describe('lift', () => {
 
   test('장전하지 않는(재대결에 끼지 못한) 카운트다운에는 내린 채', () => {
     expect(lift({ countdown: 1000, walk: 4000 }, 2000, false)).toEqual({ lower: 1, kick: 0 })
+  })
+
+  test('재대결 결과 동안 뽑아 든 총은 든 채 두고, 그 자리에서 장전하러 더 높이 듦 (SHEEP-175)', () => {
+    // 재대결 카운트다운을 알려 오면 판 시각을 비우고 카운트다운 시각만 남음
+    const s = { countdown: 7000 }
+    expect(lift(s, 2000, true, null, true)).toEqual({ lower: 0, kick: 0 })
+    expect(lift(s, 2000, true, null, false)).toEqual({ lower: 1, kick: 0 })
+    // 장전은 내려 둔 자리가 아니라 겨누던 자리에서 시작해 튀지 않음
+    expect(lift(s, 7000, true, null, true).lower).toBeCloseTo(0)
+    const rising = lift(s, 7000 + RAISE_MS / 2, true, null, true).lower
+    expect(rising).toBeLessThan(0)
+    expect(rising).toBeGreaterThan(lift(s, 7000 + RAISE_MS, true, null, true).lower)
+    expect(lift(s, 7000 + RAISE_MS, true, null, true).lower).toBe(lift(s, 7000 + RAISE_MS, true).lower)
+  })
+})
+
+describe('reloadNod (SHEEP-177)', () => {
+  test('카운트다운 전과 장전을 마친 뒤에는 정면을 봄', () => {
+    expect(reloadNod(-1)).toBe(0)
+    expect(reloadNod(0)).toBe(0)
+    expect(reloadNod(RELOAD_END)).toBe(0)
+    expect(reloadNod(RELOAD_END + 500)).toBe(0)
+  })
+
+  test('총알을 넣는 동안 고개를 숙이고, 천천히 숙였다가 권총집에 넣는 동안 천천히 듦', () => {
+    const loading = reloadNod(RELOAD_AT + RELOAD_MS / 2)
+    expect(loading).toBeGreaterThan(0.2)
+    expect(loading).toBeLessThan(0.5)
+    // 숙이기는 카운트다운 시각에 바로 다 하지 않음 (여유를 둠)
+    expect(reloadNod(RELOAD_AT)).toBeLessThan(loading)
+    expect(reloadNod(RELOAD_AT)).toBeGreaterThan(0)
+    const holstering = reloadNod(RELOAD_AT + RELOAD_MS + 250)
+    expect(holstering).toBeGreaterThan(0)
+    expect(holstering).toBeLessThan(loading)
   })
 })
 

@@ -12,10 +12,6 @@ export const BOUNTY = 100
 
 export const bountyText = (wins: number) => (wins > 0 ? `$${wins * BOUNTY}` : '')
 
-// 판 끝 포스터 아래의 오르는 현상금. wins는 이번 승리까지 센 이긴 횟수. 첫 승리는 적힌 현상금이 없어 $0에서 오름.
-// 말 없이 금액과 화살표만이라 언어 파일에 두지 않음
-export const bountyRise = (wins: number) => `${bountyText(wins - 1) || '$0'} → ${bountyText(wins)}`
-
 // 좌석 하나. color는 사람 색 번호이고 앉은 사람의 핵심 파츠를 칠함. wins는 이 방에서 이긴 횟수(최후의 1인)
 export type Seat = { nickname: string; character: number; color: number; hand: Hand; ready: boolean; mine: boolean; wins: number }
 
@@ -153,19 +149,21 @@ const BARTENDER_DEPTH = 108
 // 술집 주인 머리 위(키 30블록)
 export const BARTENDER_TOP = Math.round(rowAt(30, BARTENDER_DEPTH))
 const PLANK = 20
-// 칠판(나무 테두리 포함)과 선반의 자리(px). 칠판 글씨는 style.css의 #chalkboard가 같은 자리에 얹음. 선반은 뒷벽 앞(깊이 118블록) 옆으로 ±30블록,
-// 선반 판은 높이 22, 30, 38블록
-const BOARD = { x: 352, y: 16, w: 110, h: 62 }
-const SHELF = { x: Math.round(columnAt(-30, 118)), w: Math.round(columnAt(30, 118) - columnAt(-30, 118)), top: Math.round(rowAt(46, 118)), rows: [38, 30, 22].map((y) => Math.round(rowAt(y, 118))) }
+// 칠판(나무 테두리 포함)과 선반의 자리(px). 칠판은 방 코드만 적어 낮음. 글씨는 style.css의 #chalkboard가, 그 아래 나무 판 버튼은 #board-buttons가
+// 얹음 (사용자 결정 2026-11-11, SHEEP-170 시안 B). 선반은 뒷벽 앞(깊이 118블록) 옆으로 ±30블록이고, 위에 방 이름 간판을 걸 자리를 비우려고
+// 맨 위를 46블록에서 37블록으로, 선반 판을 높이 18, 24.5, 31블록으로 낮춤 (SHEEP-168)
+const BOARD = { x: 352, y: 10, w: 110, h: 30 }
+const SHELF = { x: Math.round(columnAt(-30, 118)), w: Math.round(columnAt(30, 118) - columnAt(-30, 118)), top: Math.round(rowAt(37, 118)), rows: [31, 24.5, 18].map((y) => Math.round(rowAt(y, 118))) }
+// 술장 위 방 이름 간판(px). 벽에 바로 붙인 검은 판에 금박 테. 글씨는 style.css의 #saloon-sign이 같은 자리에 얹음 (SHEEP-168 시안 B)
+const SIGN = { x: SHELF.x - 3, y: 14, w: SHELF.w + 6, h: 26 }
 const BOTTLE_COLORS = ['#2f6b3a', '#a8641c', '#b8d0c8', '#7a1e1e', '#3a4a7a', '#c8a040', '#5a3a14', '#8a9a3a']
 
-// px. 왼쪽 벽 현상금 게시판(캐릭터·색 바꾸기, SHEEP-118)의 오른쪽 끝. style.css #wardrobe가 x 8부터 폭 108로 얹음.
-// 아래 끝(75)은 8명 방의 왼쪽 좌석 꼬리표와 앉은 손님 모자 위라 둘을 가리지 않음
-export const WARDROBE_RIGHT = 116
+// px. 왼쪽 벽 장식(소뿔 해골)의 오른쪽 끝. 캐릭터·색 바꾸기 게시판이 있던 자리(x 8~116)이고, 그 게시판은 칠판의 버튼으로 엶 (SHEEP-170)
+export const DECOR_RIGHT = 116
 // px. 말풍선 폭의 절반(style.css #bartender-line 폭과 같음)
 const BUBBLE_HALF = 75
 // 말풍선 가운데(px). 술집 주인 머리 위를 따르되 오른쪽 칠판과 왼쪽 현상금 게시판에 걸리지 않게 안쪽으로 당김
-export const bubbleX = (x: number) => Math.min(Math.max(x, WARDROBE_RIGHT + 4 + BUBBLE_HALF), BOARD.x - 4 - BUBBLE_HALF)
+export const bubbleX = (x: number) => Math.min(Math.max(x, DECOR_RIGHT + 4 + BUBBLE_HALF), BOARD.x - 4 - BUBBLE_HALF)
 
 // 술병 모양 (SHEEP-139). 목이 긴 포도주병, 어깨가 각지고 상표를 붙인 위스키병, 손잡이 달린 낮은 항아리
 type BottleKind = 'wine' | 'whiskey' | 'jug'
@@ -219,6 +217,42 @@ export function bartenderFigure(b: Bartender, now: number, body: Pick<Body, 'sta
   return { x: BARTENDER_DEPTH * CELL, y: side * CELL, facing, boxes: pose.boxes, gun: [] }
 }
 
+// 왼쪽 벽의 소뿔 해골 (SHEEP-170 시안 B). 나무 방패 판에 걸린 소 머리뼈와 양옆으로 길게 휜 뿔. 캔버스 px로 x 14~110, y 12~68
+function drawSkull(ctx: CanvasRenderingContext2D) {
+  rect(ctx, '#4a2c16', 46, 18, 32, 46)
+  rect(ctx, '#6b4325', 48, 20, 28, 42)
+  rect(ctx, '#7a5030', 48, 20, 28, 2)
+  ctx.lineCap = 'round'
+  for (const [width, color] of [[7, '#3d2412'], [5, '#e9dcc0']] as const) {
+    ctx.strokeStyle = color
+    ctx.lineWidth = width
+    ctx.beginPath()
+    ctx.moveTo(56, 30)
+    ctx.bezierCurveTo(40, 32, 22, 30, 16, 16)
+    ctx.moveTo(68, 30)
+    ctx.bezierCurveTo(84, 32, 102, 30, 108, 16)
+    ctx.stroke()
+  }
+  rect(ctx, '#8a7a62', 14, 13, 4, 4)
+  rect(ctx, '#8a7a62', 106, 13, 4, 4)
+  // 머리뼈: 넓은 이마에서 좁아지는 콧등, 검은 눈구멍과 콧구멍
+  ctx.fillStyle = '#efe4cc'
+  ctx.beginPath()
+  ctx.moveTo(53, 26)
+  ctx.lineTo(71, 26)
+  ctx.lineTo(68, 48)
+  ctx.lineTo(65, 58)
+  ctx.lineTo(59, 58)
+  ctx.lineTo(56, 48)
+  ctx.closePath()
+  ctx.fill()
+  rect(ctx, '#d2c4a4', 60, 28, 4, 20)
+  rect(ctx, '#1b130d', 55, 33, 5, 4)
+  rect(ctx, '#1b130d', 64, 33, 5, 4)
+  rect(ctx, '#1b130d', 60, 53, 1, 3)
+  rect(ctx, '#1b130d', 63, 53, 1, 3)
+}
+
 function rect(ctx: CanvasRenderingContext2D, color: string, x: number, y: number, w: number, h: number) {
   ctx.fillStyle = color
   ctx.fillRect(Math.round(x), Math.round(y), w, h)
@@ -236,6 +270,15 @@ export function drawSaloon(ctx: CanvasRenderingContext2D, drawBartender: () => v
 
   rect(ctx, '#8a5a32', BOARD.x, BOARD.y, BOARD.w, BOARD.h)
   rect(ctx, '#23302a', BOARD.x + 4, BOARD.y + 4, BOARD.w - 8, BOARD.h - 8)
+  drawSkull(ctx)
+
+  // 방 이름 간판: 검은 판, 금박 테 두 줄, 네 귀퉁이 놋쇠 못
+  rect(ctx, '#a07a2e', SIGN.x, SIGN.y, SIGN.w, SIGN.h)
+  rect(ctx, '#17110d', SIGN.x + 2, SIGN.y + 2, SIGN.w - 4, SIGN.h - 4)
+  ctx.strokeStyle = '#a07a2e99'
+  ctx.lineWidth = 1
+  ctx.strokeRect(SIGN.x + 4.5, SIGN.y + 4.5, SIGN.w - 9, SIGN.h - 9)
+  for (const [x, y] of [[SIGN.x + 3, SIGN.y + 3], [SIGN.x + SIGN.w - 5, SIGN.y + 3], [SIGN.x + 3, SIGN.y + SIGN.h - 5], [SIGN.x + SIGN.w - 5, SIGN.y + SIGN.h - 5]]) rect(ctx, '#e7bf55', x, y, 2, 2)
 
   // 술장 (SHEEP-139): 세로 판자를 댄 뒤판, 위에 얹은 장식 띠, 판마다 밝은 윗면과 아래 그늘
   rect(ctx, '#3f2614', SHELF.x, SHELF.top, SHELF.w, COUNTER_BACK_Y - SHELF.top)

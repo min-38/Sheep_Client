@@ -75,7 +75,7 @@ const NEAR_LIT = halves(true)
 const NEAR_SHADE = halves(false)
 
 // 먼 서부 마을의 건물 하나. 덩어리는 [가운데에서 방위 차, 반폭, 아래 높이각, 위 높이각](도).
-// lit은 앞면, shade는 지붕과 해 반대쪽 옆면이고 해가 왼쪽일 때의 모양임. 시야 66°·480px에서 1px이 약 0.155°라 가는 부분도 0.2° 이상으로 둠
+// lit은 앞면, shade는 지붕과 해 반대쪽 옆면이고 해가 왼쪽일 때의 모양임. 시야 90°·480px에서 1px이 약 0.19°라 가는 부분도 0.2° 이상으로 둠
 type Building = { lit: number[][]; shade: number[][] }
 // 술집: 지붕보다 높은 네모 앞벽(false front). 옆 몸채가 앞벽보다 낮아 앞벽만 솟아 보임
 const SALOON: Building = {
@@ -229,11 +229,11 @@ type Rect = readonly [x: number, y: number, w: number, h: number, color: RGB]
 
 // 네모를 차례로 쌓아 칠한 한 장. 앞면, 오른쪽 옆면(어둡게), 윗면(밝게)을 각각 단색으로 칠함 (컨셉 기획서 화풍).
 // 둘레 소품이라 어느 쪽에서 봐도 같은 그림을 8방향에 씀
-function blocks(rects: readonly Rect[]): Sprite[] {
+function blocks(rects: readonly Rect[], cells: number): Sprite[] {
   const art = new Uint32Array(S * S)
   for (const [x, y, w, h, c] of rects) for (let r = y; r < y + h; r++) art.fill(pack(...c), r * S + x, r * S + x + w)
-  // 사람과 같은 배율(PX_PER_CELL)로 0.9칸 높이가 되게 늘림
-  const T = Math.round(0.9 * PX_PER_CELL)
+  // 사람과 같은 배율(PX_PER_CELL)로 cells칸 높이가 되게 늘림
+  const T = Math.round(cells * PX_PER_CELL)
   const pixels = new Uint32Array(T * T).map((_, i) => art[Math.floor((Math.floor(i / T) * S) / T) * S + Math.floor(((i % T) * S) / T)])
   return Array(8).fill({ w: T, h: T, pixels })
 }
@@ -288,7 +288,9 @@ const PROPS = 18
 // 결투장 중심(cx, cy) 둘레의 선인장, 바위, 회전초. 그림만이고 서버 판정에는 없음.
 // 걷는 범위(중심에서 4칸)에 걸치면 결투장 안에 숨을 곳이 생기므로 5.5칸부터 둠. 둘레 벽 밖에도 두어 멀리까지 이어져 보이게 함
 export function makeProps(cx: number, cy: number): Prop[] {
-  const kinds = [blocks(CACTUS_RECTS), blocks(ROCK_RECTS), blocks(WEED_RECTS)]
+  // 1칸 = 2 m로 실제 크기에 가깝게 그림: 사와로 선인장 5.4 m, 바위 덩이 3.6 m, 회전초 덤불 1.8 m. 사람 키(0.9칸)만 한 선인장은 내려다보여
+  // 눈이 높아 보였음 (사용자 결정 2026-11-11, SHEEP-163 시안 D)
+  const kinds = [blocks(CACTUS_RECTS, 2.7), blocks(ROCK_RECTS, 1.8), blocks(WEED_RECTS, 0.9)]
   return Array.from({ length: PROPS }, (_, i) => {
     // 황금각(약 2.4라디안)씩 돌며 거리를 섞어 겹치지 않게 흩음. 고정된 식이라 늘 같은 자리
     const a = i * 2.4

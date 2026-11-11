@@ -54,6 +54,8 @@ export type PlayerState = {
   hand: Hand
   // D 키로 총을 뽑기 시작한 시각(ms, 서버 시계). 아직 안 뽑았으면 null (SHEEP-123)
   drawnAt: number | null
+  // 이번 판에 쏴서 쓰러뜨린 사람 수. 판 끝 자막 카드에 각자 자기 것을 보임 (SHEEP-169)
+  kills: number
 }
 
 // 서버가 알리는 판 단계. lobby는 판이 끝나 준비 중으로 돌아가는 시각임
@@ -85,8 +87,8 @@ export type ServerMessage =
   // 서버가 받아들인 발사. angle과 pitch는 fire의 것 그대로. pitch로 날아가는 총알을 그림 (SHEEP-125)
   | { type: 'shot'; playerId: string; angle: number; pitch: number }
   // reason은 쓰러진 사유. shot은 머리나 두 번째 반샷을 맞음, timeout은 제한 시간 안에 쏘지 않아 자살함.
-  // hit은 쓰러뜨린 발사가 맞은 자리이고 시간 초과면 null (SHEEP-126)
-  | { type: 'eliminated'; playerId: string; reason: 'shot' | 'timeout'; hit: HitPoint | null }
+  // hit은 쓰러뜨린 발사가 맞은 자리, shooterId는 그 발사를 쏜 사람이고 시간 초과면 둘 다 null (SHEEP-126, SHEEP-180)
+  | { type: 'eliminated'; playerId: string; reason: 'shot' | 'timeout'; hit: HitPoint | null; shooterId: string | null }
   // 결과 시간이 끝나는 시각은 바로 뒤의 phase로 옴 (승리면 lobby, 재대결이면 countdown)
   | ({ type: 'result' } & RoundResult)
   // 판정이 확정된 틱에 쏜 사람에게만 옴. 누구를 맞혔는지는 담지 않음
@@ -150,7 +152,7 @@ export function parseServerMessage(text: string): ServerMessage | null {
     case 'eliminated': {
       if (typeof m.playerId !== 'string' || (m.reason !== 'shot' && m.reason !== 'timeout')) return null
       const hit = hitPoint(m)
-      return hit !== undefined ? { type: 'eliminated', playerId: m.playerId, reason: m.reason, hit } : null
+      return hit !== undefined ? { type: 'eliminated', playerId: m.playerId, reason: m.reason, hit, shooterId: typeof m.shooterId === 'string' ? m.shooterId : null } : null
     }
     case 'result':
       return (m.outcome === 'win' || m.outcome === 'rematch') &&
@@ -218,7 +220,9 @@ const isPlayer = (p: any): p is PlayerState =>
   isCount(p.seat) &&
   p.seat < 8 &&
   (p.hand === 'right' || p.hand === 'left') &&
-  (p.drawnAt === null || typeof p.drawnAt === 'number')
+  (p.drawnAt === null || typeof p.drawnAt === 'number') &&
+  Number.isInteger(p.kills) &&
+  p.kills >= 0
 
 // 레이캐스터는 칸이 다 숫자이고 모든 줄 길이가 같다고 봄
 function isGrid(cells: unknown, width: unknown, height: unknown): cells is Grid {

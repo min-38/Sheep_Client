@@ -102,7 +102,7 @@ describe('CHARACTERS 틀 검사 (시스템 기획서 캐릭터)', () => {
 const SILAS = 2
 const RED = 0
 const SKY = 1
-const GREEN = 2
+const PURPLE = 2
 const hexRgb = (hex: string) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16))
 
 describe('bartenderBody (SHEEP-139)', () => {
@@ -163,6 +163,11 @@ describe('keyColor', () => {
     expect(keyColor(0, SKY)).toBe('#4fb3e8')
     expect(keyColor(1, SKY)).toBe('#4fb3e8')
   })
+
+  test('2번 색은 선인장에 묻히는 초록 대신 보라 (사용자 결정 2026-11-11, SHEEP-179)', () => {
+    expect(keyColor(0, PURPLE)).toBe('#8e44d6')
+    expect(keyColor(SILAS, PURPLE)).toBe('#8e44d6')
+  })
 })
 
 describe('portraitPixels', () => {
@@ -174,14 +179,14 @@ describe('portraitPixels', () => {
 
   test('색을 바꾸면 핵심 파츠 자리만 다시 칠하고 나머지는 그대로 (SHEEP-118)', () => {
     const red = portraitPixels(SILAS, RED)
-    const green = portraitPixels(SILAS, GREEN)
+    const purple = portraitPixels(SILAS, PURPLE)
     let changed = 0
     for (let p = 0; p < red.length; p += 4) {
-      if (red[p] === green[p] && red[p + 1] === green[p + 1] && red[p + 2] === green[p + 2]) continue
+      if (red[p] === purple[p] && red[p + 1] === purple[p + 1] && red[p + 2] === purple[p + 2]) continue
       changed++
-      // 바뀐 칸은 빨강과 초록의 명암이라 그 색이 가장 셈
+      // 바뀐 칸은 빨강과 보라의 명암이라 빨강은 R, 보라는 B가 가장 셈
       expect(red[p]).toBeGreaterThan(Math.max(red[p + 1], red[p + 2]))
-      expect(green[p + 1]).toBeGreaterThan(Math.max(green[p], green[p + 2]))
+      expect(purple[p + 2]).toBeGreaterThan(Math.max(purple[p], purple[p + 1]))
     }
     // 셔츠가 가슴 아래를 채움. 목수건(하늘)은 바뀌지 않음
     expect(changed).toBeGreaterThan(100)
@@ -518,6 +523,17 @@ describe('총구와 inWorld (SHEEP-124)', () => {
   })
 })
 
+describe('장전 고개 (SHEEP-177)', () => {
+  test('총알을 넣는 동안 머리를 앞으로 숙이고, 다 넣고 권총집에 넣은 뒤에는 바로 섬', () => {
+    const body = characterBody(0)
+    const head = body.rest.boxes.reduce((m, b, i, all) => (b.c[1] > all[m].c[1] ? i : m), 0)
+    const loading = body.reload(1500).boxes[head].c
+    expect(loading[2]).toBeGreaterThan(body.rest.boxes[head].c[2] + 0.5)
+    const done = body.reload(RELOAD_END).boxes[head].c
+    done.forEach((v, i) => expect(v).toBeCloseTo(body.rest.boxes[head].c[i], 6))
+  })
+})
+
 describe('상처 (SHEEP-126)', () => {
   const body = characterBody(0)
 
@@ -539,6 +555,26 @@ describe('상처 (SHEEP-126)', () => {
     const onFallen = woundBox(fallen.boxes, wound)
     expect(onFallen.c[1]).toBeLessThan(10)
     expect(Math.hypot(...onFallen.c.map((v, i) => v - fallen.boxes[wound.box].c[i]))).toBeCloseTo(Math.hypot(...onRest.c.map((v, i) => v - trunk.c[i])), 9)
+  })
+
+  test('쓰러진 뒤 처음 그려도 맞을 때 선 모습에 붙여야 같은 자리를 따라감 (SHEEP-176)', () => {
+    // 머리 앞 맞은 자리. 누운 모습에 바로 붙이면 선 높이(28블록)의 점이 엉뚱한 상자에 붙음
+    const hit: [number, number, number] = [0, 28, 2]
+    const onRest = pinWound(body.rest.boxes, hit)
+    const fallen = body.fall(5000)
+    expect(pinWound(fallen.boxes, hit).box).not.toBe(onRest.box)
+    const head = body.rest.boxes.reduce((m, b, i, all) => (b.c[1] > all[m].c[1] ? i : m), 0)
+    expect(Math.abs(body.rest.boxes[onRest.box].c[1] - body.rest.boxes[head].c[1])).toBeLessThan(4)
+  })
+
+  test('자살 상처는 총 든 손 쪽 옆머리에 붙음 (SHEEP-176)', () => {
+    for (const [hand, sign] of [['right', 1], ['left', -1]] as const) {
+      const b = characterBody(0, undefined, hand)
+      const box = woundBox(b.rest.boxes, b.templeWound)
+      expect(Math.sign(box.c[0])).toBe(sign)
+      expect(box.c[1]).toBeGreaterThan(26)
+      expect(box.c[1]).toBeLessThan(30)
+    }
   })
 
   test('상자 안쪽에 든 점도 가장 가까운 겉면으로 밀어냄', () => {

@@ -129,23 +129,18 @@ body {
   pointer-events: none;
 }
 
-/* 쓰러지는 장면 (시스템 기획서 HUD 쓰러짐, SHEEP-119). 바닥에 닿을 때까지 바랜 색으로 옛 영화처럼 보임. 위아래 검은 띠는 main.ts가 캔버스에 그림 */
 /* 내 모자 챙 (SHEEP-159). 머리에 붙어 위아래로 봐도 화면 맨 위 같은 자리에 있음. 눈 바로 위라 초점이 맞지 않아 흐리고,
    그늘진 밑면이 보여 모자 색보다 어둡고 끝만 모래에 비친 빛으로 밝음. 챙 양옆이 올라가 가운데가 가장 내려옴.
-   --brim은 챙이 얼굴보다 앞으로 나온 길이(블록)이고 길수록 크게 보임 */
+   --brim은 챙이 얼굴보다 앞으로 나온 길이(블록)이고 길수록 크게 보임. 시야를 90°로 넓혀 66° 때(4.8cqw)의 tan(33°)/tan(45°)배로 줄임 (SHEEP-163) */
 #brim {
   position: absolute;
   left: -10%;
   right: -10%;
   top: 0;
-  height: calc(var(--brim, 1) * 4.8cqw);
+  height: calc(var(--brim, 1) * 3.1cqw);
   background: radial-gradient(50% 50% at 50% 0%, color-mix(in srgb, var(--hat, #5a3a22) 40%, #120a05) 0 90%, color-mix(in srgb, var(--hat, #5a3a22) 65%, #d9a46a) 96%, #0000 100%);
   filter: blur(0.3cqw);
   pointer-events: none;
-}
-
-#game.filming #screen {
-  filter: sepia(0.7) contrast(1.08) brightness(0.95);
 }
 
 /* 자막 카드. 술집 주인 말풍선과 같은 검은 판에 흰 이중 테. 왼쪽 초상화, 가운데 쓰러뜨린 사람, 오른쪽 맞은 자리, 아래 한 줄 */
@@ -258,13 +253,19 @@ body {
   padding-top: 0.5cqw;
 }
 
-/* 모두 준비해 술집을 나서는 동안(SHEEP-137)은 술집 위에 얹은 게시판, 좌석 꼬리표, 칠판, 버튼, 말풍선을 숨김. 그림은 캔버스가 돌림 */
-#saloon.leaving > * {
+/* 모두 준비해 술집을 나서는 동안(SHEEP-137)은 술집 위에 얹은 좌석 꼬리표, 버튼, 고르기 판, 말풍선을 숨김. 그림은 캔버스가 돌림.
+   간판과 칠판 글자는 그림의 일부라 남기고, 캔버스가 뒤돌며 술집 그림을 미는 만큼(--bar-shift, 내부 px) 같이 밂 (SHEEP-173) */
+#saloon.leaving > :not(#saloon-sign, #chalkboard) {
   visibility: hidden;
 }
 
-/* 승리 세레모니 (SHEEP-136). 이긴 사람이 해 쪽으로 걸어가는 동안 HUD를 숨김 */
-#game.ceremony :is(#blood, #crosshair, #flash, #hit-card, #kill-card, #ammo, #timer, #alive, #banner, #watching, #replay, #leave-down, #room) {
+#saloon.leaving > :is(#saloon-sign, #chalkboard) {
+  translate: calc(var(--bar-shift, 0) * -100cqw / 480) 0;
+  pointer-events: none;
+}
+
+/* 승리 세레모니 (SHEEP-136). 이긴 사람이 해 쪽으로 걸어가는 동안 HUD를 숨김. 자막 카드는 마지막 쓰러짐 보기에 띄워 main.ts가 숨김 (SHEEP-180) */
+#game.ceremony :is(#blood, #crosshair, #flash, #hit-card, #ammo, #timer, #alive, #banner, #watching, #replay, #leave-down, #room) {
   visibility: hidden;
 }
 
@@ -276,7 +277,8 @@ body {
   background: radial-gradient(circle at 50% 58%, #0000 calc(var(--iris, 1) * 60cqw), #000 calc(var(--iris, 1) * 60cqw + 0.3cqw));
 }
 
-/* 받은 돈 자막 (SHEEP-150, 시안 C). 다 닫힌 검은 화면 가운데에 무성 영화 자막처럼 흰 겹테 카드. 돈은 놋쇠 빛으로 크게 */
+/* 판 끝 자막 카드 (SHEEP-150, SHEEP-169 시안 B). 다 닫힌 검은 화면 가운데에 무성 영화 자막처럼 흰 겹테 카드.
+   이긴 사람의 돈은 놋쇠 빛으로 크게, 그 아래 킬 수, 맨 아래 한 줄 */
 #paid-card {
   position: absolute;
   inset: 0;
@@ -307,6 +309,15 @@ body {
 #paid-card b {
   color: #f6dc8f;
   font: 6cqw / 1 var(--display);
+}
+
+#paid-card [hidden] {
+  display: none;
+}
+
+/* 킬 수. 제목 글꼴은 숫자 0이 동그란 점처럼 보여 본문 글꼴로 씀 */
+#paid-kills {
+  font: bold 3.4cqw / 1.2 var(--text);
 }
 
 /* 걷는 동안 화면 가장자리 어둠 (SHEEP-141). 가운데는 비우고 가장자리로 갈수록 검게. 짙기(opacity)와 크기(scale)는 main.ts가 정함 */
@@ -695,6 +706,11 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .plank {
     transition: none;
+  }
+
+  /* 도장은 떨어지지 않고 처음부터 찍혀 있음 */
+  #win :is(.poster, .stamp, .dust) {
+    animation: none;
   }
 }
 
@@ -1323,8 +1339,7 @@ body {
 }
 
 #lobby button,
-#lobby input,
-#counter button {
+#lobby input {
   font: inherit;
   padding: 0.6cqw 1.2cqw;
 }
@@ -1376,7 +1391,9 @@ body {
   font: 1.35cqw / 1.1 var(--display);
 }
 
-.seat[hidden] {
+.seat[hidden],
+.seat .stamp[hidden],
+#wardrobe[hidden] {
   display: none;
 }
 
@@ -1406,19 +1423,22 @@ body {
   filter: drop-shadow(0 0.1cqw 0.1cqw #0009);
 }
 
-/* 준비 도장. 꼬리표 위에 비스듬히 */
+/* 준비 표시. 꼬리표 위에 비스듬히 찍은 붉은 고무 도장, 겹테 (사용자 결정 2026-11-11, SHEEP-170: 밀랍 도장보다 서부 느낌).
+   멀리서도 보이게 전보다 크고 굵게 */
 .seat .stamp {
   position: absolute;
   top: 55%;
   left: 50%;
   translate: -50% -50%;
   rotate: -12deg;
-  padding: 0 0.4cqw;
-  border: 0.22cqw solid #c0262d;
+  padding: 0.15cqw 0.6cqw;
+  border: 0.3cqw solid #c0262d;
   border-radius: 0.3cqw;
+  box-shadow: inset 0 0 0 0.15cqw #f3e3c0, inset 0 0 0 0.3cqw #c0262d;
   color: #c0262d;
-  font: 1.05cqw / 1.2 var(--display);
-  opacity: 0.9;
+  font: 1.6cqw / 1.2 var(--display);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
   white-space: nowrap;
 }
 
@@ -1491,7 +1511,7 @@ body {
   place-content: center;
   justify-items: center;
   gap: 2cqw;
-  background: #000b;
+  background: #000;
   pointer-events: none;
 }
 
@@ -1519,16 +1539,88 @@ body {
   font-size: 3cqw;
 }
 
+/* Winner 도장 (SHEEP-172 B안). 별을 박은 둥근 보안관 도장을 오른쪽 아래 귀퉁이에 걸쳐 찍어 얼굴과 이름을 덜 가림.
+   포스터가 뜨고 0.6초 뒤 돌며 떨어져 0.24초에 찍히고(ceremony.ts STAMP_AT, STAMP_FALL), 그때 종이가 눌리고 흙먼지 고리가 퍼짐 */
 #win .stamp {
-  top: 9cqw;
-  border-width: 0.5cqw;
-  font-size: 3cqw;
+  top: auto;
+  left: auto;
+  right: -1.8cqw;
+  bottom: 2.6cqw;
+  width: 12.8cqw;
+  aspect-ratio: 1;
+  box-sizing: border-box;
+  translate: none;
+  rotate: 16deg;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  padding: 0;
+  border: 0.5cqw solid #c0262d;
+  border-radius: 50%;
+  font: 1.7cqw / 1 var(--display);
+  animation: win-stamp 0.24s cubic-bezier(0.5, 0, 1, 0.6) 0.6s both;
 }
 
-#win-bounty {
-  color: #f7d27a;
-  font: 3cqw / 1 var(--display);
-  text-shadow: 0 0.2cqw 0 #3d2412, 0 0 0.6cqw #000;
+/* 겹테의 안쪽 테. 틈을 종이색으로 칠하면 종이 밖으로 나간 부분에 밝은 고리가 떠서 비워 둠 */
+#win .stamp::before {
+  content: '';
+  position: absolute;
+  inset: 0.4cqw;
+  border: 0.3cqw solid #c0262d;
+  border-radius: 50%;
+}
+
+#win .stamp small {
+  font-size: 1.2cqw;
+  letter-spacing: 0.4cqw;
+}
+
+#win .poster {
+  animation: win-press 0.3s ease-out 0.84s;
+}
+
+#win .dust {
+  position: absolute;
+  right: 4.6cqw;
+  bottom: 9cqw;
+  width: 2cqw;
+  aspect-ratio: 1;
+  border: 0.3cqw solid #d9b77a;
+  border-radius: 50%;
+  opacity: 0;
+  pointer-events: none;
+  /* forwards만: 찍히기 전에는 보이지 않게 기다리는 동안 첫 장면을 미리 깔지 않음 */
+  animation: win-dust 0.5s ease-out 0.84s forwards;
+}
+
+@keyframes win-stamp {
+  from {
+    opacity: 0;
+    scale: 3;
+    rotate: 60deg;
+  }
+  to {
+    opacity: 0.85;
+    scale: 1;
+    rotate: 16deg;
+  }
+}
+
+@keyframes win-press {
+  30% {
+    scale: 0.965;
+  }
+}
+
+@keyframes win-dust {
+  from {
+    opacity: 0.9;
+    scale: 1;
+  }
+  to {
+    opacity: 0;
+    scale: 9;
+  }
 }
 
 /* 술집 주인 말풍선. 무성 영화 자막처럼 검은 판에 흰 이중 테와 기울인 글씨 (SHEEP-116, 시안 B).
@@ -1562,12 +1654,12 @@ body {
   opacity: 0.7;
 }
 
-/* 왼쪽 벽의 현상금 게시판 (SHEEP-118). 자리는 saloon.ts WARDROBE_RIGHT와 같은 캔버스 px(x 8~116, y 8~75)이고,
-   8명 방의 왼쪽 좌석 꼬리표와 앉은 손님 모자 위에서 끝남. 나무 판에 포스터 8장을 압정으로 꽂고 그 아래 색 견본 */
+/* 캐릭터·색 고르기 판 (SHEEP-118). 칠판의 캐릭터 변경 버튼으로 칠판 왼쪽(캔버스 px x 238~346, y 12~79)에 펼침 (SHEEP-170).
+   나무 판에 포스터 8장을 압정으로 꽂고 그 아래 색 견본 */
 #wardrobe {
   position: absolute;
-  left: calc(8 * 100cqw / 480);
-  top: calc(8 * 100cqw / 480);
+  left: calc(238 * 100cqw / 480);
+  top: calc(12 * 100cqw / 480);
   width: calc(108 * 100cqw / 480);
   height: calc(67 * 100cqw / 480);
   box-sizing: border-box;
@@ -1579,7 +1671,7 @@ body {
   background: #8a6a42;
   box-shadow:
     inset 0 0 calc(6 * 100cqw / 480) #0008,
-    0 calc(2 * 100cqw / 480) calc(4 * 100cqw / 480) #0007;
+    0 calc(3 * 100cqw / 480) calc(8 * 100cqw / 480) #000c;
 }
 
 #wanted {
@@ -1631,7 +1723,8 @@ body {
   margin: 0;
   overflow: hidden;
   color: #f7e6bd;
-  font: 1.1cqw / 1 var(--text);
+  /* 줄 높이 1이면 한글·한자 글꼴의 윗부분이 줄 상자 밖으로 나가 말줄임용 overflow에 잘림 (SHEEP-171) */
+  font: 1.1cqw / 1.5 var(--text);
   text-shadow: 0 calc(0.6 * 100cqw / 480) 0 #3d2412;
   white-space: nowrap;
   text-overflow: ellipsis;
@@ -1672,13 +1765,13 @@ body {
 #chalkboard {
   position: absolute;
   left: calc(358 * 100cqw / 480);
-  top: calc(20 * 100cqw / 480);
+  top: calc(14 * 100cqw / 480);
   width: calc(98 * 100cqw / 480);
-  height: calc(54 * 100cqw / 480);
+  height: calc(22 * 100cqw / 480);
   display: grid;
   place-content: center;
   justify-items: center;
-  gap: 0.4cqw;
+  gap: 0.1cqw;
   color: #e8ecdfdd;
   font-family: var(--display);
   text-shadow: 0 0 0.15cqw #e8ecdf88;
@@ -1690,10 +1783,6 @@ body {
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
-}
-
-#board-name {
-  font-size: 1.8cqw;
 }
 
 /* 방 코드 버튼. 분필 글씨 그대로이고, 올리거나 초점이 오면 분필 물결 밑줄 (SHEEP-114) */
@@ -1762,22 +1851,50 @@ body {
   font-size: 1.3cqw;
 }
 
-/* 바닥 쪽 한 줄의 버튼. 왼쪽 나가기, 가운데 준비, 오른쪽 설정. 바 의자 다리 앞에 놓임 */
-#counter {
+/* 칠판 아래 못 박은 나무 판 버튼 두 줄 (SHEEP-170 시안 B). 캔버스 px x 352~462, y 43~75라 8명 방의 오른쪽 좌석 꼬리표(y 76부터)에 걸리지 않음.
+   준비는 놋쇠 빛으로 가장 눈에 띄게 함 */
+#board-buttons {
   position: absolute;
-  left: calc(24 * 100cqw / 480);
-  right: calc(24 * 100cqw / 480);
-  top: calc(238 * 100cqw / 480);
-  height: calc(28 * 100cqw / 480);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+  left: calc(352 * 100cqw / 480);
+  top: calc(43 * 100cqw / 480);
+  width: calc(110 * 100cqw / 480);
+  height: calc(32 * 100cqw / 480);
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: calc(3 * 100cqw / 480);
 }
 
-#ready-box {
-  display: flex;
-  align-items: center;
-  gap: 1cqw;
-  color: #f2dfa7;
-  text-shadow: 0 0 0.3cqw #000;
+#board-buttons button {
+  min-width: 0;
+  padding: 0 0.3cqw;
+  overflow: hidden;
+  font: bold 1.4cqw / 1 var(--text);
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
+
+#board-buttons #ready {
+  background: var(--nails), linear-gradient(#c89a44, #8a6024);
+  color: #2a180c;
+  text-shadow: 0 0.1cqw 0 #f6dc9a;
+  font-size: 1.6cqw;
+}
+
+/* 술장 위 방 이름 간판 글씨 (SHEEP-168 시안 B). 판은 saloon.ts SIGN(캔버스 px x 135~344, y 14~40)이 그리고, 금박 테 안쪽에 한 줄로 씀. 길면 …로 자름 */
+#saloon-sign {
+  position: absolute;
+  left: calc(141 * 100cqw / 480);
+  top: calc(14 * 100cqw / 480);
+  width: calc(197 * 100cqw / 480);
+  height: calc(26 * 100cqw / 480);
+  margin: 0;
+  overflow: hidden;
+  color: #e7bf55;
+  font: 2.6cqw / calc(26 * 100cqw / 480) var(--display);
+  letter-spacing: 0.08em;
+  text-align: center;
+  text-overflow: ellipsis;
+  text-shadow: 0 0 0.6cqw #e7bf5566, 0 0.15cqw 0 #3d2412;
+  white-space: nowrap;
+}
+

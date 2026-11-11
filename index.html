@@ -76,41 +76,43 @@
       <output id="room" data-i18n-label="hud.roomCode"></output>
       <!-- 승리 세레모니 끝에 화면을 동그랗게 닫는 검은 막 (SHEEP-136). 구멍 크기는 main.ts가 --iris로 줄임 -->
       <div id="iris" hidden></div>
-      <!-- 받은 돈 자막 (SHEEP-150, 시안 C). 세레모니 끝에 화면이 다 닫힌 뒤 검은 화면에 무성 영화 자막으로 띄움 -->
+      <!-- 판 끝 자막 카드 (SHEEP-169 시안 B). 뒷모습 끝에 화면이 다 닫힌 뒤 검은 화면에 무성 영화 자막으로 띄움.
+           이긴 사람에게만 받은 돈과 한 줄을, 모두에게 자기 킬 수를 보임 -->
       <div id="paid-card" hidden>
-        <p><span data-i18n="hud.paidLine"></span><b id="paid-amount"></b><span id="paid-to"></span></p>
+        <p><b id="paid-amount"></b><span id="paid-kills"></span><span id="paid-to"></span></p>
       </div>
       <!-- 세레모니 동안 이긴 사람 이름을 무성 영화 자막처럼 띄움. 포스터가 닫힌 뒤에도 누가 이겼는지 보임 (SHEEP-142) -->
       <p id="win-card" hidden><b id="win-card-name"></b><span data-i18n="hud.lastStanding"></span></p>
       <!-- 술집 대기실. 방에 들어가 판이 시작되기 전과 판이 끝난 뒤에 보임. 벽, 선반, 카운터, 술집 주인, 바 의자와 앉은 사람은 캔버스에 그리고
            글자가 있는 것만 여기 얹음 (시스템 기획서 방 화면 M8 대기실 짜임) -->
       <div id="saloon" hidden>
-        <!-- 왼쪽 벽의 현상금 게시판. 캐릭터마다 작은 WANTED 포스터, 그 아래 핵심 파츠 이름과 사람 색 견본. 단추는 main.ts가 만듦
-             (시스템 기획서 방 화면 캐릭터·색 바꾸기, SHEEP-118). 좌석 꼬리표보다 앞에 둬 겹치면 꼬리표가 위에 옴 -->
-        <div id="wardrobe" role="group" data-i18n-label="saloon.wardrobe">
-          <div id="wanted"></div>
-          <p id="wardrobe-part"></p>
-          <div id="swatches"></div>
-        </div>
+        <!-- 술장 위 방 이름 간판. 판은 saloon.ts가 그리고 금박 글씨만 얹음. 길면 …로 자름 (SHEEP-168 시안 B) -->
+        <p id="saloon-sign"></p>
         <!-- 바 좌석 꼬리표. 좌석 수는 방 인원 제한이고 서버가 준 좌석 번호(seat)에 앉음. 칸은 main.ts가 방에 들어갈 때 만듦 -->
         <ol id="seats" data-i18n-label="saloon.seats"></ol>
         <!-- 술집 주인 말풍선. 가끔 팁이나 농담을 무성 영화 자막처럼 머리 위에 띄움. 자리는 main.ts가 술집 주인을 따라 옮김 -->
         <p id="bartender-line" hidden></p>
+        <!-- 칠판에는 방 코드만 적음 (SHEEP-170) -->
         <div id="chalkboard" data-i18n-label="saloon.board">
-          <p id="board-name"></p>
           <!-- 방 코드. 누르면 클립보드에 복사함. 옆의 종이 두 장 아이콘이 복사할 수 있다는 표시 (SHEEP-114) -->
           <button type="button" id="board-code" data-i18n-label="saloon.copyCode"><span id="board-code-text"></span><i class="copy-icon" aria-hidden="true"></i></button>
           <p id="board-copied" role="status" hidden></p>
           <p id="board-private" data-i18n="saloon.private" hidden></p>
         </div>
-        <!-- 바닥 쪽 한 줄. 왼쪽부터 나가기, 준비, 설정 -->
-        <div id="counter">
-          <button type="button" id="leave" class="plank" data-i18n="saloon.leave"></button>
-          <div id="ready-box">
-            <button type="button" id="ready" class="plank"></button>
-            <output id="ready-count"></output>
-          </div>
+        <!-- 칠판 아래 못 박은 나무 판 버튼. 준비, 캐릭터 변경, 설정, 나가기 차례로 두 줄. 8명 방의 오른쪽 좌석 꼬리표에 걸리지 않게 두 줄로 둠
+             (사용자 결정 2026-11-11, SHEEP-170 시안 B) -->
+        <div id="board-buttons">
+          <button type="button" id="ready" class="plank"></button>
+          <button type="button" id="dress-open" class="plank" data-i18n="saloon.changeCharacter" aria-controls="wardrobe" aria-expanded="false"></button>
           <button type="button" class="plank settings-open" data-i18n="saloon.settings"></button>
+          <button type="button" id="leave" class="plank" data-i18n="saloon.leave"></button>
+        </div>
+        <!-- 캐릭터·색 고르기 판. 캐릭터 변경 버튼을 누르면 칠판 왼쪽에 펼침. 캐릭터마다 작은 WANTED 포스터, 그 아래 핵심 파츠 이름과 사람 색 견본.
+             단추는 main.ts가 만듦 (시스템 기획서 방 화면 캐릭터·색 바꾸기, SHEEP-118, SHEEP-170). 다른 것 위에 오게 맨 뒤에 둠 -->
+        <div id="wardrobe" role="group" data-i18n-label="saloon.wardrobe" hidden>
+          <div id="wanted"></div>
+          <p id="wardrobe-part"></p>
+          <div id="swatches"></div>
         </div>
       </div>
       <!-- 첫 화면. 닉네임 단계, 메뉴, 입장 게시판 중 하나를 보임. 어느 것인지는 main.ts가 data-view로 알림
@@ -174,15 +176,16 @@
           </div>
         </form>
       </div>
-      <!-- 판 끝 포스터. 승리가 정해지면 모두의 화면을 어둡게 하고 이긴 사람의 포스터를 크게 띄움 (시스템 기획서 방 화면 M8 판 끝) -->
+      <!-- 판 끝 포스터. 마지막 쓰러짐을 위에서 본 뒤 검은 화면에 이긴 사람의 WANTED 포스터를 크게 띄우고, 뜬 뒤 별을 박은 둥근 WINNER 도장을
+           쾅 찍음. 도장과 흙먼지 고리는 CSS 애니메이션으로 움직임. 돈은 적지 않음 (시스템 기획서 방 화면 M8 판 끝, SHEEP-169 시안 B, 도장은 SHEEP-172 B안) -->
       <div id="win" hidden>
         <div class="poster">
           <span class="wanted">WANTED</span>
           <img id="win-face" alt="" />
           <span class="nick" id="win-name"></span>
-          <span class="stamp" data-i18n="saloon.winStamp"></span>
+          <span class="stamp"><small aria-hidden="true">★ ★ ★</small>WINNER<small aria-hidden="true">★ ★ ★</small></span>
+          <span class="dust" aria-hidden="true"></span>
         </div>
-        <output id="win-bounty"></output>
       </div>
       <!-- 설정 창. 첫 화면과 대기실에서 같은 판을 띄움. 바꾸면 바로 적용하고 브라우저에 기억함 (시스템 기획서 방 화면 설정) -->
       <div id="settings-panel" role="dialog" aria-modal="true" aria-labelledby="settings-title" hidden>
@@ -213,9 +216,9 @@
           </label>
           <div class="row" role="radiogroup" data-i18n-label="settings.hand">
             <span data-i18n="settings.hand"></span>
-            <!-- 라디오는 숨기고 나무 판 둘을 누름. 고른 판은 놋쇠 테에 눌려 내려앉음 (SHEEP-162, 시안 B) -->
-            <label class="hand-choice"><input type="radio" name="hand" value="right" /><span class="hand-plank" data-i18n="settings.right"></span></label>
+            <!-- 라디오는 숨기고 나무 판 둘을 누름. 고른 판은 놋쇠 테에 눌려 내려앉음 (SHEEP-162, 시안 B). 왼쪽에 왼손, 오른쪽에 오른손 (SHEEP-174) -->
             <label class="hand-choice"><input type="radio" name="hand" value="left" /><span class="hand-plank" data-i18n="settings.left"></span></label>
+            <label class="hand-choice"><input type="radio" name="hand" value="right" /><span class="hand-plank" data-i18n="settings.right"></span></label>
           </div>
           <!-- 조준점 모양. 칸마다 결투 화면의 조준점과 같은 그림과 이름 (시스템 기획서 HUD 조준점) -->
           <div class="row" role="radiogroup" aria-labelledby="crosshair-label">
