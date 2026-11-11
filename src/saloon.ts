@@ -10,8 +10,6 @@ import { makeCamera, type Camera } from './render.ts'
 // 현상금 = 이긴 횟수 × $100 (시스템 기획서 방 화면 현상금)
 export const BOUNTY = 100
 
-export const bountyText = (wins: number) => (wins > 0 ? `$${wins * BOUNTY}` : '')
-
 // 좌석 하나. color는 사람 색 번호이고 앉은 사람의 핵심 파츠를 칠함. wins는 이 방에서 이긴 횟수(최후의 1인)
 export type Seat = { nickname: string; character: number; color: number; hand: Hand; ready: boolean; mine: boolean; wins: number }
 

@@ -74,15 +74,27 @@
       <button type="button" id="replay" class="plank" data-i18n="hud.replay" hidden></button>
       <button type="button" id="leave-down" class="plank" data-i18n="hud.leave" hidden></button>
       <output id="room" data-i18n-label="hud.roomCode"></output>
-      <!-- 승리 세레모니 끝에 화면을 동그랗게 닫는 검은 막 (SHEEP-136). 구멍 크기는 main.ts가 --iris로 줄임 -->
-      <div id="iris" hidden></div>
-      <!-- 판 끝 자막 카드 (SHEEP-169 시안 B). 뒷모습 끝에 화면이 다 닫힌 뒤 검은 화면에 무성 영화 자막으로 띄움.
-           이긴 사람에게만 받은 돈과 한 줄을, 모두에게 자기 킬 수를 보임 -->
-      <div id="paid-card" hidden>
-        <p><b id="paid-amount"></b><span id="paid-kills"></span><span id="paid-to"></span></p>
+      <!-- 판 끝 결과 보드 (SHEEP-187 시안 A). 이긴 사람이 석양으로 걸어가는 동안 그 위에 얹음. 보는 사람 자신의 것:
+           왼쪽 위에 못으로 박은 내 WANTED 포스터와 도장(이긴 사람 WINNER, 진 사람 DEAD), 오른쪽 위 하늘에 서부 문구, 잔고(이긴 사람만 +$100이 붙어 세어 올라감), 킬 수.
+           각 칸은 main.ts가 걷기 시각에 맞춰 on을 붙여 차례로 띄우고, 도장과 흙먼지 고리는 CSS 애니메이션으로 움직임.
+           걷는 사람 머리 위에는 보안관 별을 단 이긴 사람 닉네임을 띄움 -->
+      <div id="ending" data-i18n-label="hud.endBoard" role="group" hidden>
+        <div id="end-dim" data-k="dim"></div>
+        <p id="walker-name"><span class="star" aria-hidden="true">★</span><span id="walker-nick"></span></p>
+        <div class="poster" id="end-poster" data-k="poster">
+          <span class="wanted">WANTED</span>
+          <img id="end-face" alt="" />
+          <span class="nick" id="end-name"></span>
+          <span class="stamp" id="end-stamp" data-k="stamp"></span>
+          <span class="dust" data-k="hit" aria-hidden="true"></span>
+        </div>
+        <div id="end-board">
+          <p id="end-line" data-k="phrase"></p>
+          <p id="end-money" data-k="money"><span id="end-plus" data-k="plus"></span><b id="end-balance"></b></p>
+          <p id="end-kills" data-k="kills"></p>
+        </div>
+        <div id="end-fade"></div>
       </div>
-      <!-- 세레모니 동안 이긴 사람 이름을 무성 영화 자막처럼 띄움. 포스터가 닫힌 뒤에도 누가 이겼는지 보임 (SHEEP-142) -->
-      <p id="win-card" hidden><b id="win-card-name"></b><span data-i18n="hud.lastStanding"></span></p>
       <!-- 술집 대기실. 방에 들어가 판이 시작되기 전과 판이 끝난 뒤에 보임. 벽, 선반, 카운터, 술집 주인, 바 의자와 앉은 사람은 캔버스에 그리고
            글자가 있는 것만 여기 얹음 (시스템 기획서 방 화면 M8 대기실 짜임) -->
       <div id="saloon" hidden>
@@ -175,17 +187,6 @@
             <button type="button" id="create-cancel" class="plank" data-i18n="create.cancel"></button>
           </div>
         </form>
-      </div>
-      <!-- 판 끝 포스터. 마지막 쓰러짐을 위에서 본 뒤 검은 화면에 이긴 사람의 WANTED 포스터를 크게 띄우고, 뜬 뒤 별을 박은 둥근 WINNER 도장을
-           쾅 찍음. 도장과 흙먼지 고리는 CSS 애니메이션으로 움직임. 돈은 적지 않음 (시스템 기획서 방 화면 M8 판 끝, SHEEP-169 시안 B, 도장은 SHEEP-172 B안) -->
-      <div id="win" hidden>
-        <div class="poster">
-          <span class="wanted">WANTED</span>
-          <img id="win-face" alt="" />
-          <span class="nick" id="win-name"></span>
-          <span class="stamp"><small aria-hidden="true">★ ★ ★</small>WINNER<small aria-hidden="true">★ ★ ★</small></span>
-          <span class="dust" aria-hidden="true"></span>
-        </div>
       </div>
       <!-- 설정 창. 첫 화면과 대기실에서 같은 판을 띄움. 바꾸면 바로 적용하고 브라우저에 기억함 (시스템 기획서 방 화면 설정) -->
       <div id="settings-panel" role="dialog" aria-modal="true" aria-labelledby="settings-title" hidden>
