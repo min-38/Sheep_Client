@@ -22,7 +22,7 @@ import type { Rig } from './rig.ts'
 import { banner, DUEL_LIMIT, dueling, formatTime, joins, locked, resultText, standingCount, stepIndex, STEPS_FROM, timeLeft, TURN_MS, walking, type Schedule } from './round.ts'
 import { bartenderFigure, BOUNTY, bubbleX, COPIED_MS, copyKeys, drawSaloon, SALOON_CAMERA, seatSlots, seatSpot, seatTag, startBartender, startChatter, stepBartender, stepChatter, STOOL } from './saloon.ts'
 import { cut, replayWindow } from './replay.ts'
-import { balanceAt, boardTimes, coinTimes, END_FADE_MS, endingAt, FALL_CARD_AT, fallSlow, HITSTOP_MS, lastFallMotion, lastFallView, onScreen, pullView, spinDelay, spinGun, STAMP_FALL, toCamera, TURN_AT, turnFacing, walkerAt, walkoffCamera, walkoffView, WALK_MS, type BoardKey, type View } from './ceremony.ts'
+import { balanceAt, boardTimes, coinTimes, END_FADE_MS, endingAt, FALL_CARD_AT, fallSlow, finishLanded, finishLook, finishMotion, finishSpin, finishZoom, HITSTOP_MS, lastFallMotion, lastFallView, onScreen, pullView, spinDelay, spinGun, STAMP_FALL, toCamera, TURN_AT, turnFacing, walkerAt, walkoffCamera, walkoffView, WALK_MS, zoomFov, type BoardKey, type View } from './ceremony.ts'
 import { fallEye, fallSide, LANDED_MS, SCENE_MS, suicideSide, TEXT_PAUSE } from './downscene.ts'
 import { barShift, DOOR_PUSH_AT, drawEntrance, ENTER_FADE, ENTER_MS, entranceAt, entranceTrack, WHOOSH_AT, WHOOSH_MS } from './entrance.ts'
 // 지금 언어의 문구. 이 파일은 t를 시각 변수로 많이 써 문구는 copy로 부름
@@ -367,26 +367,40 @@ function slowLastFallSound() {
 }
 
 // 판 끝에 이긴 나의 1인칭 결정타 박자를 정함 (SHEEP-187). at은 결과를 받은 때(ms, 내 시계). 마지막 쓰러짐을 보이는 때(INTERP_DELAY 뒤)
-// 내 한 발로 쓰러졌으면 화면을 잠깐 멈추고 확인음을 냄. 쓰러진 몸이 바닥에 닿고 뜸을 들인 뒤 총을 돌림
+// 내 한 발로 쓰러졌으면 화면을 잠깐 멈추고 확인음을 내고, 그 몸에 줌해 느리게 봄(SHEEP-194). 쓰러진 몸이 바닥에 닿고 뜸을 들인 뒤 총을 돌림
 function winnerBeat(at: number) {
   const last = lastDown()
   const shown = (last ? last[1].at : at) + INTERP_DELAY
   spinFrom = shown + spinDelay(last ? fallDelay(last[1].reason) : 0)
   if (!last || last[1].by !== myId || last[1].reason !== 'shot') return
   hitStopAt = shown
-  if (audio) playDing(audio, toAudioTime(shown, stampOf(audio)))
+  spinFrom = shown + finishSpin(fallDelay('shot'))
+  if (!audio) return
+  playDing(audio, toAudioTime(shown, stampOf(audio)))
+  // 쓰러지는 소리는 느리게 쓰러진 몸이 바닥에 닿는 때로 옮김
+  const sound = fallSounds.get(last[0])
+  const samples = history.get(last[0])
+  if (!sound || !samples || audio.currentTime >= sound.when) return
+  sound.node.stop()
+  const view = eyes(performance.now())
+  const body = sampleAt(samples, shown - INTERP_DELAY)
+  const when = toAudioTime(shown + finishLanded(fallDelay('shot')), stampOf(audio))
+  fallSounds.set(last[0], { node: playFall(audio, when, heardFrom(view.x, view.y, view.angle, body.x, body.y)), when })
 }
 
-// 지금 판 장면에서 마지막 쓰러짐 시각만 당긴 것. 진 사람이 위에서 느리게 본 그 쓰러짐은 바닥에 닿은 뒤 빨리 감아(lastFallMotion) 웅덩이가 더 번졌으므로,
-// 빨리 감은 만큼 일찍 쓰러진 것으로 쳐 t(ms, 내 시계)부터 그린 몸과 웅덩이가 위에서 본 데서 이어짐 (SHEEP-187 리뷰)
-function aheadScene(t: number): Scene {
+// 지금 판 장면에서 마지막 쓰러짐 시각만 옮긴 것. motion은 쓰러짐을 보인 지 seen(ms) 지난 때 보일 동작 시간.
+// 진 사람이 위에서 느리게 본 그 쓰러짐은 바닥에 닿은 뒤 빨리 감아(lastFallMotion) 웅덩이가 더 번졌으므로, 빨리 감은 만큼 일찍 쓰러진 것으로 쳐
+// t(ms, 내 시계)부터 그린 몸과 웅덩이가 위에서 본 데서 이어짐 (SHEEP-187 리뷰). 결정타 줌(finishMotion)은 느리게 본 만큼 늦게 쓰러진 것으로 침 (SHEEP-194)
+function retimedScene(t: number, motion: (seen: number, down: Down) => number): Scene {
   const last = lastDown()
   if (!last) return live()
   const [id, down] = last
   const seen = t - down.at
-  const ahead = lastFallMotion(seen, fallDelay(down.reason), fallSlow(down.reason)) - seen
+  const ahead = motion(seen, down) - seen
   return { ...live(), downs: new Map([...downs, [id, { ...down, at: down.at - ahead }]]) }
 }
+const watchedFall = (seen: number, down: Down) => lastFallMotion(seen, fallDelay(down.reason), fallSlow(down.reason))
+const finishFall = (seen: number, down: Down) => finishMotion(seen, fallDelay(down.reason))
 
 // 내 몸의 상처를 붙임. 남의 몸은 othersAt이 맞은 뒤 처음 그릴 때 그때 모습에 붙이지만, 나는 1인칭이라 그리지 않아 판 끝에 처음 그리면
 // 그때는 맞은 때의 자리와 방향 기록(history, 약 6초)이 지워져 돌아선 몸에 붙어 남이 보는 자리와 어긋남 (SHEEP-187 리뷰).
@@ -864,8 +878,9 @@ function frame(now: number) {
     const motion = strolling ? body.walk(ending.elapsed) : turned >= 0 && turned < TURN_MS ? body.turn(turned) : body.rest
     const spot = strolling ? walkerAt(at.x, at.y, ending.elapsed) : { x: at.x, y: at.y, facing: turnFacing(at.angle, ending.elapsed) }
     const walker = withWounds({ ...spot, ...motion }, body, hits.get(winnerId), now - INTERP_DELAY)
-    // 진 사람은 마지막 쓰러짐의 피 웅덩이를 위에서 빨리 감아 봤으니 그 크기에서 이어 번지게 함. 이긴 나는 1인칭으로 제 빠르기로 봤음 (SHEEP-187 리뷰)
-    const staged = iWon ? live() : aheadScene(now - INTERP_DELAY)
+    // 진 사람은 마지막 쓰러짐의 피 웅덩이를 위에서 빨리 감아 봤으니 그 크기에서 이어 번지게 함. 이긴 나는 1인칭으로 제 빠르기로 봤고 (SHEEP-187 리뷰),
+    // 결정타 줌으로 느리게 봤으면 그만큼 늦게 번짐 (SHEEP-194)
+    const staged = iWon ? (hitStopAt !== null ? retimedScene(now - INTERP_DELAY, finishFall) : live()) : retimedScene(now - INTERP_DELAY, watchedFall)
     pullFrom ??= seenView ?? walkoffView(at.x, at.y)
     const cam = strolling ? walkoffCamera(at.x, at.y, STAGED_FOV) : toCamera(pullView(pullFrom, walkoffView(at.x, at.y), ending.elapsed), STAGED_FOV)
     // 이긴 사람 눈에서 빠지기 시작할 때는 카메라가 머리 안에 있어 몸을 그리지 않음
@@ -901,8 +916,12 @@ function frame(now: number) {
     }
     playSteps(now)
   } else if (grid && view) {
+    // 판 끝에 내 한 발로 끝낸 나는 마지막 쓰러짐에 줌해 느리게 봄 (SHEEP-194). 줌 정도와 그 쓰러짐
+    const finish = iWon && !r && hitStopAt !== null ? lastDown() : null
+    const zoom = finish ? finishZoom(now - hitStopAt!, fallDelay(finish[1].reason)) : 0
+    const played = finish ? retimedScene(now - INTERP_DELAY, finishFall) : scene
     // 내 자리도 다른 사람처럼 INTERP_DELAY 전을 그림. 받은 그대로 그리면 걷는 동안 20Hz로 끊겨 보임
-    const things = [...othersAt(r ? t : now - INTERP_DELAY, view.id, scene), ...bulletsAt(r ? t : now - INTERP_DELAY, view.id, scene, grid), ...bloodAt(r ? t : now - INTERP_DELAY, scene), ...props]
+    const things = [...othersAt(r ? t : now - INTERP_DELAY, view.id, played), ...bulletsAt(r ? t : now - INTERP_DELAY, view.id, played, grid), ...bloodAt(r ? t : now - INTERP_DELAY, played), ...props]
     // 이번 라운드를 걷는 내 눈은 걸음마다 무겁게 내려앉고 디딘 발 쪽으로 살짝 기욺. 발소리처럼 INTERP_DELAY 전 걸음에 맞춤 (SHEEP-141)
     const bump = tense && clock && schedule.walk !== undefined ? stepDip(schedule.walk, toServerTime(now - INTERP_DELAY, clock.offset)) : { dip: 0, tilt: 0 }
     const viewLook = scene.characters.get(view.id)
@@ -911,8 +930,17 @@ function frame(now: number) {
     const loading = r || watch ? true : reloading
     // 장전하는 동안 총을 보려고 고개를 숙였다가 권총집에 넣는 동안 듦. 그림에서만이고 서버에 보내는 시선은 그대로 (SHEEP-177)
     const nod = loading && clock && scene.schedule.countdown !== undefined ? reloadNod(toServerTime(t, clock.offset) - scene.schedule.countdown) : 0
+    // 결정타 줌 동안은 시야를 좁히며 쓰러지는 몸 쪽을 봄 (SHEEP-194)
+    let look = { angle: view.angle, pitch: view.pitch }
+    const fallen = finish && zoom > 0 ? history.get(finish[0]) : undefined
+    if (finish && fallen) {
+      const body = sampleAt(fallen, now - INTERP_DELAY)
+      const land = fallDelay(finish[1].reason)
+      const aim = finishLook({ x: view.x, y: view.y, z: EYE_HEIGHT }, body.x, body.y, body.angle, finishMotion(now - hitStopAt!, land), land)
+      look = { angle: view.angle + Math.atan2(Math.sin(aim.angle - view.angle), Math.cos(aim.angle - view.angle)) * zoom, pitch: view.pitch + (aim.pitch - view.pitch) * zoom }
+    }
     // 눈은 캐릭터 눈 자리 높이라 마주 선 사람과 눈높이가 같음 (SHEEP-158)
-    const eye = { ...makeCamera(view.x, view.y, view.angle + bump.tilt * STEP_SWAY, FOV, view.pitch - bump.dip * STEP_DIP - nod), z: EYE_HEIGHT }
+    const eye = { ...makeCamera(view.x, view.y, look.angle + bump.tilt * STEP_SWAY, zoomFov(FOV, zoom), look.pitch - bump.dip * STEP_DIP - nod), z: EYE_HEIGHT }
     // 판 끝에 이긴 나는 이 눈에서 카메라가 뒤로 빠짐 (SHEEP-187)
     if (iWon) seenView = { x: view.x, y: view.y, angle: view.angle, pitch: view.pitch, z: EYE_HEIGHT }
     renderFrame(pixels, W, H, grid, eye, things, SKIES[timeOfDay(standing ?? history.size)])
@@ -930,9 +958,11 @@ function frame(now: number) {
     const kick = Math.max(hold.kick, 1 - (t - fired) / RECOIL_MS)
     // 판 끝에 이긴 나는 결정타 뒤 총을 손가락에 걸어 돌린 뒤 권총집에 넣음 (SHEEP-187). 뽑지 않고 이겼으면(상대 시간 초과) 넣은 채 둠
     const twirl = iWon && !r && spinFrom !== null && viewDrawn !== null ? spinGun(now - spinFrom) : null
-    const muzzle = drawGun(ctx, revolverMesh(revolver, plays, rounds ?? 0), { ...s, pitch: s.pitch - (twirl?.spin ?? 0), kick, lower: twirl ? twirl.lower : hold.lower }, W, H, GUN_PROJ, hand === 'left' ? -1 : 1)
+    // 결정타 줌 동안은 총을 화면 아래로 내림 (SHEEP-194)
+    const muzzle = drawGun(ctx, revolverMesh(revolver, plays, rounds ?? 0), { ...s, pitch: s.pitch - (twirl?.spin ?? 0), kick, lower: Math.max(twirl ? twirl.lower : hold.lower, zoom) }, W, H, GUN_PROJ, hand === 'left' ? -1 : 1)
     flash.style.transform = `translate(${(muzzle.x * 100) / W}cqw, ${(muzzle.y * 100) / W}cqw)`
-    drawSmoke(ctx, muzzle, t - fired, SMOKE_PX, { x: W / 2, y: H / 2 })
+    // 결정타 줌 동안은 내린 총의 연기가 화면 아래를 가려 그리지 않음 (SHEEP-194)
+    if (zoom === 0) drawSmoke(ctx, muzzle, t - fired, SMOKE_PX, { x: W / 2, y: H / 2 })
     // 마우스 이벤트가 아니라 여기서 보내야 마지막으로 멈춘 각도도 빠지지 않고 감
     if ((angle !== sentAngle || pitch !== sentPitch) && now - sentAt >= TURN_INTERVAL && ws?.readyState === WebSocket.OPEN) {
       send({ type: 'turn', angle, pitch })

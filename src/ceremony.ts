@@ -3,9 +3,9 @@ import { HOLSTER_MS } from './gun.ts'
 import { horizonY, makeCamera, type Camera } from './render.ts'
 
 // 판 끝 (사용자 결정 2026-11-11, SHEEP-187 시안 A. SHEEP-169·172의 검은 화면 포스터, 뒷모습, 자막 카드를 끊김 없는 한 장면으로 바꿈).
-// 승리 결과 시간이 끝나는 시각(준비 중 시각, 서버 시계)에서 거꾸로 잼. 서버 RoundFlow.WinResultDuration 17초를 셋으로 나눔.
-// 'fall': 결과를 받은 때부터 약 4초. 이긴 사람은 1인칭으로 마지막 쓰러짐을 자기 눈으로 보고 총을 돌려 권총집에 넣음.
-//         진 사람은 지금처럼 마지막 쓰러짐을 위에서 느리게 봄 (SHEEP-169)
+// 승리 결과 시간이 끝나는 시각(준비 중 시각, 서버 시계)에서 거꾸로 잼. 서버 RoundFlow.WinResultDuration 18.5초를 셋으로 나눔.
+// 'fall': 결과를 받은 때부터 약 5.5초(FALL_MS). 이긴 사람은 1인칭으로 마지막 쓰러짐을 자기 눈으로 보고 총을 돌려 권총집에 넣음.
+//         내 한 발로 끝냈으면 쓰러지는 사람에게 확 줌해 느리게 봄 (SHEEP-194). 진 사람은 지금처럼 마지막 쓰러짐을 위에서 느리게 봄 (SHEEP-169)
 // 'pull': PULL_MS 동안 카메라가 이긴 사람 눈(진 사람은 위에서 보던 자리)에서 이긴 사람 뒤로 빠지고, 이긴 사람은 해 쪽으로 돌아섬
 // 'walk': WALK_MS 동안 이긴 사람이 석양으로 걸어가고, 가장자리부터 살짝 어두워지며 결과 보드를 하나씩 띄움(boardTimes).
 //         끝 END_FADE_MS 동안 검게 닫혀 술집으로 넘어감
@@ -14,6 +14,8 @@ import { horizonY, makeCamera, type Camera } from './render.ts'
 export const PULL_MS = 2500
 export const WALK_MS = 10500
 export const END_FADE_MS = 1000
+// 'fall' 단계 길이. 서버 승리 결과 시간 18.5초에서 PULL_MS와 WALK_MS를 뺀 것. 결정타 줌을 넣으며 4초에서 늘림 (SHEEP-194)
+export const FALL_MS = 5500
 // ms. 카메라가 빠지는 동안 이긴 사람이 돌아서기 시작하는 때(pull 시작부터)와 다 돌기까지
 export const TURN_AT = 900
 export const TURN_FOR = 1400
@@ -44,11 +46,63 @@ export const SPIN_MS = 900
 export const SPIN_TURNS = 2
 export const SPIN_HOLD = 300
 export const SPIN_END = SPIN_MS + SPIN_HOLD + HOLSTER_MS
-// ms. 결과를 보인 때부터 늦어도 이때 돌리기 시작함. 마지막 쓰러짐 보기(약 4초)에서 결과가 늦게 보이는 0.3초와 돌려 넣기를 뺌.
+// ms. 결과를 보인 때부터 늦어도 이때 돌리기 시작함. 마지막 쓰러짐 보기(FALL_MS)에서 결과가 늦게 보이는 0.3초와 돌려 넣기를 뺌.
 // 시간 초과(자살)는 옆머리를 쏘는 동작부터라 바닥에 늦게 닿아, 뜸을 다 들이면 넣기 전에 카메라가 빠짐
-const SPIN_LATEST = 4000 - 300 - SPIN_END
+const SPIN_LATEST = FALL_MS - 300 - SPIN_END
 // 쓰러짐을 보인 때부터 돌리기 시작하기까지(ms). landed는 쓰러진 몸이 바닥에 닿기까지(sound.ts fallDelay)
 export const spinDelay = (landed: number) => Math.max(landed, Math.min(landed + SPIN_PAUSE, SPIN_LATEST))
+
+// 결정타 줌 (사용자 결정 2026-11-11, SHEEP-194 시안 A). 내 한 발로 마지막 사람이 쓰러지면 히트스톱이 끝나는 때 내 눈 그대로 시야를
+// ZOOM_IN_MS 만에 FINISH_FOV로 좁혀 쓰러지는 몸을 화면 가득 담고, 몸은 바닥에 닿기까지 FINISH_SLOW배로 느리게 쓰러짐.
+// 닿고 ZOOM_HOLD 뒤 ZOOM_OUT_MS 동안 시야를 되돌리고 SPIN_GAP 뒤 총을 돌려 넣음. ponytail: 임시 값. 플레이해 보며 정함
+export const FINISH_FOV = 18
+export const FINISH_SLOW = 0.5
+export const ZOOM_IN_MS = 160
+export const ZOOM_HOLD = 600
+export const ZOOM_OUT_MS = 450
+const SPIN_GAP = 150
+// 칸. 줌하는 동안 보는 점. 서 있으면 가슴 높이, 누우면 등 뒤로 LIE_BACK만큼 간 누운 몸 가운데의 바닥 가까이
+const CHEST_UP = 0.55
+const LIE_BACK = 0.45
+const LIE_UP = 0.12
+
+// 쓰러짐을 보인 때부터 바닥에 닿기까지(ms). land는 바닥에 닿는 동작 시간(sound.ts fallDelay)
+export const finishLanded = (land: number) => HITSTOP_MS + land / FINISH_SLOW
+// 쓰러짐을 보인 때부터 총을 돌리기 시작하기까지(ms)
+export const finishSpin = (land: number) => finishLanded(land) + ZOOM_HOLD + ZOOM_OUT_MS + SPIN_GAP
+
+// 쓰러짐을 보인 지 seen(ms) 지난 때 그 몸의 동작 시간(ms). 히트스톱 동안 멈춘 자리에서 이어 느리게 쓰러지고, 바닥에 닿은 뒤로는 제 빠르기
+export function finishMotion(seen: number, land: number): number {
+  if (seen < 0) return seen
+  const u = seen - HITSTOP_MS
+  if (u <= 0) return 0
+  const landed = land / FINISH_SLOW
+  return u <= landed ? u * FINISH_SLOW : land + (u - landed)
+}
+
+// 쓰러짐을 보인 지 seen(ms) 지난 때의 줌 정도. 0 기본 시야 ~ 1 FINISH_FOV. 당길 때는 확(ease-out), 되돌릴 때는 처음과 끝이 느림
+export function finishZoom(seen: number, land: number): number {
+  const k = Math.min(1, Math.max(0, (seen - HITSTOP_MS) / ZOOM_IN_MS))
+  const back = Math.min(1, Math.max(0, (seen - finishLanded(land) - ZOOM_HOLD) / ZOOM_OUT_MS))
+  return (1 - (1 - k) ** 3) * (1 - (back < 0.5 ? 4 * back ** 3 : 1 - (-2 * back + 2) ** 3 / 2))
+}
+
+// 줌 정도 z일 때의 시야(도). 화면에 보이는 크기가 고르게 커지도록 시야 절반의 tan을 곱으로 섞음
+export function zoomFov(fov: number, z: number): number {
+  const wide = Math.tan((fov * Math.PI) / 360)
+  const narrow = Math.tan((FINISH_FOV * Math.PI) / 360)
+  return (360 / Math.PI) * Math.atan(wide * (narrow / wide) ** z)
+}
+
+// 줌하는 동안 보는 쪽과 위아래 시선(라디안). eye는 내 눈 자리, (x, y)는 쓰러지는 사람 발 자리, facing은 그 사람이 보던 쪽.
+// 그 사람은 뒤로 넘어지므로(motions.json Death01) 바닥에 닿아 갈수록 등 뒤 누운 몸 가운데를 봄
+export function finishLook(eye: { x: number; y: number; z: number }, x: number, y: number, facing: number, motion: number, land: number) {
+  const k = smooth(motion / land)
+  const px = x - Math.cos(facing) * LIE_BACK * k
+  const py = y - Math.sin(facing) * LIE_BACK * k
+  const up = CHEST_UP + (LIE_UP - CHEST_UP) * k
+  return { angle: Math.atan2(py - eye.y, px - eye.x), pitch: -Math.atan((eye.z - up) / Math.hypot(px - eye.x, py - eye.y)) }
+}
 
 // 돌리기 시작하고 since(ms) 지난 때 총을 돌린 각(라디안, 총구가 앞아래로 넘어가는 쪽이 +)과 내린 정도(0 듦 ~ 1 권총집에 다 넣음, ease-in)
 export function spinGun(since: number): { spin: number; lower: number } {
@@ -117,8 +171,8 @@ export const walkoffCamera = (x: number, y: number, fov: number): Camera => toCa
 // 뒤로 넘어지면 머리가 화면 위쪽으로 감. ponytail: 임시 값
 const FROM = { back: 2.4, up: 2.0 }
 const TO = { back: 2.7, up: 2.3 }
-// ms. 물러나며 올라가는 데 걸리는 시간. 위에서 보는 동안(약 4초)
-const DRIFT_MS = 4000
+// ms. 물러나며 올라가는 데 걸리는 시간. 위에서 보는 동안
+const DRIFT_MS = FALL_MS
 // 칸. 내려다보는 점의 높이. 발목쯤이라 서 있을 때 모자까지, 누우면 몸 전체가 화면 가운데 줄에 듦
 const AIM_UP = 0.2
 

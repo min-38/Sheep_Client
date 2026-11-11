@@ -6,7 +6,16 @@ import {
   coinTimes,
   END_FADE_MS,
   endingAt,
+  FALL_MS,
   fallSlow,
+  FINISH_FOV,
+  FINISH_SLOW,
+  finishLanded,
+  finishLook,
+  finishMotion,
+  finishSpin,
+  finishZoom,
+  HITSTOP_MS,
   lastFallMotion,
   lastFallView,
   onScreen,
@@ -27,6 +36,10 @@ import {
   walkoffCamera,
   walkoffView,
   WALK_MS,
+  ZOOM_HOLD,
+  ZOOM_IN_MS,
+  ZOOM_OUT_MS,
+  zoomFov,
 } from './ceremony.ts'
 import { FALL_LAND_MS } from './character.ts'
 import { POOL_MS } from './blood.ts'
@@ -37,7 +50,7 @@ import { makeCamera } from './render.ts'
 const end = 100000
 const SUN = (SUN_AZ * Math.PI) / 180
 // 서버 RoundFlow.WinResultDuration
-const WIN_RESULT_MS = 17000
+const WIN_RESULT_MS = 18500
 // 결과를 받은 때부터 pull까지(마지막 쓰러짐 보기). 결과는 INTERP_DELAY(0.1초) 뒤에 보이고 서버 결과 시각과 받은 때 사이도 있어 0.3초를 뺌
 const FALL_STAGE = WIN_RESULT_MS - PULL_MS - WALK_MS - 300
 
@@ -51,8 +64,9 @@ describe('endingAt (SHEEP-187 시안 A)', () => {
     expect(endingAt(end, end - 1).stage).toBe('walk')
   })
 
-  test('마지막 쓰러짐 보기는 지금처럼 약 4초 남음', () => {
-    expect(WIN_RESULT_MS - PULL_MS - WALK_MS).toBe(4000)
+  test('마지막 쓰러짐 보기는 5.5초 남음 (SHEEP-194에서 1.5초 늘림)', () => {
+    expect(WIN_RESULT_MS - PULL_MS - WALK_MS).toBe(FALL_MS)
+    expect(FALL_MS).toBe(5500)
   })
 })
 
@@ -92,6 +106,53 @@ describe('spinGun (이긴 사람 1인칭)', () => {
     }
     // 맞아 쓰러지면 뜸을 다 들임
     expect(spinDelay(fallDelay('shot'))).toBe(fallDelay('shot') + SPIN_PAUSE)
+  })
+})
+
+describe('결정타 줌 (SHEEP-194 시안 A)', () => {
+  const land = fallDelay('shot')
+
+  test('히트스톱 동안 멈춘 몸이 그 자리에서 이어 FINISH_SLOW배로 쓰러지고, 바닥에 닿은 뒤로는 제 빠르기', () => {
+    expect(finishMotion(-50, land)).toBe(-50)
+    expect(finishMotion(HITSTOP_MS / 2, land)).toBe(0)
+    expect(finishMotion(HITSTOP_MS + 1000, land)).toBeCloseTo(1000 * FINISH_SLOW)
+    expect(finishMotion(finishLanded(land), land)).toBeCloseTo(land)
+    expect(finishMotion(finishLanded(land) + 500, land)).toBeCloseTo(land + 500)
+    expect(finishLanded(land)).toBeCloseTo(HITSTOP_MS + land / FINISH_SLOW)
+  })
+
+  test('히트스톱이 끝나면 확 당기고, 바닥에 닿고 뜸을 들인 뒤 천천히 되돌림', () => {
+    expect(finishZoom(0, land)).toBe(0)
+    expect(finishZoom(HITSTOP_MS, land)).toBe(0)
+    expect(finishZoom(HITSTOP_MS + ZOOM_IN_MS / 2, land)).toBeGreaterThan(0.8)
+    expect(finishZoom(HITSTOP_MS + ZOOM_IN_MS, land)).toBe(1)
+    expect(finishZoom(finishLanded(land) + ZOOM_HOLD, land)).toBe(1)
+    expect(finishZoom(finishLanded(land) + ZOOM_HOLD + ZOOM_OUT_MS / 2, land)).toBeCloseTo(0.5)
+    expect(finishZoom(finishLanded(land) + ZOOM_HOLD + ZOOM_OUT_MS, land)).toBe(0)
+  })
+
+  test('줌 정도에 따라 시야가 기본 시야에서 FINISH_FOV까지 좁아짐', () => {
+    expect(zoomFov(90, 0)).toBeCloseTo(90)
+    expect(zoomFov(90, 1)).toBeCloseTo(FINISH_FOV)
+    expect(zoomFov(90, 0.5)).toBeLessThan(90)
+    expect(zoomFov(90, 0.5)).toBeGreaterThan(FINISH_FOV)
+  })
+
+  test('되돌린 뒤 총을 돌려 넣고, 다 넣은 뒤에 카메라가 빠짐', () => {
+    expect(finishSpin(land)).toBeGreaterThan(finishLanded(land) + ZOOM_HOLD + ZOOM_OUT_MS)
+    expect(finishSpin(land) + SPIN_END).toBeLessThanOrEqual(FALL_STAGE)
+  })
+
+  test('줌하는 동안 시선이 쓰러지는 몸으로 감. 서 있으면 가슴, 누우면 등 뒤로 누운 몸 가운데를 봄', () => {
+    const eye = { x: 0, y: 0, z: 0.84 }
+    const standing = finishLook(eye, 8, 0, Math.PI, 0, land)
+    expect(standing.angle).toBeCloseTo(0)
+    expect(standing.pitch).toBeCloseTo(-Math.atan((0.84 - 0.55) / 8))
+    // 이긴 사람 쪽(facing π)을 보던 사람은 뒤(+x)로 넘어짐
+    const lying = finishLook(eye, 8, 0, Math.PI, land, land)
+    expect(lying.pitch).toBeLessThan(standing.pitch)
+    expect(lying.pitch).toBeCloseTo(-Math.atan((0.84 - 0.12) / 8.45))
+    expect(finishLook(eye, 0, 8, Math.PI, 0, land).angle).toBeCloseTo(Math.PI / 2)
   })
 })
 
