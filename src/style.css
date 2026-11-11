@@ -1659,6 +1659,11 @@ body {
   cursor: not-allowed;
 }
 
+/* 준비한 동안은 고를 수 없음 (SHEEP-170) */
+#wardrobe[aria-disabled='true'] button {
+  filter: grayscale(0.6) brightness(0.7);
+  cursor: not-allowed;
+}
 #wardrobe button:focus-visible {
   outline: calc(1.5 * 100cqw / 480) solid #fff;
   outline-offset: calc(0.5 * 100cqw / 480);

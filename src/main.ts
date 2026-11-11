@@ -1089,9 +1089,11 @@ function showWardrobe(players: readonly PlayerState[]) {
   const me = players.find((p) => p.id === myId)
   if (!me) return
   const taken = players.filter((p) => p.id !== myId).map((p) => p.color)
-  const key = JSON.stringify([me.character, me.color, taken])
+  const key = JSON.stringify([me.character, me.color, taken, me.ready])
   if (key === shownWardrobe) return
   shownWardrobe = key
+  // 준비한 동안은 캐릭터와 색을 바꿀 수 없어 게시판을 어둡게 막음. 서버도 버림 (SHEEP-170)
+  wardrobe.setAttribute('aria-disabled', String(me.ready))
   // 모든 포스터를 내 색으로 칠해 어느 캐릭터를 골라도 어떻게 보일지 앎
   posters.forEach((button, i) => {
     button.setAttribute('aria-pressed', String(i === me.character))
@@ -1112,7 +1114,7 @@ function showWardrobe(players: readonly PlayerState[]) {
 wardrobe.addEventListener('click', (e) => {
   const button = (e.target as HTMLElement).closest('button')
   const me = roster.find((p) => p.id === myId)
-  if (!button || !me) return
+  if (!button || !me || me.ready) return
   if (button.dataset.character !== undefined) {
     character = Number(button.dataset.character)
     remember(SAVED_CHARACTER, character)
