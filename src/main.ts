@@ -42,12 +42,17 @@ import { tilt, turn } from './turn.ts'
 // 내부 해상도. 이 크기로 그리고 CSS로 확대함 (기술 설계서 렌더링)
 const W = 480
 const H = 270
-const FOV = 66
+// 가로 시야각(도). 66°는 망원 렌즈처럼 당겨 보여 게임에서 흔한 90°로 넓힘 (사용자 결정 2026-11-11, SHEEP-163 시안 D)
+const FOV = 90
 // 라디안. 걷는 동안 걸음을 디딜 때 시선이 내려앉는 깊이와 좌우로 기우는 폭 (사용자 결정 2026-11-10, SHEEP-141). ponytail: 임시 값. 플레이해 보며 정함
 const STEP_DIP = 0.035
 const STEP_SWAY = 0.012
 // 투영면까지의 거리(px). renderFrame과 같은 값이라야 조준점이 총알이 갈 곳에 놓임
 const PROJ = W / (2 * Math.tan((FOV * Math.PI) / 360))
+// 1인칭 총을 그리는 투영면 거리(px). 시야를 넓혀도 손에 든 총은 그대로 보이게 시야 66° 때 값을 씀 (SHEEP-163)
+const GUN_PROJ = W / (2 * Math.tan((66 * Math.PI) / 360))
+// 1인칭이 아닌 연출 카메라(첫 화면 뒤 배경, 승리 세레모니)의 시야각. 구도를 맞춰 둔 66°를 그대로 씀
+const STAGED_FOV = 66
 // ms. 시스템 기획서 리볼버 발사 간격. 서버와 같은 값이어야 내가 센 탄 수가 서버와 어긋나지 않음
 const FIRE_INTERVAL = 250
 // ms. 발사 불꽃을 띄워 두는 시간. ponytail: 임시 값(시스템 기획서 HUD). 플레이해 보며 다시 정함
@@ -675,7 +680,7 @@ function frame(now: number) {
       const body = characterBody(look.character, look.color, look.hand)
       const walker = withWounds({ ...walkerAt(at.x, at.y, walkoff), ...body.walk(walkoff) }, body, hits.get(winner), now - INTERP_DELAY)
       const things = [...othersAt(now - INTERP_DELAY, winner, live()), walker, ...bloodAt(now - INTERP_DELAY, live()), ...props]
-      renderFrame(pixels, W, H, grid, walkoffCamera(at.x, at.y, FOV), things, SKIES[timeOfDay(standing ?? history.size)])
+      renderFrame(pixels, W, H, grid, walkoffCamera(at.x, at.y, STAGED_FOV), things, SKIES[timeOfDay(standing ?? history.size)])
       ctx.putImageData(image, 0, 0)
     }
   } else if (grid && view && inScene) {
@@ -718,7 +723,7 @@ function frame(now: number) {
     const hold = clock ? lift(scene.schedule, toServerTime(t, clock.offset), loading, viewDrawn) : { lower: 1, kick: 0 }
     const plays = clock ? gunClips(scene.schedule, toServerTime(t, clock.offset), loading, toServerTime(fired, clock.offset), viewDrawn) : []
     const kick = Math.max(hold.kick, 1 - (t - fired) / RECOIL_MS)
-    const muzzle = drawGun(ctx, revolverMesh(revolver, plays, rounds ?? 0), { ...s, kick, lower: hold.lower }, W, H, PROJ, hand === 'left' ? -1 : 1)
+    const muzzle = drawGun(ctx, revolverMesh(revolver, plays, rounds ?? 0), { ...s, kick, lower: hold.lower }, W, H, GUN_PROJ, hand === 'left' ? -1 : 1)
     flash.style.transform = `translate(${(muzzle.x * 100) / W}cqw, ${(muzzle.y * 100) / W}cqw)`
     drawSmoke(ctx, muzzle, t - fired, SMOKE_PX, { x: W / 2, y: H / 2 })
     // 마우스 이벤트가 아니라 여기서 보내야 마지막으로 멈춘 각도도 빠지지 않고 감
@@ -731,7 +736,7 @@ function frame(now: number) {
   } else if (!lobby.hidden) {
     // 첫 화면 뒤로 석양 속에 마주 선 두 총잡이 둘레를 천천히 돎 (시스템 기획서 방 화면 M8 첫 화면)
     const cam = orbit(BACKDROP_MID, BACKDROP_MID, BACKDROP_RADIUS, (now - BACKDROP_T0) * BACKDROP_TURN)
-    renderFrame(pixels, W, H, BACKDROP, makeCamera(cam.x, cam.y, cam.angle, FOV, BACKDROP_PITCH), BACKDROP_THINGS, SKIES.sunset)
+    renderFrame(pixels, W, H, BACKDROP, makeCamera(cam.x, cam.y, cam.angle, STAGED_FOV, BACKDROP_PITCH), BACKDROP_THINGS, SKIES.sunset)
     ctx.putImageData(image, 0, 0)
   }
   flash.hidden = t - fired >= FLASH_SHOWN
