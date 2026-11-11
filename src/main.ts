@@ -1187,8 +1187,8 @@ const roomStep = document.querySelector<HTMLFieldSetElement>('#room-step')!
 const roomList = document.querySelector<HTMLUListElement>('#room-list')!
 const roomHint = document.querySelector<HTMLParagraphElement>('#room-hint')!
 const menu = document.querySelector<HTMLDivElement>('#menu')!
-// 메뉴와 함께 보이는 오른쪽 위 크레딧·후원 단추 (SHEEP-203)
-const coins = document.querySelector<HTMLDivElement>('#coins')!
+// 메뉴와 함께 보이는 오른쪽 위 크레딧·후원 표지판 (SHEEP-203, SHEEP-205)
+const signpost = document.querySelector<HTMLDivElement>('#signpost')!
 const enterButton = document.querySelector<HTMLButtonElement>('#enter')!
 const practiceButton = document.querySelector<HTMLButtonElement>('#practice')!
 const nameOk = document.querySelector<HTMLButtonElement>('#name-ok')!
@@ -1566,7 +1566,7 @@ function showStep() {
   lobby.dataset.view = naming ? 'name' : view
   nameStep.hidden = !naming
   menu.hidden = naming || view !== 'menu'
-  coins.hidden = menu.hidden
+  signpost.hidden = menu.hidden
   roomStep.hidden = naming || view !== 'rooms'
   nameStep.disabled = !connected || !naming
   roomStep.disabled = !connected || roomStep.hidden
@@ -2210,7 +2210,7 @@ helpPanel.addEventListener('keydown', (e) => {
 })
 
 // 크레딧과 후원 (시스템 기획서 방 화면 크레딧과 후원, SHEEP-203). 크레딧은 열 때마다 지금 언어로 줄을 채우고 처음부터 올림.
-// 다 올라가거나(animationend) 누르거나 Esc·Enter·스페이스로 닫음. 후원 주소는 빌드 설정이고, 없으면(스팀 판 등) 단추를 숨김
+// 다 올라가거나(animationend) 누르거나 Esc·Enter·스페이스로 닫음. 후원 주소는 빌드 설정이고, 없으면(스팀 판 등) 후원 판을 숨김
 const creditsOpen = document.querySelector<HTMLButtonElement>('#credits-open')!
 const creditsPanel = document.querySelector<HTMLDivElement>('#credits-panel')!
 const creditsList = document.querySelector<HTMLDListElement>('#credits-list')!
