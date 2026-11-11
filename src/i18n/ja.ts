@@ -52,7 +52,7 @@ export const ja: Copy = {
     changeCharacter: 'キャラ変更',
     settings: '設定',
     mySeat: '自分の席',
-    wins: (n) => `${n}勝`,
+    wins: (n) => `${n} Win${n === 1 ? '' : 's'}`, // 영어 그대로 (SHEEP-178)
     copyCode: 'ルームコードをコピー',
     copied: 'コピーしといたぜ、相棒',
     copyFailed: (keys) => `${keys}を押しな、相棒`,

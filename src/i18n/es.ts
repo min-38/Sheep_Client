@@ -52,7 +52,7 @@ export const es: Copy = {
     changeCharacter: 'Personaje',
     settings: 'Ajustes',
     mySeat: 'Mi asiento',
-    wins: (n) => `${n} victoria${n === 1 ? '' : 's'}`,
+    wins: (n) => `${n} Win${n === 1 ? '' : 's'}`, // 영어 그대로 (SHEEP-178)
     copyCode: 'Copiar código de sala',
     copied: 'Copiado, compañero',
     copyFailed: (keys) => `Pulsa ${keys}, compañero`,

@@ -52,7 +52,7 @@ export const ko: Copy = {
     changeCharacter: '캐릭터 변경',
     settings: '설정',
     mySeat: '내 자리',
-    wins: (n) => `${n}승`,
+    wins: (n) => `${n} Win${n === 1 ? '' : 's'}`, // 영어 그대로 (SHEEP-178)
     copyCode: '방 코드 복사',
     copied: '적어 뒀어, 친구',
     copyFailed: (keys) => `${keys}를 눌러, 친구`,

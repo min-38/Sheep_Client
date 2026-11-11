@@ -61,9 +61,8 @@ describe('문구', () => {
     for (const [path, text] of strings(copyOf(l))) expect(text.trim(), path).not.toBe('')
   })
 
-  test('좌석 꼬리표의 이긴 횟수는 0승부터 글로 적음. 영어는 0 Win, 1 Win, 2 Wins (사용자 결정 2026-11-10, SHEEP-148)', () => {
-    expect([0, 1, 2, 10].map(en.saloon.wins)).toEqual(['0 Win', '1 Win', '2 Wins', '10 Wins'])
-    for (const l of LANGUAGES) expect(copyOf(l).saloon.wins(0)).toContain('0')
+  test.each(LANGUAGES)('%s: 좌석 꼬리표의 이긴 횟수는 모든 언어에서 영어로 적음. 1만 Win (사용자 결정 2026-11-11, SHEEP-178)', (l) => {
+    expect([0, 1, 2, 10].map(copyOf(l).saloon.wins)).toEqual(['0 Wins', '1 Win', '2 Wins', '10 Wins'])
   })
 
   test.each(LANGUAGES)('%s: 캐릭터 이름 수가 영어와 같음', (l) => {

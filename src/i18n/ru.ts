@@ -52,7 +52,7 @@ export const ru: Copy = {
     changeCharacter: 'Персонаж',
     settings: 'Настройки',
     mySeat: 'Моё место',
-    wins: (n) => `Побед: ${n}`,
+    wins: (n) => `${n} Win${n === 1 ? '' : 's'}`, // 영어 그대로 (SHEEP-178)
     copyCode: 'Скопировать код комнаты',
     copied: 'Скопировал, приятель',
     copyFailed: (keys) => `Жми ${keys}, приятель`,
