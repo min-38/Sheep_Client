@@ -212,6 +212,31 @@ export function playStamp(audio: AudioContext, when: number) {
   slap.start(when)
 }
 
+// 금속 종을 친 듯한 맑은 소리. 배음 몇 개를 같이 울려 짧게 줄임. gain은 크기, seconds는 줄어드는 시간
+function bell(audio: AudioContext, when: number, partials: readonly number[], gain: number, seconds: number) {
+  const out = effectsOut(audio)
+  for (const [i, frequency] of partials.entries()) {
+    const tone = new OscillatorNode(audio, { type: 'sine', frequency })
+    const volume = new GainNode(audio, { gain: 0 })
+    volume.gain.setValueAtTime(gain / (i + 1), when)
+    volume.gain.exponentialRampToValueAtTime(0.001, when + seconds / (i + 1))
+    tone.connect(volume).connect(out)
+    tone.start(when)
+    tone.stop(when + seconds)
+  }
+}
+
+// 내 한 발로 마지막 사람을 쓰러뜨린 순간의 확인음 (SHEEP-187). 화면이 멈추는 때 맑게 한 번
+export function playDing(audio: AudioContext, when: number) {
+  bell(audio, when, [1318, 2637, 3951], 0.35, 0.9)
+}
+
+// 잔고가 $10 오를 때마다 내는 동전 소리 (SHEEP-187). 마지막 하나는 조금 크고 길게. 음원 파일 없이 만듦
+export function playCoin(audio: AudioContext, when: number, last = false) {
+  const pitch = 1 + (Math.random() - 0.5) * 0.08
+  bell(audio, when, [2093 * pitch, 2794 * pitch], last ? 0.22 : 0.12, last ? 0.5 : 0.14)
+}
+
 // 탈락을 보여 주기 시작한 때부터 뒤로 넘어지는 동작이 바닥에 닿기까지(ms). 시간 초과는 자살 모습(총을 댐, 불꽃)이 끝난 뒤에 넘어짐
 export const fallDelay = (reason: 'shot' | 'timeout') => (reason === 'timeout' ? SUICIDE_AIM + SUICIDE_FLASH : 0) + FALL_LAND_MS
 

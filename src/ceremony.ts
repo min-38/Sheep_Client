@@ -1,33 +1,66 @@
 import { SUN_AZ } from './desert.ts'
-import { makeCamera, type Camera } from './render.ts'
+import { HOLSTER_MS } from './gun.ts'
+import { horizonY, makeCamera, type Camera } from './render.ts'
 
-// 판 끝 (사용자 결정 2026-11-11, SHEEP-169 시안 B. SHEEP-136·150의 세레모니를 바꿈). 승리 결과 시간이 끝나는 시각(준비 중 시각, 서버 시계)에서
-// 거꾸로 잼. 결과를 받은 때부터 포스터 전까지 모두가 마지막 쓰러짐을 위에서 느리게 봄(서버 RoundFlow.WinResultDuration 12초에서
-// 아래 셋을 뺀 약 4초). 바닥에 닿을 때까지는 SLOW배로 느리게, 닿은 뒤로는 피 웅덩이가 번지는 것이 보이게 BLEED배로 빨리 감음
-// (사용자 요청 2026-11-11: 쓰러져 피 흘리는 데까지 보임). 이긴 사람 1인칭으로 넘어가지 않고 검은 화면에 돈 없는 WANTED 포스터를 POSTER_MS(뜬 뒤 Winner 도장을 쾅 찍음, SHEEP-172), 이긴 사람이 해 쪽으로 걸어가는
-// 뒷모습을 WALKOFF_MS(마지막 IRIS_MS 동안 화면이 동그랗게 닫힘), 검은 화면 자막 카드를 CARD_MS 동안 보인 뒤 술집으로 넘어감.
-// 자막 카드에는 이긴 사람에게만 받은 돈을, 모두에게 자기 킬 수를 보임
+// 판 끝 (사용자 결정 2026-11-11, SHEEP-187 시안 A. SHEEP-169·172의 검은 화면 포스터, 뒷모습, 자막 카드를 끊김 없는 한 장면으로 바꿈).
+// 승리 결과 시간이 끝나는 시각(준비 중 시각, 서버 시계)에서 거꾸로 잼. 서버 RoundFlow.WinResultDuration 17초를 셋으로 나눔.
+// 'fall': 결과를 받은 때부터 약 4초. 이긴 사람은 1인칭으로 마지막 쓰러짐을 자기 눈으로 보고 총을 돌려 권총집에 넣음.
+//         진 사람은 지금처럼 마지막 쓰러짐을 위에서 느리게 봄 (SHEEP-169)
+// 'pull': PULL_MS 동안 카메라가 이긴 사람 눈(진 사람은 위에서 보던 자리)에서 이긴 사람 뒤로 빠지고, 이긴 사람은 해 쪽으로 돌아섬
+// 'walk': WALK_MS 동안 이긴 사람이 석양으로 걸어가고, 가장자리부터 살짝 어두워지며 결과 보드를 하나씩 띄움(boardTimes).
+//         끝 END_FADE_MS 동안 검게 닫혀 술집으로 넘어감
 
 // ms. ponytail: 임시 값. 플레이해 보며 정함
-export const POSTER_MS = 2500
-export const WALKOFF_MS = 2500
-export const IRIS_MS = 1200
-export const CARD_MS = 3000
-// ms. 마지막 쓰러짐을 위에서 보기 시작하고 이만큼 뒤에 쓰러뜨린 이 자막 카드를 띄워 포스터 전까지 둠 (SHEEP-180). 장면이 바뀌자마자 글자를 띄우지 않고 뜸을 들임
+export const PULL_MS = 2500
+export const WALK_MS = 10500
+export const END_FADE_MS = 1000
+// ms. 카메라가 빠지는 동안 이긴 사람이 돌아서기 시작하는 때(pull 시작부터)와 다 돌기까지
+export const TURN_AT = 900
+export const TURN_FOR = 1400
+// ms. 마지막 쓰러짐 보기를 시작하고 이만큼 뒤에 쓰러뜨린 이 자막 카드를 띄움 (SHEEP-180). 장면이 바뀌자마자 글자를 띄우지 않고 뜸을 들임
 export const FALL_CARD_AT = 1000
-// ms. 포스터가 뜨고 Winner 도장이 돌며 떨어지기 시작하는 때와, 떨어져 종이에 찍히기까지 (SHEEP-172 B안). style.css #win .stamp 애니메이션과 같은 값
-export const STAMP_AT = 600
-export const STAMP_FALL = 240
 // 마지막 쓰러짐을 늦추는 배율과 바닥에 닿은 뒤 피 웅덩이를 빨리 감는 배율
 export const SLOW = 0.4
 export const BLEED = 4
 // 시간 초과(자살)를 늦추는 배율. 옆머리를 쏘는 동작(0.7초)부터 틀어 SLOW로는 위에서 보는 동안 바닥에 닿지 못해 더 빨리 틂 (SHEEP-172)
 export const SUICIDE_SLOW = 0.8
 
-// 쓰러진 사유별로 마지막 쓰러짐을 늦추는 배율
+// 결과 보드가 뜨는 때(걷기 시작부터 ms). 어두워짐, 포스터, 도장, 서부 문구, 전 잔고, +$100, 잔고 세어 올리기 시작과 끝, 킬 수.
+// 앞 것이 자리 잡고 뜸을 들인 뒤 다음 것을 띄움 (사용자 결정 2026-11-11, SHEEP-187). ponytail: 임시 값. 플레이해 보며 정함
+const WON_BOARD = { dim: 0, poster: 1500, stamp: 2100, phrase: 3600, money: 4800, plus: 5600, count: 6100, counted: 7300, kills: 8500 }
+export type BoardKey = keyof typeof WON_BOARD
+// 진 사람은 받는 돈이 없어 지금 잔고만 보이고(+$100과 세어 올리기 없음), 킬 수를 잔고 뒤 같은 뜸으로 당김 (사용자 결정 2026-11-11)
+export const boardTimes = (won: boolean): Record<BoardKey, number | null> =>
+  won ? WON_BOARD : { ...WON_BOARD, plus: null, count: null, counted: null, kills: WON_BOARD.money + (WON_BOARD.money - WON_BOARD.phrase) }
+// ms. 도장이 돌며 떨어져 종이에 찍히기까지. style.css #ending .stamp 애니메이션과 같은 값. 찍히는 소리를 이때 냄
+export const STAMP_FALL = 240
+
+// 1인칭 결정타 박자 (이긴 사람만). 내 한 발로 마지막 사람이 쓰러지면 쓰러짐을 보이는 순간 HITSTOP_MS 동안 화면을 멈추고 확인음을 냄.
+// 쓰러진 몸이 바닥에 닿고 SPIN_PAUSE 뒤 총을 손가락에 걸어 SPIN_TURNS 바퀴 돌리고(SPIN_MS, 처음 빨리 나중엔 천천히),
+// SPIN_HOLD 뒤 HOLSTER_MS 동안 권총집에 넣음. ponytail: 임시 값. 플레이해 보며 정함
+export const HITSTOP_MS = 120
+export const SPIN_PAUSE = 700
+export const SPIN_MS = 900
+export const SPIN_TURNS = 2
+export const SPIN_HOLD = 300
+export const SPIN_END = SPIN_MS + SPIN_HOLD + HOLSTER_MS
+// ms. 결과를 보인 때부터 늦어도 이때 돌리기 시작함. 마지막 쓰러짐 보기(약 4초)에서 결과가 늦게 보이는 0.3초와 돌려 넣기를 뺌.
+// 시간 초과(자살)는 옆머리를 쏘는 동작부터라 바닥에 늦게 닿아, 뜸을 다 들이면 넣기 전에 카메라가 빠짐
+const SPIN_LATEST = 4000 - 300 - SPIN_END
+// 쓰러짐을 보인 때부터 돌리기 시작하기까지(ms). landed는 쓰러진 몸이 바닥에 닿기까지(sound.ts fallDelay)
+export const spinDelay = (landed: number) => Math.max(landed, Math.min(landed + SPIN_PAUSE, SPIN_LATEST))
+
+// 돌리기 시작하고 since(ms) 지난 때 총을 돌린 각(라디안, 총구가 앞아래로 넘어가는 쪽이 +)과 내린 정도(0 듦 ~ 1 권총집에 다 넣음, ease-in)
+export function spinGun(since: number): { spin: number; lower: number } {
+  if (since <= 0) return { spin: 0, lower: 0 }
+  if (since < SPIN_MS) return { spin: SPIN_TURNS * 2 * Math.PI * (1 - (1 - since / SPIN_MS) ** 2), lower: 0 }
+  return { spin: 0, lower: Math.min(1, Math.max(0, (since - SPIN_MS - SPIN_HOLD) / HOLSTER_MS)) ** 3 }
+}
+
+// 마지막 쓰러짐을 늦추는 배율 (진 사람이 위에서 볼 때)
 export const fallSlow = (reason: 'shot' | 'timeout') => (reason === 'timeout' ? SUICIDE_SLOW : SLOW)
 
-export type EndingStage = 'top' | 'poster' | 'walk' | 'card'
+export type EndingStage = 'fall' | 'pull' | 'walk'
 
 // 마지막 쓰러짐을 보인 지 elapsed(ms) 지났을 때의 동작 시간(ms). land는 바닥에 닿는 동작 시간(시간 초과면 옆머리를 쏘는 동작까지), slow는 닿을 때까지의 배율(fallSlow)
 export function lastFallMotion(elapsed: number, land: number, slow: number): number {
@@ -35,19 +68,30 @@ export function lastFallMotion(elapsed: number, land: number, slow: number): num
   return elapsed <= landed ? elapsed * slow : land + (elapsed - landed) * BLEED
 }
 
-// now(서버 시계)의 판 끝 단계와 그 단계가 시작하고 지난 시간(ms). 'top'은 결과를 받은 때부터라 시작이 사람마다 달라, 포스터까지 남은 시간을 음수로 줌
+// now(서버 시계)의 판 끝 단계와 그 단계가 시작하고 지난 시간(ms). 'fall'은 결과를 받은 때부터라 시작이 사람마다 달라, pull까지 남은 시간을 음수로 줌
 export function endingAt(end: number, now: number): { stage: EndingStage; elapsed: number } {
-  const card = end - CARD_MS
-  const walk = card - WALKOFF_MS
-  const poster = walk - POSTER_MS
-  if (now >= card) return { stage: 'card', elapsed: now - card }
+  const walk = end - WALK_MS
+  const pull = walk - PULL_MS
   if (now >= walk) return { stage: 'walk', elapsed: now - walk }
-  if (now >= poster) return { stage: 'poster', elapsed: now - poster }
-  return { stage: 'top', elapsed: now - poster }
+  if (now >= pull) return { stage: 'pull', elapsed: now - pull }
+  return { stage: 'fall', elapsed: now - pull }
 }
 
-// 서버 시각. 승리 결과가 끝나는 end에서 거꾸로 잰, Winner 도장이 종이에 찍히는 때. 찍히는 소리를 이 시각에 예약함
-export const stampHitAt = (end: number) => end - CARD_MS - WALKOFF_MS - POSTER_MS + STAMP_AT + STAMP_FALL
+// 걷기 시작부터 elapsed(ms)에 보이는 잔고. 세어 올리기 전에는 from, 그동안은 $10씩 처음 빨리 나중엔 천천히, 뒤로는 to
+export function balanceAt(elapsed: number, from: number, to: number): number {
+  if (elapsed < WON_BOARD.count) return from
+  const u = Math.min(1, (elapsed - WON_BOARD.count) / (WON_BOARD.counted - WON_BOARD.count))
+  return from + Math.round(((to - from) * (1 - (1 - u) ** 2)) / 10) * 10
+}
+
+// 잔고가 $10씩 오르는 때(걷기 시작부터 ms). 오를 때마다 동전 소리를 냄. balanceAt의 반올림이 다음 $10로 넘어가는 때
+export function coinTimes(from: number, to: number): number[] {
+  const steps = Math.round((to - from) / 10)
+  return Array.from({ length: Math.max(0, steps) }, (_, i) => {
+    const eased = (i + 0.5) / steps
+    return WON_BOARD.count + (1 - Math.sqrt(1 - eased)) * (WON_BOARD.counted - WON_BOARD.count)
+  })
+}
 
 // 해가 있는 쪽(라디안). 하늘의 해는 늘 같은 방위에 있음 (desert.ts)
 const SUN = (SUN_AZ * Math.PI) / 180
@@ -58,17 +102,16 @@ const PACE = 0.3 / 700
 const BACK = 2.2
 const UP = 0.75
 
+// 카메라 자리와 보는 쪽. 둘 사이를 이어 카메라를 옮길 때 씀. angle·pitch는 라디안, z는 눈높이(칸)
+export type View = { x: number; y: number; angle: number; pitch: number; z: number }
+export const toCamera = (v: View, fov: number): Camera => ({ ...makeCamera(v.x, v.y, v.angle, fov, v.pitch), z: v.z })
+
 // 이긴 사람이 (x, y)에서 걷기 시작해 elapsed(ms) 지난 자리와 바라보는 쪽
 export const walkerAt = (x: number, y: number, elapsed: number) => ({ x: x + Math.cos(SUN) * PACE * elapsed, y: y + Math.sin(SUN) * PACE * elapsed, facing: SUN })
 
-// 이긴 사람이 선 자리(x, y) 뒤에서 해 쪽을 보는 카메라. 걸어가는 사람의 발밑이 화면 가운데 조금 아래에 오게 살짝 내려다봄
-export function walkoffCamera(x: number, y: number, fov: number): Camera {
-  const cam = makeCamera(x - Math.cos(SUN) * BACK, y - Math.sin(SUN) * BACK, SUN, fov, -Math.atan((UP - 0.5) / (BACK + 2)))
-  return { ...cam, z: UP }
-}
-
-// now(서버 시계)에 아이리스 구멍 크기(0~1). 1은 다 열림, 0은 다 닫힘. 뒷모습 끝 IRIS_MS 동안 닫힘
-export const irisOpen = (end: number, now: number) => Math.min(1, Math.max(0, (end - CARD_MS - now) / IRIS_MS))
+// 이긴 사람이 선 자리(x, y) 뒤에서 해 쪽을 보는 자리. 걸어가는 사람의 발밑이 화면 가운데 조금 아래에 오게 살짝 내려다봄
+export const walkoffView = (x: number, y: number): View => ({ x: x - Math.cos(SUN) * BACK, y: y - Math.sin(SUN) * BACK, angle: SUN, pitch: -Math.atan((UP - 0.5) / (BACK + 2)), z: UP })
+export const walkoffCamera = (x: number, y: number, fov: number): Camera => toCamera(walkoffView(x, y), fov)
 
 // 칸. 마지막 쓰러짐을 보는 카메라는 그 사람이 바라보던 쪽 앞 위에서 발을 내려다보고, 보는 동안 조금씩 물러나며 올라감 (SHEEP-119의 장면을 다시 씀).
 // 뒤로 넘어지면 머리가 화면 위쪽으로 감. ponytail: 임시 값
@@ -79,11 +122,47 @@ const DRIFT_MS = 4000
 // 칸. 내려다보는 점의 높이. 발목쯤이라 서 있을 때 모자까지, 누우면 몸 전체가 화면 가운데 줄에 듦
 const AIM_UP = 0.2
 
-// 마지막으로 쓰러지는 사람을 보는 카메라. x, y는 그 사람 발 자리(칸), facing은 쓰러질 때 바라보던 각도, elapsed는 보기 시작하고 지난 시간(ms)
-export function lastFallCamera(x: number, y: number, facing: number, elapsed: number, fov: number): Camera {
+// 마지막으로 쓰러지는 사람을 보는 자리. x, y는 그 사람 발 자리(칸), facing은 쓰러질 때 바라보던 각도, elapsed는 보기 시작하고 지난 시간(ms)
+export function lastFallView(x: number, y: number, facing: number, elapsed: number): View {
   const u = Math.min(1, Math.max(0, elapsed / DRIFT_MS))
   const back = FROM.back + (TO.back - FROM.back) * u
   const up = FROM.up + (TO.up - FROM.up) * u
-  const cam = makeCamera(x + Math.cos(facing) * back, y + Math.sin(facing) * back, facing + Math.PI, fov, -Math.atan((up - AIM_UP) / back))
-  return { ...cam, z: up }
+  return { x: x + Math.cos(facing) * back, y: y + Math.sin(facing) * back, angle: facing + Math.PI, pitch: -Math.atan((up - AIM_UP) / back), z: up }
+}
+
+const smooth = (k: number) => {
+  const u = Math.min(1, Math.max(0, k))
+  return u * u * (3 - 2 * u)
+}
+// 각 차이를 -π ~ π로. 짧은 쪽으로 돌게 함
+const wrap = (a: number) => Math.atan2(Math.sin(a), Math.cos(a))
+
+// 카메라가 from에서 to로 빠지는 동안 pull 시작부터 elapsed(ms)의 자리. 처음과 끝이 느림. 보는 쪽과 높이는 앞 절반에 먼저 맞춰,
+// 진 사람이 위에서 내려다보던 카메라가 옮겨 가는 동안 땅만 보지 않고 석양과 이긴 사람을 봄 (SHEEP-187 리뷰). 보는 쪽은 짧은 쪽으로 돎
+export function pullView(from: View, to: View, elapsed: number): View {
+  const u = smooth(elapsed / PULL_MS)
+  const look = smooth((2 * elapsed) / PULL_MS)
+  const lerp = (a: number, b: number, k: number) => a + (b - a) * k
+  return {
+    x: lerp(from.x, to.x, u),
+    y: lerp(from.y, to.y, u),
+    angle: from.angle + wrap(to.angle - from.angle) * look,
+    pitch: lerp(from.pitch, to.pitch, look),
+    z: lerp(from.z, to.z, look),
+  }
+}
+
+// pull 시작부터 elapsed(ms)에 이긴 사람이 보는 쪽. from(마지막 상대를 보던 쪽)에서 해 쪽으로 짧은 쪽으로 돌아섬
+export const turnFacing = (from: number, elapsed: number) => from + wrap(SUN - from) * smooth((elapsed - TURN_AT) / TURN_FOR)
+
+// 세계의 점(x, y, 높이 z)이 놓이는 화면 자리(px). 사람 그림(sprite.ts)과 같은 투영이라 머리 위 닉네임이 머리를 따라감. 카메라 뒤면 null
+export function onScreen(cam: Camera, x: number, y: number, z: number, w: number, h: number): { x: number; y: number } | null {
+  const proj = w / (2 * Math.hypot(cam.planeX, cam.planeY))
+  const invDet = 1 / (cam.planeX * cam.dirY - cam.dirX * cam.planeY)
+  const rx = x - cam.x
+  const ry = y - cam.y
+  const depth = invDet * (cam.planeX * ry - cam.planeY * rx)
+  if (depth <= 0.05) return null
+  const side = invDet * (cam.dirY * rx - cam.dirX * ry)
+  return { x: (w / 2) * (1 + side / depth), y: horizonY(h, proj, cam.pitch) + (proj * ((cam.z ?? 0.5) - z)) / depth }
 }

@@ -31,10 +31,10 @@ export const en = {
     // 판 도중 포인터가 잠기지 않아 돌 수 없을 때 조준점 아래에 띄움 (SHEEP-152)
     lockHint: 'Click the screen to take aim, partner',
     win: "Last one standin'!",
-    // 세레모니 동안 이긴 사람 이름 아래에 적는 한 줄 (SHEEP-142). 이름은 위에 따로 크게 적음
-    lastStanding: "Last one standin'",
-    // 세레모니 끝 검은 화면의 받은 돈 자막 (SHEEP-150). 윗줄, 가운데 큰 금액(바꾸지 않음), 아랫줄의 이긴 사람 이름
-    paidTo: (name: string) => `to ${name}, fair an' square`,
+    // 판 끝 결과 보드 (SHEEP-187). 화면 낭독기가 읽는 이름, 오른쪽 위의 서부 문구(이긴 사람에게, 진 사람에게는 이긴 사람 이름을 넣어), 킬 수
+    endBoard: 'How it all shook out',
+    winnerLine: "Fastest iron this side o' the Pecos.",
+    loserLine: (winner: string) => `${winner} rides off with the bounty.`,
     kills: (n: number) => (n === 1 ? '1 kill' : `${n} kills`),
     lose: 'Not your day, partner',
     rematch: (n: number) => `${n} fellers go again`,
