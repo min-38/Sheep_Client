@@ -84,6 +84,8 @@ describe('lastFallMotion (사용자 요청 2026-11-11: 쓰러져 피 흘리는 �
     expect(fallDelay('shot') / fallSlow('shot') + spread / BLEED).toBeLessThanOrEqual(FALL_STAGE)
     expect(fallDelay('timeout') / fallSlow('timeout') + spread / BLEED).toBeLessThanOrEqual(FALL_STAGE)
     expect(fallSlow('shot')).toBe(SLOW)
+    // 판 도중 나가기도 자살 모습이라 시간 초과와 같이 틂 (SHEEP-200)
+    expect(fallSlow('left')).toBe(fallSlow('timeout'))
   })
 })
 

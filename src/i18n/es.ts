@@ -37,6 +37,7 @@ export const es: Copy = {
     killCard: 'Quién te tumbó',
     downedBy: 'Te tumbó',
     outtaTime: 'Sin tiempo',
+    litOut: 'Se largó',
     killLine: {
       head: (name: string) => `La bala de ${name} te halló el sombrero, compadre.`,
       body: (name: string) => `El segundo plomazo de ${name} te tumbó, compadre.`,
@@ -48,6 +49,7 @@ export const es: Copy = {
       head: (shooter, fallen) => `La bala de ${shooter} le halló el sombrero a ${fallen}.`,
       body: (shooter, fallen) => `El segundo plomazo de ${shooter} tumbó a ${fallen}.`,
       timeout: (fallen) => `A ${fallen} se le acabó el tiempo y volteó el fierro contra sí.`,
+      left: (fallen) => `${fallen} se largó antes de que se despejara el humo.`,
     },
   },
   saloon: {

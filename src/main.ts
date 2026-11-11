@@ -17,7 +17,7 @@ import { enhanceSelect } from './dropdown.ts'
 import { aimed, DRAW_MS, drawGun, gunClips, HOLSTER_MS, lift, RECOIL_MS, RELOAD_END, RELOAD_SEATED, RELOAD_SHUT, reloadNod, reloadSoundAt, revolverMesh, templeAim, VIEW_NOD } from './gun.ts'
 import { dotPosition, noBlood, onGameEnd, onRevived, onWalk, onWounded, resultLabel } from './hitcard.ts'
 import { record, sampleAt, viewSample, type Sample } from './interpolate.ts'
-import { drawMessage, fireMessage, parseServerMessage, type ClientMessage, type HitPoint, type PlayerState, type RoundResult, type ShotResult } from './net.ts'
+import { drawMessage, fireMessage, parseServerMessage, type ClientMessage, type DownReason, type HitPoint, type PlayerState, type RoundResult, type ShotResult } from './net.ts'
 import { normalizeNickname } from './nickname.ts'
 import { dressPaper, PAPER_GRAIN, PAPER_INK } from './paper.ts'
 import { BANDANA, joinable, memberText, roomStatus, type RoomInfo } from './roomlist.ts'
@@ -188,8 +188,9 @@ let board: { at: number; won: boolean; from: number; to: number } | null = null
 type Watch = { id: string; wounded: boolean; rounds: number | null; lastShot: number }
 let watch: Watch | null = null
 // 그릴 장면. 지금 판이거나, 다시 보기로 떠 둔 기록
-// by와 zone은 쓰러뜨린 사람과 맞은 부위이고 시간 초과면 null. 판 끝 마지막 쓰러짐 보기의 자막 카드에 씀 (SHEEP-180)
-type Down = { at: number; reason: 'shot' | 'timeout'; by: string | null; zone: 'head' | 'body' | null }
+// by와 zone은 쓰러뜨린 사람과 맞은 부위이고 시간 초과나 나가기면 null. 판 끝 마지막 쓰러짐 보기의 자막 카드에 씀 (SHEEP-180).
+// shot이 아니면 남이 보기에 모두 자살 모습임 (SHEEP-200)
+type Down = { at: number; reason: DownReason; by: string | null; zone: 'head' | 'body' | null }
 // 발사 하나. at은 받은 시각(ms, 내 시계, 내 발사는 쏜 시각), angle과 pitch는 쏜 각도와 위아래 각도
 type Shot = { at: number; angle: number; pitch: number }
 // 맞은 자리 하나 (SHEEP-126). at은 받은 시각(ms, 내 시계). wound는 맞은 뒤 처음 그릴 때 그때 모습의 가장 가까운 상자에 붙인 상처
@@ -331,7 +332,7 @@ function showShot(id: string, shotAngle: number, shotPitch: number) {
 
 // 쓰러지는 소리. 쓰러진 그림이 되는 때(INTERP_DELAY 뒤, 시간 초과는 자살 모습 뒤)에 그 사람 쪽에서 냄.
 // 나는 자살 모습 없이 "쓰러짐"만 띄우므로 그때 가운데서 냄 (시스템 기획서 사운드 쓰러지는 소리)
-function playFallOf(id: string, reason: 'shot' | 'timeout') {
+function playFallOf(id: string, reason: DownReason) {
   const samples = history.get(id)
   if (!audio || !placed || !samples) return
   const now = performance.now()
@@ -347,7 +348,7 @@ function playFallOf(id: string, reason: 'shot' | 'timeout') {
   fallSounds.set(id, { node: playFall(audio, when, heardFrom(view.x, view.y, view.angle, body.x, body.y)), when })
 }
 
-// 시간 초과로 자살하는 총소리 (SHEEP-190). 자살 모습을 보이고(INTERP_DELAY 뒤) 총을 옆머리에 다 댄 때(SUICIDE_AIM)에 냄.
+// 시간 초과나 판 도중 나가기로 자살하는 총소리 (SHEEP-190, SHEEP-200). 자살 모습을 보이고(INTERP_DELAY 뒤) 총을 옆머리에 다 댄 때(SUICIDE_AIM)에 냄.
 // 보통 총소리와 같은 소리이고, 나는 가운데서, 다른 사람은 그 사람 쪽에서 들림
 const suicideShots = new Map<string, { node: AudioScheduledSourceNode; when: number }>()
 function playSuicideShotOf(id: string) {
@@ -371,9 +372,9 @@ function slowLastFallSound() {
   if (!audio || !last) return
   // 시간 초과면 자살 총소리도 느린 몸이 옆머리를 쏘는 때로 옮김 (SHEEP-190)
   const shot = suicideShots.get(last[0])
-  if (last[1].reason === 'timeout' && shot && audio.currentTime < shot.when) {
+  if (last[1].reason !== 'shot' && shot && audio.currentTime < shot.when) {
     shot.node.stop()
-    const when = toAudioTime(last[1].at + INTERP_DELAY + SUICIDE_AIM / fallSlow('timeout'), stampOf(audio))
+    const when = toAudioTime(last[1].at + INTERP_DELAY + SUICIDE_AIM / fallSlow(last[1].reason), stampOf(audio))
     const node = play(audio, 'shot', when)
     if (node) suicideShots.set(last[0], { node, when })
   }
@@ -489,7 +490,7 @@ function othersAt(t: number, viewer: string, scene: Scene): Thing[] {
 // fallen이면 쓰러져 바닥에 닿은 뒤 지난 시간(landed, ms)만큼 번진 피 웅덩이를 몸 밑에 더함. 시간 초과면 옆머리를 쏜 때(since가 SUICIDE_AIM)부터 그 상처를 더함
 function withWounds(fig: Figure, body: Body, list: Hit[] | undefined, t: number, fallen?: { landed: number; since: number; reason: Down['reason'] }, upright: Pose = fig): Figure {
   const shown = (list ?? []).filter((h) => h.at <= t)
-  const shotSelf = fallen?.reason === 'timeout' && fallen.since >= SUICIDE_AIM
+  const shotSelf = fallen !== undefined && fallen.reason !== 'shot' && fallen.since >= SUICIDE_AIM
   if (shown.length === 0 && !shotSelf && (fallen?.landed ?? 0) <= 0) return fig
   // 불꽃 상자처럼 동작마다 더해지는 상자에는 붙이지 않음
   const own = fig.boxes.slice(0, body.rest.boxes.length)
@@ -539,7 +540,7 @@ function bloodAt(t: number, scene: Scene): Thing[] {
     const elapsed = t - down.at - SUICIDE_AIM
     const samples = scene.history.get(id)
     const look = scene.characters.get(id)
-    if (down.reason !== 'timeout' || elapsed < 0 || elapsed >= BURST_MS || !samples || !look) return []
+    if (down.reason === 'shot' || elapsed < 0 || elapsed >= BURST_MS || !samples || !look) return []
     const s = sampleAt(samples, down.at)
     const body = characterBody(look.character, look.color, look.hand)
     const w = woundBox(body.rest.boxes, body.templeWound).c
@@ -674,6 +675,11 @@ function fillFallCard(fallenId: string, down: Down): boolean {
   if (!fallen) return false
   if (down.reason === 'timeout') {
     setKillCard(fallen, copy.hud.outtaTime, copy.hud.fallLine.timeout(fallen.nickname), 'timeout', copy.hud.lastFall)
+    return true
+  }
+  // 판 도중 나가 쓰러졌으면 자살 모습은 시간 초과와 같고 글만 다름. 구멍도 관자놀이 (SHEEP-200)
+  if (down.reason === 'left') {
+    setKillCard(fallen, copy.hud.litOut, copy.hud.fallLine.left(fallen.nickname), 'timeout', copy.hud.lastFall)
     return true
   }
   const shooter = roster.find((p) => p.id === down.by)
@@ -1959,7 +1965,7 @@ function receive(data: string) {
       downs.set(m.playerId, { at: performance.now(), reason: m.reason, by: m.shooterId, zone: m.hit?.zone ?? null })
       if (m.hit) addHit(m.playerId, m.hit)
       playFallOf(m.playerId, m.reason)
-      if (m.reason === 'timeout') playSuicideShotOf(m.playerId)
+      if (m.reason !== 'shot') playSuicideShotOf(m.playerId)
       if (m.playerId !== myId) break
       // 맞아 쓰러졌으면 바로 뒤에 downedBy가 와 카드를 다시 채움
       downedBy = null

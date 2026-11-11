@@ -37,6 +37,7 @@ export const zh: Copy = {
     killCard: '谁把你撂倒了',
     downedBy: '撂倒你的是',
     outtaTime: '时间到',
+    litOut: '开溜了',
     killLine: {
       head: (name: string) => `${name}一枪打穿了你的帽子，伙计。`,
       body: (name: string) => `${name}第二枪把你撂倒了，伙计。`,
@@ -48,6 +49,7 @@ export const zh: Copy = {
       head: (shooter, fallen) => `${shooter}一枪打穿了${fallen}的帽子。`,
       body: (shooter, fallen) => `${shooter}第二枪把${fallen}撂倒了。`,
       timeout: (fallen) => `时间用光喽，${fallen}把枪口对准了自己。`,
+      left: (fallen) => `硝烟还没散，${fallen}就开溜喽。`,
     },
   },
   saloon: {
