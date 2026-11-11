@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'vitest'
 import revolverData from './assets/revolver-rig.json'
 import {
+  aimed,
   drawGun,
   DRAW_MS,
   faceNormal,
@@ -175,6 +176,19 @@ describe('transform 왼손', () => {
   test('조준점처럼 오른쪽 흔들림(yaw > 0)에 총구가 오른쪽으로 감', () => {
     const still = transform(stick, STILL, -1)[1]
     expect(transform(stick, { ...STILL, yaw: 0.1 }, -1)[1][0]).toBeGreaterThan(still[0])
+  })
+})
+
+// 조준점은 총을 다 뽑아 쏠 수 있을 때부터 보임 (SHEEP-165)
+describe('aimed', () => {
+  test('뽑기 전에는 없음', () => {
+    expect(aimed(null, 99999)).toBe(false)
+  })
+
+  test('뽑는 동안은 없고 다 뽑으면 보임', () => {
+    expect(aimed(1000, 1000)).toBe(false)
+    expect(aimed(1000, 1000 + DRAW_MS - 1)).toBe(false)
+    expect(aimed(1000, 1000 + DRAW_MS)).toBe(true)
   })
 })
 

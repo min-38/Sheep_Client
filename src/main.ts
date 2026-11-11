@@ -6,7 +6,7 @@ import { best, measure, toLocalTime, toServerTime, type ClockSample } from './cl
 import { CYLINDER_TURN, cylinderSvg } from './cylinder.ts'
 import { makeProps, SKIES, timeOfDay } from './desert.ts'
 import { enhanceSelect } from './dropdown.ts'
-import { DRAW_MS, drawGun, gunClips, lift, RECOIL_MS, RELOAD_END, RELOAD_SEATED, RELOAD_SHUT, reloadSoundAt, revolverMesh } from './gun.ts'
+import { aimed, DRAW_MS, drawGun, gunClips, lift, RECOIL_MS, RELOAD_END, RELOAD_SEATED, RELOAD_SHUT, reloadSoundAt, revolverMesh } from './gun.ts'
 import { dotPosition, noBlood, onGameEnd, onRevived, onWalk, onWounded, resultLabel } from './hitcard.ts'
 import { record, sampleAt, type Sample } from './interpolate.ts'
 import { drawMessage, fireMessage, parseServerMessage, type ClientMessage, type HitPoint, type PlayerState, type RoundResult, type ShotResult } from './net.ts'
@@ -584,6 +584,9 @@ function frame(now: number) {
   const view = r ? replayEyes(r.replay, r.t) : grid && placed ? eyes(now) : null
   const t = r ? r.t : now
   const scene = r ? r.replay : live()
+  // 눈이 되는 사람이 총을 뽑은 시각(서버 시계). 나는 내가 누른 시각을 바로 쓰고, 관전·다시 보기는 그 사람의 state를 씀 (SHEEP-123)
+  const viewSamples = view && (r || watch) ? scene.history.get(view.id) : undefined
+  const viewDrawn = !clock ? null : viewSamples ? sampleAt(viewSamples, t).drawnAt : drawnAt === null ? null : toServerTime(drawnAt, clock.offset)
   // 승리 세레모니가 시작하고 지난 시간(ms). 승리 결과가 끝나는 시각에서 거꾸로 잼 (SHEEP-136). 그 전이거나 승리가 아니면 null
   const walkoff = result?.outcome === 'win' && result.end !== undefined && clock ? walkoffAt(result.end, toServerTime(now, clock.offset)) : null
   const steadiness = view && (r || watch) ? imitate(`${r ? 'replay' : 'watch'}:${view.id}`, view, t) : unsteady
@@ -688,15 +691,12 @@ function frame(now: number) {
     playSteps(now)
     // 총은 시점에 붙어 있어 위아래 시선과 상관없이 같은 자리에 있고, 조준점과 같은 흔들림으로 돎.
     // ponytail: 총에는 시간대 빛 색조를 곱하지 않음. 석양에 총만 밝아 보여 거슬리면 drawGun에 빛 색조를 넘겨 면 색에 곱함
-    // 들어 올리기는 보이기만 함. 조준점과 발사는 총을 다 들기 전에도 그대로임
+    // 들어 올리기는 보이기만 함. 결투에서 뽑을 때만 다 뽑은 뒤부터 쏠 수 있고 조준점도 뜸 (SHEEP-123, SHEEP-165)
     // 부품 움직임도 서버 시계로 재어 AudioContext로 예약한 장전·공이치기 소리와 맞음
     // 관전하는 사람은 서 있어 카운트다운이면 이번 라운드에 끼어 장전함. 총은 그 사람이 총을 든 손에 그림 (SHEEP-133).
     // 내 총은 설정의 손을 바로 따름. 다른 사람에게는 다음에 방에 들어갈 때 반영됨
     const loading = r || watch ? true : reloading
     const hand = (r || watch ? scene.characters.get(view.id)?.hand : undefined) ?? settings.hand
-    // 뽑은 시각(서버 시계). 나는 내가 누른 시각을 바로 쓰고, 관전·다시 보기는 그 사람의 state를 씀 (SHEEP-123)
-    const viewSamples = r || watch ? scene.history.get(view.id) : undefined
-    const viewDrawn = !clock ? null : viewSamples ? sampleAt(viewSamples, t).drawnAt : drawnAt === null ? null : toServerTime(drawnAt, clock.offset)
     const hold = clock ? lift(scene.schedule, toServerTime(t, clock.offset), loading, viewDrawn) : { lower: 1, kick: 0 }
     const plays = clock ? gunClips(scene.schedule, toServerTime(t, clock.offset), loading, toServerTime(fired, clock.offset), viewDrawn) : []
     const kick = Math.max(hold.kick, 1 - (t - fired) / RECOIL_MS)
@@ -789,9 +789,9 @@ function frame(now: number) {
   // 결투 중에만 보임. 결과를 받으면 숨김 (시스템 기획서 HUD 남은 시간)
   const left = clock && (r || !result) ? timeLeft(scene.schedule, toServerTime(t, clock.offset)) : null
   timer.hidden = left === null
-  // 조준점도 남은 시간처럼 "시작!"부터 판 결과를 받을 때까지. 눈이 되는 사람이 쓰러지면 숨김.
+  // 조준점은 남은 시간이 보이는 동안 눈이 되는 사람이 총을 다 뽑은 뒤부터 판 결과를 받을 때까지 (SHEEP-165). 눈이 되는 사람이 쓰러지면 숨김.
   // 쓰러진 것은 쓰러지는 그림과 같은 시각으로 봄 (시스템 기획서 HUD 조준점)
-  crosshair.hidden = left === null || !view || (scene.downs.get(view.id)?.at ?? Infinity) <= (r ? t : now - INTERP_DELAY)
+  crosshair.hidden = left === null || !view || !clock || !aimed(viewDrawn, toServerTime(t, clock.offset)) || (scene.downs.get(view.id)?.at ?? Infinity) <= (r ? t : now - INTERP_DELAY)
   const clockText = left === null ? '' : formatTime(left)
   if (timer.value !== clockText) timer.value = clockText
   // 남은 시간과 같이 보이고 숨음. 쓰러진 그림과 같은 시각으로 세어 그림보다 먼저 줄지 않음 (시스템 기획서 HUD 남은 인원)
