@@ -1631,7 +1631,8 @@ body {
   margin: 0;
   overflow: hidden;
   color: #f7e6bd;
-  font: 1.1cqw / 1 var(--text);
+  /* 줄 높이 1이면 한글·한자 글꼴의 윗부분이 줄 상자 밖으로 나가 말줄임용 overflow에 잘림 (SHEEP-171) */
+  font: 1.1cqw / 1.5 var(--text);
   text-shadow: 0 calc(0.6 * 100cqw / 480) 0 #3d2412;
   white-space: nowrap;
   text-overflow: ellipsis;
