@@ -41,7 +41,7 @@ import { nextTarget } from './spectate.ts'
 import { drawSmoke, HALO_ALPHA, HALO_SIZE, smoke, SMOKE_MS, SMOKE_PX } from './smoke.ts'
 import { along, bulletDots, bulletRange, EYE_HEIGHT, firstHit, FLIGHT_MS } from './bullet.ts'
 import { bulletDir, burst, BURST_MS, exitPoint, pool } from './blood.ts'
-import { fallDelay, heardFrom, loadEffects, play, playClick, playCoin, playDing, playDoor, playFall, playSignal, playStamp, playStep, playWhoosh, setEffectsVolume, stampOf, toAudioTime } from './sound.ts'
+import { fallDelay, heardFrom, loadEffects, play, playClick, playCoin, playGlass, playDing, playDoor, playFall, playSignal, playStamp, playStep, playWhoosh, setEffectsVolume, stampOf, toAudioTime } from './sound.ts'
 import { darkness, stepDip } from './tension.ts'
 import type { Thing } from './sprite.ts'
 import { afterTurn, aimAt, crosshairOffset, scaleAt, steady, sway, type Unsteady } from './sway.ts'
@@ -1469,7 +1469,11 @@ document.addEventListener('keydown', startAudio, { capture: true })
 // 라디오·체크 칸은 칸을 감싼 label을 눌러도 칸에 click이 한 번 더 와 그때 한 번만 냄
 const CLICKS = 'button, a.plank, [role="option"], #room-list li, input[type="radio"], input[type="checkbox"]'
 document.addEventListener('click', (e) => {
-  if (audio && e.target instanceof Element && e.target.closest(CLICKS)) playClick(audio, audio.currentTime)
+  const hit = audio && e.target instanceof Element ? e.target.closest(CLICKS) : null
+  if (!audio || !hit) return
+  // 술집 준비 단추로 준비할 때만 잔을 내려놓는 소리 (SHEEP-211). 서버 답 전이라 ready는 아직 누르기 전 값임
+  if (hit.id === 'ready' && !ready) playGlass(audio, audio.currentTime)
+  else playClick(audio, audio.currentTime)
 })
 const nicknameInput = document.querySelector<HTMLInputElement>('#nickname')!
 const nicknameRule = document.querySelector<HTMLParagraphElement>('#nickname-rule')!
