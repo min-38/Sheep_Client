@@ -1,6 +1,7 @@
 # Credits
 
 게임에 넣은 외부 에셋의 출처와 라이선스임. 쓰는 파일만 repo에 넣음 (기술 설계서 렌더링 에셋).
+게임 안 크레딧(첫 화면 크레딧, `src/i18n/*.ts`의 `credits.entries`)도 이 표와 같게 둠 (SHEEP-203).
 
 | 파일 | 원본 | 만든 사람 | 라이선스 | 받은 곳 |
 | --- | --- | --- | --- | --- |
@@ -10,10 +11,10 @@
 | `src/assets/audio/close-cylinder.mp3` | Snake's SECOND Authentic Gun Sounds Pack의 `& More/Revolver/44 Magnum/MP3/44 Magnum Close Cylinder.mp3` (이름만 바꿈) | f8studios ("Snake") | 퍼블릭 도메인 (작가가 밝힘) | https://f8studios.itch.io/snakes-second-authentic-gun-sounds-pack |
 | `src/assets/audio/cock-hammer.mp3` | Snake's SECOND Authentic Gun Sounds Pack의 `& More/Revolver/44 Magnum/MP3/44 Magnum Cock Hammer.mp3` (이름만 바꿈) | f8studios ("Snake") | 퍼블릭 도메인 (작가가 밝힘) | https://f8studios.itch.io/snakes-second-authentic-gun-sounds-pack |
 | `src/assets/audio/dry-fire.mp3` | Snake's SECOND Authentic Gun Sounds Pack의 `& More/Pistol/MP3/9mm Pistol Dry Fire.mp3` (이름만 바꿈) | f8studios ("Snake") | 퍼블릭 도메인 (작가가 밝힘) | https://f8studios.itch.io/snakes-second-authentic-gun-sounds-pack |
-| `src/assets/audio/last-one-standing.mp3` | 사용자가 Suno로 만든 곡 `Last One Standing`. wav를 mp3(VBR, ffmpeg `libmp3lame -q:a 5`)로 줄임 | 사용자 (Suno로 만듦) | 사용자가 Suno 약관을 확인하고 넣기로 함 (2026-11-09) | 사용자가 줌 |
-| `src/assets/audio/dusty-saloon.mp3` | 사용자가 Suno로 만든 곡 `Dusty Saloon`. wav를 mp3(VBR, ffmpeg `libmp3lame -q:a 5`)로 줄임 | 사용자 (Suno로 만듦) | 사용자가 Suno 약관을 확인하고 넣기로 함 (2026-11-09) | 사용자가 줌 |
-| `src/assets/audio/high-noon-standoff.mp3` | 사용자가 Suno로 만든 곡 `High Noon Standoff`. wav를 mp3(VBR, ffmpeg `libmp3lame -q:a 5`)로 줄임 | 사용자 (Suno로 만듦) | 사용자가 Suno 약관을 확인하고 넣기로 함 (2026-11-09) | 사용자가 줌 |
-| `src/assets/audio/quickest-hand-in-town.mp3` | 사용자가 Suno로 만든 곡 `Quickest Hand in Town`. wav를 mp3(VBR, ffmpeg `libmp3lame -q:a 5`)로 줄임 | 사용자 (Suno로 만듦) | 사용자가 Suno 약관을 확인하고 넣기로 함 (2026-11-09). 승리 곡으로 넣기로 함 (2026-11-11, SHEEP-150) | 사용자가 줌 |
+| `src/assets/audio/last-one-standing.mp3` | 사용자가 Suno로 만든 곡 `Last One Standing`. wav를 mp3(VBR, ffmpeg `libmp3lame -q:a 5`)로 줄임 | 사용자 (Suno로 만듦) | Suno Pro 요금제로 만듦 (사용자 확인 2026-11-11). 사용자가 Suno 약관을 확인하고 넣기로 함 (2026-11-09) | 사용자가 줌 |
+| `src/assets/audio/dusty-saloon.mp3` | 사용자가 Suno로 만든 곡 `Dusty Saloon`. wav를 mp3(VBR, ffmpeg `libmp3lame -q:a 5`)로 줄임 | 사용자 (Suno로 만듦) | Suno Pro 요금제로 만듦 (사용자 확인 2026-11-11). 사용자가 Suno 약관을 확인하고 넣기로 함 (2026-11-09) | 사용자가 줌 |
+| `src/assets/audio/high-noon-standoff.mp3` | 사용자가 Suno로 만든 곡 `High Noon Standoff`. wav를 mp3(VBR, ffmpeg `libmp3lame -q:a 5`)로 줄임 | 사용자 (Suno로 만듦) | Suno Pro 요금제로 만듦 (사용자 확인 2026-11-11). 사용자가 Suno 약관을 확인하고 넣기로 함 (2026-11-09) | 사용자가 줌 |
+| `src/assets/audio/quickest-hand-in-town.mp3` | 사용자가 Suno로 만든 곡 `Quickest Hand in Town`. wav를 mp3(VBR, ffmpeg `libmp3lame -q:a 5`)로 줄임 | 사용자 (Suno로 만듦) | Suno Pro 요금제로 만듦 (사용자 확인 2026-11-11). 사용자가 Suno 약관을 확인하고 넣기로 함 (2026-11-09). 승리 곡으로 넣기로 함 (2026-11-11, SHEEP-150) | 사용자가 줌 |
 | `src/assets/fonts/holtwood-one-sc.woff2` | Google Fonts의 Holtwood One SC (`ofl/holtwoodonesc/HoltwoodOneSC-Regular.ttf`)를 고치지 않고 woff2로만 바꿈 (fonttools). 라이선스 전문은 `src/assets/fonts/HoltwoodOneSC-OFL.txt` | The Holtwood Project Authors | [SIL OFL 1.1](https://openfontlicense.org) | https://github.com/google/fonts/tree/main/ofl/holtwoodonesc |
 | `src/assets/fonts/rokkitt-bold.woff2` | Google Fonts의 Rokkitt 가변 글꼴 (`ofl/rokkitt/Rokkitt[wght].ttf`)에서 굵기 700 하나를 뽑아 woff2로 바꿈 (fonttools `varLib.instancer`). 라이선스 전문은 `src/assets/fonts/Rokkitt-OFL.txt` | The Rokkitt Project Authors | [SIL OFL 1.1](https://openfontlicense.org) | https://github.com/google/fonts/tree/main/ofl/rokkitt |
 | `src/assets/fonts/gasoek-one.woff2` | Google Fonts의 Gasoek One (`ofl/gasoekone/GasoekOne-Regular.ttf`)에서 한글 호환 자모와 완성형 한글만 남겨 woff2로 바꿈 (fonttools `subset`). 원본에 완성형 한글이 2,780자만 있음. 라이선스 전문은 `src/assets/fonts/GasoekOne-OFL.txt` | The Gasoek Project Authors (JAMO) | [SIL OFL 1.1](https://openfontlicense.org) | https://github.com/google/fonts/tree/main/ofl/gasoekone |
