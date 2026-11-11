@@ -190,19 +190,18 @@ export function playDoor(audio: AudioContext, when: number) {
 // 탈락을 보여 주기 시작한 때부터 뒤로 넘어지는 동작이 바닥에 닿기까지(ms). 시간 초과는 자살 모습(총을 댐, 불꽃)이 끝난 뒤에 넘어짐
 export const fallDelay = (reason: 'shot' | 'timeout') => (reason === 'timeout' ? SUICIDE_AIM + SUICIDE_FLASH : 0) + FALL_LAND_MS
 
-// 쓰러지는 소리 한 번을 when(AudioContext 시각, 초)에 냄. 방향과 거리는 총소리와 같음. rate는 재생 빠르기이고
-// 내 쓰러짐 장면에서는 화면처럼 늦춰 낮고 길게 들림 (SHEEP-119).
+// 쓰러지는 소리 한 번을 when(AudioContext 시각, 초)에 냄. 방향과 거리는 총소리와 같음.
 // ponytail: 낮은 잡음으로 합성한 임시음(약 0.3초). CC0 효과음을 찾으면 소리 부분만 고침 (시스템 기획서 사운드)
-export function playFall(audio: AudioContext, when: number, from?: { right: number; front: number }, rate = 1) {
+export function playFall(audio: AudioContext, when: number, from?: { right: number; front: number }) {
   const noise = new AudioBuffer({ length: Math.round(audio.sampleRate * 0.3), sampleRate: audio.sampleRate })
   const data = noise.getChannelData(0)
   for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1
-  const source = new AudioBufferSourceNode(audio, { buffer: noise, playbackRate: rate })
+  const source = new AudioBufferSourceNode(audio, { buffer: noise })
   // 발소리보다 더 낮게 걸러 몸이 모래에 부딪히는 둔한 쿵으로
   const low = new BiquadFilterNode(audio, { type: 'lowpass', frequency: 180 })
   const volume = new GainNode(audio)
   volume.gain.setValueAtTime(0.8, when)
-  volume.gain.exponentialRampToValueAtTime(0.001, when + 0.3 / rate)
+  volume.gain.exponentialRampToValueAtTime(0.001, when + 0.3)
   place(audio, source.connect(low).connect(volume), from)
   source.start(when)
 }

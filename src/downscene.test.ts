@@ -1,7 +1,6 @@
 import { describe, expect, test } from 'vitest'
-import { FALL_LAND_MS, SUICIDE_AIM, SUICIDE_FLASH } from './character.ts'
-import { filming, motionMs, SCENE_MS, sceneCamera, SLOW } from './downscene.ts'
-import { horizonY } from './render.ts'
+import { SUICIDE_AIM, SUICIDE_FLASH } from './character.ts'
+import { fallEye, fallSide, LANDED_MS, SCENE_MS, suicideSide } from './downscene.ts'
 
 // 서버의 결과를 보여 주는 시간(시스템 기획서 판 흐름 시간). 함께 쓰러져 재대결로 가면 내 쓰러짐이 보인 뒤 적어도 이만큼 지나야 카운트다운임
 const RESULT_MS = 3000
@@ -14,53 +13,77 @@ describe('쓰러짐 장면 시간 (시스템 기획서 HUD 쓰러짐)', () => {
     expect(SCENE_MS + 100 + 400).toBeLessThanOrEqual(RESULT_MS + W_MS)
   })
 
-  test('느리게 넘어져도 장면 안에서 바닥에 닿고, 시간 초과도 자살 모습 뒤에 바닥에 닿음', () => {
-    expect(FALL_LAND_MS / SLOW).toBeLessThan(SCENE_MS)
-    expect((SUICIDE_AIM + SUICIDE_FLASH + FALL_LAND_MS) / SLOW).toBeLessThan(SCENE_MS + 1500)
-    expect(motionMs(1000)).toBeCloseTo(1000 * SLOW)
-  })
-
-  test('바닥에 닿을 때까지만 영화처럼 띠와 바랜 색', () => {
-    expect(filming(0, 'shot')).toBe(true)
-    expect(filming(FALL_LAND_MS / SLOW - 1, 'shot')).toBe(true)
-    expect(filming(FALL_LAND_MS / SLOW + 1, 'shot')).toBe(false)
-    // 시간 초과는 총을 대고 쏜 뒤에 넘어지기 시작함
-    expect(filming((SUICIDE_AIM + SUICIDE_FLASH + FALL_LAND_MS) / SLOW - 1, 'timeout')).toBe(true)
+  test('맞아도, 시간 초과로 옆머리를 쏴도 장면 안에서 바닥에 닿고 잠시 누워 있음', () => {
+    expect(LANDED_MS + 1000).toBeLessThan(SCENE_MS)
+    expect(SUICIDE_AIM + SUICIDE_FLASH + LANDED_MS + 500).toBeLessThan(SCENE_MS)
   })
 })
 
-describe('sceneCamera', () => {
-  const W = 480
-  const H = 270
-  const FOV = 66
-  // 화면에 비친 점 [x, y]. 칸 단위 바닥 자리와 높이
-  function project(cam: ReturnType<typeof sceneCamera>, px: number, py: number, up: number) {
-    const proj = W / (2 * Math.hypot(cam.planeX, cam.planeY))
-    const rx = px - cam.x
-    const ry = py - cam.y
-    const invDet = 1 / (cam.planeX * cam.dirY - cam.dirX * cam.planeY)
-    const z = invDet * (cam.planeX * ry - cam.planeY * rx)
-    const sx = (invDet * (cam.dirY * rx - cam.dirX * ry)) / z
-    return [(W / 2) * (1 + sx), horizonY(H, proj, cam.pitch) + (proj * ((cam.z ?? 0.5) - up)) / z]
+// 내가 (10, 10)에 서서 facing 쪽을 볼 때 쏜 사람이 내 둘레 rel 쪽(내가 보는 쪽에서 잰 각도)에 있음
+const shooterAt = (facing: number, rel: number) => [10 + 3 * Math.cos(facing + rel), 10 + 3 * Math.sin(facing + rel)] as const
+
+describe('fallSide', () => {
+  for (const facing of [0, 1, 4]) {
+    test(`총알이 미는 쪽으로 넘어짐 (보는 각도 ${facing})`, () => {
+      expect(fallSide(10, 10, facing, ...shooterAt(facing, 0))).toBe('back') // 정면에서 맞음
+      expect(fallSide(10, 10, facing, ...shooterAt(facing, Math.PI))).toBe('forward') // 등 뒤에서 맞음
+      // 화면 오른쪽은 각도가 커지는 쪽 (render.ts makeCamera). 오른쪽에서 맞으면 왼쪽으로 밀림
+      expect(fallSide(10, 10, facing, ...shooterAt(facing, Math.PI / 2))).toBe('left')
+      expect(fallSide(10, 10, facing, ...shooterAt(facing, -Math.PI / 2))).toBe('right')
+      // 비스듬하면 더 가까운 쪽
+      expect(fallSide(10, 10, facing, ...shooterAt(facing, 0.6))).toBe('back')
+      expect(fallSide(10, 10, facing, ...shooterAt(facing, 1.0))).toBe('left')
+    })
   }
 
-  test('내 앞 위에 서서 나를 내려다봄: 서 있는 발과 누운 머리가 화면 가운데 줄 안', () => {
-    for (const facing of [0, 1, 4]) {
-      for (const elapsed of [0, SCENE_MS]) {
-        const cam = sceneCamera(10, 10, facing, elapsed, FOV)
-        // 카메라는 바라보는 쪽 앞에 있고, 나를 향해 봄
-        expect(Math.cos(facing) * (cam.x - 10) + Math.sin(facing) * (cam.y - 10)).toBeGreaterThan(1)
-        expect(cam.dirX * Math.cos(facing) + cam.dirY * Math.sin(facing)).toBeCloseTo(-1)
-        expect(cam.pitch).toBeLessThan(0)
-        const feet = project(cam, 10, 10, 0)
-        // 뒤로 넘어져 누우면 머리가 발에서 바라보는 쪽 반대로 0.9칸쯤
-        const head = project(cam, 10 - Math.cos(facing) * 0.9, 10 - Math.sin(facing) * 0.9, 0.05)
-        for (const [x, y] of [feet, head]) {
-          expect(Math.abs(x - W / 2)).toBeLessThan(1)
-          expect(y).toBeGreaterThan(H * 0.15)
-          expect(y).toBeLessThan(H * 0.85)
-        }
-      }
+  test('시간 초과는 총 든 손으로 옆머리를 쏴 반대쪽으로 넘어짐', () => {
+    expect(suicideSide('right')).toBe('left')
+    expect(suicideSide('left')).toBe('right')
+  })
+})
+
+describe('fallEye', () => {
+  const EYE = 0.84
+  const facing = 1
+
+  test('맞은 순간은 서 있던 눈 그대로', () => {
+    for (const side of ['forward', 'back', 'left', 'right'] as const) {
+      const e = fallEye(10, 10, facing, side, 0, EYE)
+      const still = { x: 10, y: 10, z: EYE, angle: facing, pitch: 0, roll: 0 }
+      for (const key of Object.keys(still) as (keyof typeof still)[]) expect(e[key]).toBeCloseTo(still[key])
     }
+  })
+
+  test('무릎이 꺾여 조금 내려앉은 뒤 넘어가며 점점 빨리 내려감', () => {
+    const zs = [0, 100, 200, 400, 600, LANDED_MS].map((ms) => fallEye(10, 10, facing, 'back', ms, EYE).z)
+    for (let i = 1; i < zs.length; i++) expect(zs[i]).toBeLessThan(zs[i - 1])
+    const drop = (a: number, b: number) => fallEye(10, 10, facing, 'back', a, EYE).z - fallEye(10, 10, facing, 'back', b, EYE).z
+    expect(drop(LANDED_MS - 200, LANDED_MS - 100)).toBeGreaterThan(drop(300, 400))
+  })
+
+  test('바닥에 닿으면 눈이 땅 가까이에서 멈추고, 넘어간 쪽으로 몸 길이만큼 옮겨 감', () => {
+    const ahead = [Math.cos(facing), Math.sin(facing)]
+    const right = [-Math.sin(facing), Math.cos(facing)]
+    const moved = (side: 'forward' | 'back' | 'left' | 'right', dir: number[]) => {
+      const e = fallEye(10, 10, facing, side, LANDED_MS + 500, EYE)
+      expect(e).toEqual(fallEye(10, 10, facing, side, LANDED_MS + 2000, EYE))
+      expect(e.z).toBeLessThan(0.25)
+      expect(e.angle).toBe(facing)
+      return (e.x - 10) * dir[0] + (e.y - 10) * dir[1]
+    }
+    expect(moved('forward', ahead)).toBeGreaterThan(0.5)
+    expect(moved('back', ahead)).toBeLessThan(-0.5)
+    expect(moved('right', right)).toBeGreaterThan(0.5)
+    expect(moved('left', right)).toBeLessThan(-0.5)
+  })
+
+  test('앞으로 넘어지면 땅을, 뒤로 넘어지면 하늘을 보고, 옆으로 넘어지면 화면이 그쪽으로 기욺', () => {
+    const at = (side: 'forward' | 'back' | 'left' | 'right') => fallEye(10, 10, facing, side, LANDED_MS, EYE)
+    expect(at('forward').pitch).toBeLessThan(-1)
+    expect(at('back').pitch).toBeGreaterThan(1)
+    expect(at('right').roll).toBeGreaterThan(1)
+    expect(at('left').roll).toBeLessThan(-1)
+    expect(at('forward').roll).toBe(0)
+    expect(at('right').pitch).toBe(0)
   })
 })

@@ -144,10 +144,6 @@ body {
   pointer-events: none;
 }
 
-#game.filming #screen {
-  filter: sepia(0.7) contrast(1.08) brightness(0.95);
-}
-
 /* 자막 카드. 술집 주인 말풍선과 같은 검은 판에 흰 이중 테. 왼쪽 초상화, 가운데 쓰러뜨린 사람, 오른쪽 맞은 자리, 아래 한 줄 */
 #kill-card {
   position: absolute;
