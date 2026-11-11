@@ -167,6 +167,8 @@ export const zh: Copy = {
     title: '制作人员',
     hint: '点击关闭',
     entries: [
+      { role: '游戏制作', who: 'minbape', detail: '使用 Claude Code 开发' },
+      { role: '工具', who: 'Claude Code · Blender', detail: 'TypeScript · Vite · ASP.NET Core' },
       { role: '左轮手枪模型', who: 'Loafbrr', detail: 'Revolver pack · CC BY 1.0 · loafbrr.itch.io' },
       { role: '枪声', who: 'f8studios', detail: "Snake's SECOND Authentic Gun Sounds Pack · 公有领域 · f8studios.itch.io" },
       { role: '动作', who: 'Quaternius', detail: 'Universal Animation Library · CC0 1.0 · quaternius.itch.io' },

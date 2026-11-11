@@ -168,6 +168,8 @@ export const ru: Copy = {
     title: 'Титры',
     hint: 'Нажмите, чтобы закрыть',
     entries: [
+      { role: 'Игра от', who: 'minbape', detail: 'Создано с помощью Claude Code' },
+      { role: 'Инструменты', who: 'Claude Code · Blender', detail: 'TypeScript · Vite · ASP.NET Core' },
       { role: 'Модель револьвера', who: 'Loafbrr', detail: 'Revolver pack · CC BY 1.0 · loafbrr.itch.io' },
       { role: 'Звуки выстрелов', who: 'f8studios', detail: "Snake's SECOND Authentic Gun Sounds Pack · Общественное достояние · f8studios.itch.io" },
       { role: 'Движения', who: 'Quaternius', detail: 'Universal Animation Library · CC0 1.0 · quaternius.itch.io' },

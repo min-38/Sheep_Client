@@ -167,6 +167,8 @@ export const ko: Copy = {
     title: '크레딧',
     hint: '눌러서 닫기',
     entries: [
+      { role: '만든 사람', who: 'minbape', detail: 'Claude Code로 개발' },
+      { role: '만든 도구', who: 'Claude Code · Blender', detail: 'TypeScript · Vite · ASP.NET Core' },
       { role: '리볼버 모델', who: 'Loafbrr', detail: 'Revolver pack · CC BY 1.0 · loafbrr.itch.io' },
       { role: '총소리', who: 'f8studios', detail: "Snake's SECOND Authentic Gun Sounds Pack · 퍼블릭 도메인 · f8studios.itch.io" },
       { role: '동작', who: 'Quaternius', detail: 'Universal Animation Library · CC0 1.0 · quaternius.itch.io' },
