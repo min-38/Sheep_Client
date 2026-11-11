@@ -49,7 +49,7 @@ export const ko: Copy = {
     leave: '나가기',
     ready: '준비',
     unready: '아직이여',
-    changeDuds: '옷 갈아입기',
+    changeCharacter: '캐릭터 변경',
     settings: '설정',
     mySeat: '내 자리',
     wins: (n) => `${n}승`,

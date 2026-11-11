@@ -52,6 +52,9 @@ export function entranceAt(countdownAt: number, now: number): Entrance | null {
   }
 }
 
+// 내부 px. 뒤도는 동안 술집 그림을 왼쪽으로 민 거리이고, 다 돌면 그림이 다 빠진 480. 그 위에 얹은 간판과 칠판 글자도 같이 밂 (SHEEP-173)
+export const barShift = (e: Entrance) => (e.turn < 1 ? Math.round(e.turn * 480) : 480)
+
 // 나서는 동안 틀 곡. 문을 밀기 전에는 술집 곡, 밀면 줄여 끄고, 결투장이 드러나기 시작하면 결투 전 곡
 export const entranceTrack = (e: Entrance): Track | null => (e.pushed < 0 ? 'saloon' : e.arena ? 'standoff' : null)
 
@@ -177,7 +180,7 @@ export function drawEntrance(ctx: CanvasRenderingContext2D, e: Entrance, drawBar
   else {
     ctx.save()
     if (e.turn < 1) {
-      ctx.translate(-Math.round(e.turn * 480), 0)
+      ctx.translate(-barShift(e), 0)
       drawBar()
       ctx.translate(480, 0)
       drawDoorWall(ctx, 0)

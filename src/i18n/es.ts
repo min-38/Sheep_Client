@@ -49,7 +49,7 @@ export const es: Copy = {
     leave: 'Salir',
     ready: 'Listo',
     unready: 'Todavía no',
-    changeDuds: 'Cambiar de pinta',
+    changeCharacter: 'Personaje',
     settings: 'Ajustes',
     mySeat: 'Mi asiento',
     wins: (n) => `${n} victoria${n === 1 ? '' : 's'}`,

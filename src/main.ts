@@ -24,7 +24,7 @@ import { bartenderFigure, bountyText, bubbleX, COPIED_MS, copyKeys, drawSaloon, 
 import { cut, replayWindow } from './replay.ts'
 import { endingAt, irisOpen, lastFallCamera, lastFallMotion, SLOW, walkerAt, walkoffCamera } from './ceremony.ts'
 import { fallEye, fallSide, LANDED_MS, SCENE_MS, suicideSide } from './downscene.ts'
-import { DOOR_PUSH_AT, drawEntrance, ENTER_FADE, ENTER_MS, entranceAt, entranceTrack, WHOOSH_AT, WHOOSH_MS } from './entrance.ts'
+import { barShift, DOOR_PUSH_AT, drawEntrance, ENTER_FADE, ENTER_MS, entranceAt, entranceTrack, WHOOSH_AT, WHOOSH_MS } from './entrance.ts'
 // 지금 언어의 문구. 이 파일은 t를 시각 변수로 많이 써 문구는 copy로 부름
 import { copyOf, HTML_LANG, LANGUAGES, setLanguage, t as copy, textAt, type Language } from './i18n/index.ts'
 import { readSettings, RADIANS_PER_PIXEL, type Crosshair, type Hand, type Settings } from './settings.ts'
@@ -656,6 +656,7 @@ function frame(now: number) {
   }
   const leaving = leaveSaloonAt !== null && !saloon.hidden ? entranceAt(leaveSaloonAt, serverNow) : null
   saloon.classList.toggle('leaving', leaving !== null)
+  if (leaving) saloon.style.setProperty('--bar-shift', String(barShift(leaving)))
   // 내가 이번 라운드를 걷고 있어 긴장 연출을 보는지 (SHEEP-141). 다시 보기, 관전, 앞 라운드에 쓰러져 끼지 못한 때는 아님
   const tense = !r && !watch && reloading && myId !== null && !downs.has(myId)
   // 1인칭 결투장을 그릴 때만 그 시점 주인의 모자 챙을 화면 위에 보임 (SHEEP-159)
