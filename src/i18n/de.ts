@@ -52,7 +52,7 @@ export const de: Copy = {
     changeCharacter: 'Figur',
     settings: 'Einstellungen',
     mySeat: 'Mein Platz',
-    wins: (n) => `${n} Sieg${n === 1 ? '' : 'e'}`,
+    wins: (n) => `${n} Win${n === 1 ? '' : 's'}`, // 영어 그대로 (SHEEP-178)
     copyCode: 'Raumcode kopieren',
     copied: 'Kopiert, Partner',
     copyFailed: (keys) => `Drück ${keys}, Partner`,

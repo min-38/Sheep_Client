@@ -52,7 +52,7 @@ export const zh: Copy = {
     changeCharacter: '更换角色',
     settings: '设置',
     mySeat: '我的座位',
-    wins: (n) => `${n} 胜`,
+    wins: (n) => `${n} Win${n === 1 ? '' : 's'}`, // 영어 그대로 (SHEEP-178)
     copyCode: '复制房间代码',
     copied: '抄下来了，伙计',
     copyFailed: (keys) => `按 ${keys} 吧，伙计`,
