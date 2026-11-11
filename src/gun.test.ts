@@ -16,6 +16,7 @@ import {
   RELOAD_MS,
   RELOAD_SEATED,
   RELOAD_SHUT,
+  reloadNod,
   reloadSoundAt,
   revolverMesh,
   shade,
@@ -238,6 +239,27 @@ describe('lift', () => {
 
   test('장전하지 않는(재대결에 끼지 못한) 카운트다운에는 내린 채', () => {
     expect(lift({ countdown: 1000, walk: 4000 }, 2000, false)).toEqual({ lower: 1, kick: 0 })
+  })
+})
+
+describe('reloadNod (SHEEP-177)', () => {
+  test('카운트다운 전과 장전을 마친 뒤에는 정면을 봄', () => {
+    expect(reloadNod(-1)).toBe(0)
+    expect(reloadNod(0)).toBe(0)
+    expect(reloadNod(RELOAD_END)).toBe(0)
+    expect(reloadNod(RELOAD_END + 500)).toBe(0)
+  })
+
+  test('총알을 넣는 동안 고개를 숙이고, 천천히 숙였다가 권총집에 넣는 동안 천천히 듦', () => {
+    const loading = reloadNod(RELOAD_AT + RELOAD_MS / 2)
+    expect(loading).toBeGreaterThan(0.2)
+    expect(loading).toBeLessThan(0.5)
+    // 숙이기는 카운트다운 시각에 바로 다 하지 않음 (여유를 둠)
+    expect(reloadNod(RELOAD_AT)).toBeLessThan(loading)
+    expect(reloadNod(RELOAD_AT)).toBeGreaterThan(0)
+    const holstering = reloadNod(RELOAD_AT + RELOAD_MS + 250)
+    expect(holstering).toBeGreaterThan(0)
+    expect(holstering).toBeLessThan(loading)
   })
 })
 

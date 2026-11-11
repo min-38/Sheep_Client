@@ -6,7 +6,7 @@ import { best, measure, toLocalTime, toServerTime, type ClockSample } from './cl
 import { CYLINDER_TURN, cylinderSvg } from './cylinder.ts'
 import { makeProps, SKIES, timeOfDay } from './desert.ts'
 import { enhanceSelect } from './dropdown.ts'
-import { aimed, DRAW_MS, drawGun, gunClips, lift, RECOIL_MS, RELOAD_END, RELOAD_SEATED, RELOAD_SHUT, reloadSoundAt, revolverMesh } from './gun.ts'
+import { aimed, DRAW_MS, drawGun, gunClips, lift, RECOIL_MS, RELOAD_END, RELOAD_SEATED, RELOAD_SHUT, reloadNod, reloadSoundAt, revolverMesh } from './gun.ts'
 import { dotPosition, noBlood, onGameEnd, onRevived, onWalk, onWounded, resultLabel } from './hitcard.ts'
 import { record, sampleAt, type Sample } from './interpolate.ts'
 import { drawMessage, fireMessage, parseServerMessage, type ClientMessage, type HitPoint, type PlayerState, type RoundResult, type ShotResult } from './net.ts'
@@ -749,8 +749,12 @@ function frame(now: number) {
     const bump = tense && clock && schedule.walk !== undefined ? stepDip(schedule.walk, toServerTime(now - INTERP_DELAY, clock.offset)) : { dip: 0, tilt: 0 }
     const viewLook = scene.characters.get(view.id)
     brim = viewLook ? brimOf(viewLook.character, viewLook.color) : null
+    // 관전하는 사람은 서 있어 카운트다운이면 이번 라운드에 끼어 장전함
+    const loading = r || watch ? true : reloading
+    // 장전하는 동안 총을 보려고 고개를 숙였다가 권총집에 넣는 동안 듦. 그림에서만이고 서버에 보내는 시선은 그대로 (SHEEP-177)
+    const nod = loading && clock && scene.schedule.countdown !== undefined ? reloadNod(toServerTime(t, clock.offset) - scene.schedule.countdown) : 0
     // 눈은 캐릭터 눈 자리 높이라 마주 선 사람과 눈높이가 같음 (SHEEP-158)
-    const eye = { ...makeCamera(view.x, view.y, view.angle + bump.tilt * STEP_SWAY, FOV, view.pitch - bump.dip * STEP_DIP), z: EYE_HEIGHT }
+    const eye = { ...makeCamera(view.x, view.y, view.angle + bump.tilt * STEP_SWAY, FOV, view.pitch - bump.dip * STEP_DIP - nod), z: EYE_HEIGHT }
     renderFrame(pixels, W, H, grid, eye, things, SKIES[timeOfDay(standing ?? history.size)])
     ctx.putImageData(image, 0, 0)
     playSteps(now)
@@ -758,9 +762,8 @@ function frame(now: number) {
     // ponytail: 총에는 시간대 빛 색조를 곱하지 않음. 석양에 총만 밝아 보여 거슬리면 drawGun에 빛 색조를 넘겨 면 색에 곱함
     // 들어 올리기는 보이기만 함. 결투에서 뽑을 때만 다 뽑은 뒤부터 쏠 수 있고 조준점도 뜸 (SHEEP-123, SHEEP-165)
     // 부품 움직임도 서버 시계로 재어 AudioContext로 예약한 장전·공이치기 소리와 맞음
-    // 관전하는 사람은 서 있어 카운트다운이면 이번 라운드에 끼어 장전함. 총은 그 사람이 총을 든 손에 그림 (SHEEP-133).
+    // 관전하는 사람의 총은 그 사람이 총을 든 손에 그림 (SHEEP-133).
     // 내 총은 설정의 손을 바로 따름. 다른 사람에게는 다음에 방에 들어갈 때 반영됨
-    const loading = r || watch ? true : reloading
     const hand = (r || watch ? scene.characters.get(view.id)?.hand : undefined) ?? settings.hand
     const hold = clock ? lift(scene.schedule, toServerTime(t, clock.offset), loading, viewDrawn) : { lower: 1, kick: 0 }
     const plays = clock ? gunClips(scene.schedule, toServerTime(t, clock.offset), loading, toServerTime(fired, clock.offset), viewDrawn) : []
