@@ -13,6 +13,8 @@ export const RECOIL_MS = 150
 export const RAISE_MS = 200
 // ms. D 키로 총을 뽑아 다 들기까지. 다 들면 공이치기를 당기고 그때부터 쏠 수 있음. 서버 Revolver.DrawDuration과 같아야 함 (사용자 결정 2026-11-10, SHEEP-123)
 export const DRAW_MS = 350
+// 조준점은 총을 다 뽑아 쏠 수 있을 때부터 보임 (사용자 결정 2026-11-11, SHEEP-165). drawnAt은 뽑기 시작한 시각이고 now와 같은 시계
+export const aimed = (drawnAt: number | null, now: number) => drawnAt !== null && now >= drawnAt + DRAW_MS
 // 공이치기를 당길 때 튀는 크기(쏠 때 반동을 1로). ponytail: 임시 값. 화면을 보며 맞춤
 const COCK_KICK = 0.25
 // ms. 카운트다운부터 장전 클립을 시작하기까지. 그 사이에 총을 들어 올림. ponytail: 임시 값. 플레이해 보며 정함
