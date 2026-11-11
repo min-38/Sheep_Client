@@ -192,7 +192,8 @@ export const fallDelay = (reason: 'shot' | 'timeout') => (reason === 'timeout' ?
 
 // 쓰러지는 소리 한 번을 when(AudioContext 시각, 초)에 냄. 방향과 거리는 총소리와 같음.
 // ponytail: 낮은 잡음으로 합성한 임시음(약 0.3초). CC0 효과음을 찾으면 소리 부분만 고침 (시스템 기획서 사운드)
-export function playFall(audio: AudioContext, when: number, from?: { right: number; front: number }) {
+// 예약한 소리 노드를 돌려줌. 판 끝에 마지막 쓰러짐을 느리게 보이면 아직 나지 않은 소리를 멈추고 다시 예약함 (SHEEP-169)
+export function playFall(audio: AudioContext, when: number, from?: { right: number; front: number }): AudioScheduledSourceNode {
   const noise = new AudioBuffer({ length: Math.round(audio.sampleRate * 0.3), sampleRate: audio.sampleRate })
   const data = noise.getChannelData(0)
   for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1
@@ -204,6 +205,7 @@ export function playFall(audio: AudioContext, when: number, from?: { right: numb
   volume.gain.exponentialRampToValueAtTime(0.001, when + 0.3)
   place(audio, source.connect(low).connect(volume), from)
   source.start(when)
+  return source
 }
 
 // from이 있으면 그 자리에서 들리게(HRTF) 내보내고, 없으면 가운데서 들림

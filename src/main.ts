@@ -22,7 +22,7 @@ import type { Rig } from './rig.ts'
 import { banner, DUEL_LIMIT, dueling, formatTime, joins, locked, resultText, standingCount, stepIndex, STEPS_FROM, timeLeft, TURN_MS, walking, type Schedule } from './round.ts'
 import { bartenderFigure, bountyText, bubbleX, COPIED_MS, copyKeys, drawSaloon, SALOON_CAMERA, seatSlots, seatSpot, seatTag, startBartender, startChatter, stepBartender, stepChatter, STOOL } from './saloon.ts'
 import { cut, replayWindow } from './replay.ts'
-import { endingAt, irisOpen, lastFallCamera, lastFallMotion, walkerAt, walkoffCamera } from './ceremony.ts'
+import { endingAt, irisOpen, lastFallCamera, lastFallMotion, SLOW, walkerAt, walkoffCamera } from './ceremony.ts'
 import { fallEye, fallSide, LANDED_MS, SCENE_MS, suicideSide } from './downscene.ts'
 import { DOOR_PUSH_AT, drawEntrance, ENTER_FADE, ENTER_MS, entranceAt, entranceTrack, WHOOSH_AT, WHOOSH_MS } from './entrance.ts'
 // 지금 언어의 문구. 이 파일은 t를 시각 변수로 많이 써 문구는 copy로 부름
@@ -304,10 +304,26 @@ function playFallOf(id: string, reason: 'shot' | 'timeout') {
   const now = performance.now()
   const when = toAudioTime(now + INTERP_DELAY + (id === myId ? 0 : fallDelay(reason)), stampOf(audio))
   // 내 쓰러짐은 1인칭으로 넘어진 눈이 바닥에 닿을 때 들림 (SHEEP-166)
-  if (id === myId) return playFall(audio, toAudioTime(now + INTERP_DELAY + (reason === 'timeout' ? SUICIDE_AIM + SUICIDE_FLASH : 0) + LANDED_MS, stampOf(audio)))
+  if (id === myId) {
+    const mine = toAudioTime(now + INTERP_DELAY + (reason === 'timeout' ? SUICIDE_AIM + SUICIDE_FLASH : 0) + LANDED_MS, stampOf(audio))
+    fallSounds.set(id, { node: playFall(audio, mine), when: mine })
+    return
+  }
   const view = eyes(now)
   const body = sampleAt(samples, now - INTERP_DELAY)
-  playFall(audio, when, heardFrom(view.x, view.y, view.angle, body.x, body.y))
+  fallSounds.set(id, { node: playFall(audio, when, heardFrom(view.x, view.y, view.angle, body.x, body.y)), when })
+}
+
+// 사람마다 예약한 쓰러지는 소리와 나는 시각(AudioContext 초). 판 끝에 마지막 쓰러짐을 느리게 보이면, 아직 나지 않은 그 소리를
+// 느린 몸이 바닥에 닿는 때로 옮김. 위에서 보는 장면이라 방향 없이 가운데서 냄 (SHEEP-169)
+const fallSounds = new Map<string, { node: AudioScheduledSourceNode; when: number }>()
+function slowLastFallSound() {
+  const last = [...downs].reduce<[string, Down] | null>((l, d) => (l === null || d[1].at > l[1].at ? d : l), null)
+  const sound = last && fallSounds.get(last[0])
+  if (!audio || !last || !sound || audio.currentTime >= sound.when) return
+  sound.node.stop()
+  const when = toAudioTime(last[1].at + INTERP_DELAY + fallDelay(last[1].reason) / SLOW, stampOf(audio))
+  fallSounds.set(last[0], { node: playFall(audio, when), when })
 }
 
 // viewer는 눈이 되는 사람이라 그리지 않음. 관전이나 다시 보기면 쓰러진 나도 보임
@@ -807,7 +823,8 @@ function frame(now: number) {
   // 포스터는 판 끝의 포스터 단계에만 검은 화면 위에 띄움 (SHEEP-169)
   if (ending?.stage === 'poster' && winView.hidden && result) showWinner(result.playerIds[0])
   if (ending?.stage !== 'poster') winView.hidden = true
-  const text = inScene || ending
+  // 판 끝에는 글자 대신 포스터와 자막 카드로 알림. 이긴 사람이 그사이 나가 포스터가 없으면 글자로 알림
+  const text = inScene || (ending && winnerName !== '')
     ? ''
     : r
       ? clock
@@ -1525,6 +1542,7 @@ function receive(data: string) {
       // 창이 숨어 그리기가 멈춘 동안에는 앞 결과가 끝나지 않은 채 다음 결과가 올 수 있어 먼저 끝냄
       if (result) endResult(result)
       result = { ...m, at: performance.now() }
+      if (m.outcome === 'win') slowLastFallSound()
       break
     case 'shotResult':
       showHitCard(m)
