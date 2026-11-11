@@ -1,4 +1,4 @@
-import { drawFigure, type Figure } from './character.ts'
+import { clearDepth, drawFigure, restOn, type Figure } from './character.ts'
 import { HEAD } from './hitcard.ts'
 import { horizonY, pack, tint, type Camera, type RGB } from './render.ts'
 
@@ -28,12 +28,20 @@ export function frameIndex(viewX: number, viewY: number, x: number, y: number, f
   return ((k % 8) + 8) % 8
 }
 
+// 쓰러진 사람을 쓰러진 차례대로 먼저 누운 몸 위에 얹음 (SHEEP-181). 서 있는 사람과 다른 것은 그대로
+function pile(things: readonly Thing[]): Thing[] {
+  const fallen = things.filter((t): t is Figure => 'boxes' in t && t.downAt !== undefined).sort((a, b) => a.downAt! - b.downAt!)
+  const placed = new Map<Thing, Figure>()
+  for (const f of fallen) placed.set(f, restOn(f, [...placed.values()]))
+  return things.map((t) => placed.get(t) ?? t)
+}
+
 // 벽을 그린 뒤에 부름. zbuf는 가로줄마다 벽까지의 수직 거리, light는 모든 픽셀에 곱하는 그 시간대의 빛 색조
 export function drawSprites(pixels: Uint32Array, w: number, h: number, zbuf: Float64Array, cam: Camera, things: readonly Thing[], light: RGB) {
   const proj = w / (2 * Math.hypot(cam.planeX, cam.planeY))
   // 카메라 행렬 [plane dir]의 역행렬로 카메라 기준 좌표를 구함. side는 plane 길이 단위, depth는 수직 거리
   const invDet = 1 / (cam.planeX * cam.dirY - cam.dirX * cam.planeY)
-  const seen = things
+  const seen = pile(things)
     .map((t) => {
       const rx = t.x - cam.x
       const ry = t.y - cam.y
@@ -43,9 +51,11 @@ export function drawSprites(pixels: Uint32Array, w: number, h: number, zbuf: Flo
     // 먼 것부터 그려 가까운 것이 덮게 함
     .sort((a, b) => b.depth - a.depth)
 
+  // 사람끼리는 픽셀마다 깊이로 가림. 소품과 연기는 지금처럼 먼 것부터 덮어 그림
+  if (seen.some((s) => 'boxes' in s.t)) clearDepth(w, h, zbuf)
   for (const { t, side, depth } of seen) {
     if ('boxes' in t) {
-      drawFigure(pixels, w, h, zbuf, cam, t, light)
+      drawFigure(pixels, w, h, zbuf, cam, t, light, true)
       continue
     }
     if ('alpha' in t) {

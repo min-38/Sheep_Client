@@ -92,7 +92,7 @@ export const de: Copy = {
     },
   },
   lobby: {
-    nickname: 'Wie nennen dich die Leute?',
+    nickname: 'Nickname',
     nicknameRule: '2–8 Zeichen',
     ok: 'OK',
     characterNames: ['Charles', 'Rosa', 'Silas', 'Belle', 'Clayton', 'Jesse', 'Kate', 'Diego'],

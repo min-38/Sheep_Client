@@ -113,7 +113,7 @@ export const en = {
   },
   // 첫 화면
   lobby: {
-    nickname: 'What do folks call you?',
+    nickname: 'Nickname',
     nicknameRule: '2–8 characters',
     ok: 'OK',
     // 캐릭터 번호 순서 (시스템 기획서 캐릭터 목록)
@@ -170,7 +170,7 @@ export const en = {
   // 설정 창
   settings: {
     music: 'Music',
-    effects: 'Sound effects',
+    effects: 'SFX',
     hand: 'Gun hand',
     right: 'Right',
     left: 'Left',

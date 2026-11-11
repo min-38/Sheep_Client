@@ -1190,16 +1190,10 @@ body {
   cursor: pointer;
 }
 
-/* 조준점 고르기: 캐릭터 고르기처럼 라디오는 숨기고 모양을 그린 어두운 칸을 누름. 고른 칸은 놋쇠 테, 이름은 칸 아래 */
+/* 조준점 고르기: 캐릭터 고르기처럼 라디오는 숨기고 모양을 그린 어두운 칸을 누름. 고른 칸은 놋쇠 테.
+   이름은 칸 아래에 적지 않고 aria-label로만 둬 어느 언어든 줄이 늘지 않음. 칸은 손 판처럼 이름 칸 바로 뒤부터 붙임 (시안 B, SHEEP-185) */
 #settings-panel .row > .reticle-choice {
   position: relative;
-  align-self: start;
-  flex: 1;
-  flex-direction: column;
-  gap: 0.3cqw;
-  min-width: 0;
-  font-size: 1.3cqw;
-  text-align: center;
 }
 
 .reticle-choice input {
@@ -1210,10 +1204,10 @@ body {
 .reticle-tile {
   display: grid;
   place-items: center;
-  width: 3.4cqw;
+  width: 4.4cqw;
   aspect-ratio: 1;
   border: 0.25cqw solid #3d2412;
-  border-radius: 0.3cqw;
+  border-radius: 0.4cqw;
   background: #2a1f18;
 }
 

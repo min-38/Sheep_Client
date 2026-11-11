@@ -355,7 +355,9 @@ function othersAt(t: number, viewer: string, scene: Scene): Thing[] {
       // 불꽃 동안은 쏜 각도로 그림. 돌고 바로 쏘면 돌아간 각도는 다음 state로 늦게 옴
       const down = scene.downs.get(id)
       const fallen = down && { landed: t - down.at - fallDelay(down.reason), since: t - down.at, reason: down.reason }
-      const figure = withWounds({ x: s.x, y: s.y, facing: flashing ? shot.angle : s.angle, ...(flashing ? body.fire(s.pitch) : poseAt(body, down, t, upright)) }, body, scene.hits.get(id), t, fallen, upright)
+      // 쓰러지기 시작한 사람은 그 시각을 달아, 먼저 누운 몸과 겹치면 그 위에 얹음 (SHEEP-181)
+      const downAt = down && t >= down.at ? { downAt: down.at } : {}
+      const figure = withWounds({ x: s.x, y: s.y, facing: flashing ? shot.angle : s.angle, ...downAt, ...(flashing ? body.fire(s.pitch) : poseAt(body, down, t, upright)) }, body, scene.hits.get(id), t, fallen, upright)
       if (shot === undefined || t < shot.at || t >= shot.at + SMOKE_MS) return [figure]
       // 연기는 쏜 쪽으로 겨눈 총구에서 나와 공중에 남음. 그 뒤 돌거나 쓰러져도 따라가지 않음 (SHEEP-124).
       // 반동으로 들린 총구(fire)가 아니라 겨눈 총구(aim)라야 0.1초 뒤 팔이 내려와도 연기가 총 위에 떠 보이지 않음
@@ -762,7 +764,7 @@ function frame(now: number) {
     const body = characterBody(look.character, look.color, look.hand)
     const motion = lastFallMotion(now - INTERP_DELAY - down.at, fallDelay(down.reason), fallSlow(down.reason))
     const fallen = { landed: motion - fallDelay(down.reason), since: motion, reason: down.reason }
-    const figure = withWounds({ x: at.x, y: at.y, facing: at.angle, ...poseAt(body, { ...down, at: 0 }, motion, body.rest) }, body, hits.get(id), now - INTERP_DELAY, fallen, body.rest)
+    const figure = withWounds({ x: at.x, y: at.y, facing: at.angle, downAt: down.at, ...poseAt(body, { ...down, at: 0 }, motion, body.rest) }, body, hits.get(id), now - INTERP_DELAY, fallen, body.rest)
     const things = [figure, ...othersAt(now - INTERP_DELAY, id, live()), ...bulletsAt(now - INTERP_DELAY, id, live(), grid), ...bloodAt(now - INTERP_DELAY, live())]
     renderFrame(pixels, W, H, grid, lastFallCamera(at.x, at.y, at.angle, now - INTERP_DELAY - down.at, STAGED_FOV), things, SKIES[timeOfDay(standing ?? history.size)])
     ctx.putImageData(image, 0, 0)

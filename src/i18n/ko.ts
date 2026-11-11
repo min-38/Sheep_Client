@@ -92,7 +92,7 @@ export const ko: Copy = {
     },
   },
   lobby: {
-    nickname: '뭐라고 불러 줄까?',
+    nickname: '닉네임',
     nicknameRule: '2~8자',
     ok: '확인',
     characterNames: ['찰스', '로사', '사일러스', '벨', '클레이턴', '제시', '케이트', '디에고'],
