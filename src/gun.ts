@@ -18,8 +18,11 @@ export const DRAW_MS = 350
 export const aimed = (drawnAt: number | null, now: number) => drawnAt !== null && now >= drawnAt + DRAW_MS
 // 공이치기를 당길 때 튀는 크기(쏠 때 반동을 1로). ponytail: 임시 값. 화면을 보며 맞춤
 const COCK_KICK = 0.25
-// ms. 카운트다운부터 장전 클립을 시작하기까지. 그 사이에 총을 들어 올림. ponytail: 임시 값. 플레이해 보며 정함
-export const RELOAD_AT = 300
+// ms. 카운트다운부터 총을 꺼내기 시작하기까지 정면을 보고 선 채로 있음. 시작하자마자 고개를 숙이고 장전하면 화면이 위에서
+// 떨어지는 듯해 둠 (사용자 결정 2026-11-12, SHEEP-206). ponytail: 임시 값. 플레이해 보며 정함
+export const STAND_MS = 1000
+// ms. 카운트다운부터 장전 클립을 시작하기까지. 선 채로 있은 뒤 0.3초 동안 총을 들어 올림. ponytail: 임시 값. 플레이해 보며 정함
+export const RELOAD_AT = STAND_MS + 300
 // 초. Reload 클립에서 총알이 칸에 다 들어간 때와 실린더가 다 닫힌 때. 장전 소리와 실린더 닫는 소리의 딸깍을 여기에 맞춤
 export const RELOAD_SEATED = 0.833
 export const RELOAD_SHUT = 1.042
@@ -30,7 +33,7 @@ const COCK_LENGTH = 0.125
 export const RELOAD_MS = 2500
 // ms. 장전을 마치고 총을 내려 권총집에 넣기까지. ponytail: 임시 값. 플레이해 보며 정함
 export const HOLSTER_MS = 500
-// ms. 카운트다운부터 장전하고 권총집에 다 넣기까지. 카운트다운(4초) 안에 끝나야 함
+// ms. 카운트다운부터 장전하고 권총집에 다 넣기까지. 카운트다운(4.5초) 안에 끝나야 함
 export const RELOAD_END = RELOAD_AT + RELOAD_MS + HOLSTER_MS
 // 라디안. 장전하는 동안 총을 보려고 고개를 숙이는 각도와, 카운트다운부터 다 숙이기까지(ms). 다 넣으면 권총집에 넣는 동안(HOLSTER_MS) 다시 듦.
 // 서두르지 않게 장전 클립 시작(RELOAD_AT)보다 늦게 다 숙임 (사용자 결정 2026-11-11, SHEEP-177). ponytail: 임시 값. 화면을 보며 맞춤
@@ -41,14 +44,14 @@ const NOD_IN_MS = 900
 export const VIEW_NOD = 0.12
 
 // 카운트다운부터 since(ms) 지난 때 고개를 숙인 각도(라디안, 아래가 +). depth는 다 숙인 각도로 남이 보는 머리는 NOD,
-// 1인칭 시선은 VIEW_NOD. 서버는 카운트다운 동안 시선을 정면으로 두므로 그림에서만 숙임
+// 1인칭 시선은 VIEW_NOD. 서버는 카운트다운 동안 시선을 정면으로 두므로 그림에서만 숙임. 선 채로 있는 동안(STAND_MS)은 정면
 export function reloadNod(since: number, depth = NOD): number {
-  if (since <= 0 || since >= RELOAD_END) return 0
+  if (since <= STAND_MS || since >= RELOAD_END) return 0
   const smooth = (k: number) => {
     const u = Math.min(1, Math.max(0, k))
     return u * u * (3 - 2 * u)
   }
-  return depth * smooth(since / NOD_IN_MS) * (1 - smooth((since - RELOAD_AT - RELOAD_MS) / HOLSTER_MS))
+  return depth * smooth((since - STAND_MS) / NOD_IN_MS) * (1 - smooth((since - RELOAD_AT - RELOAD_MS) / HOLSTER_MS))
 }
 
 // 카운트다운부터 since(ms) 지난 때의 Reload 클립 시각(초). 장전 중이 아니면 null
@@ -128,13 +131,14 @@ export function lift(s: Schedule, now: number, reloading: boolean, drawnAt: numb
     if (since < DRAW_MS) return { lower: Math.max(0, 1 - since / DRAW_MS) ** 3, kick: 0 }
     return { lower: 0, kick: COCK_KICK * Math.max(0, 1 - (since - DRAW_MS) / RECOIL_MS) }
   }
-  if (s.countdown === undefined || now < s.countdown) return { lower: held ? 0 : 1, kick: 0 }
+  // 카운트다운 처음 STAND_MS 동안은 선 채로 있어 재대결 결과 그대로 둠 (SHEEP-206)
+  if (s.countdown === undefined || now < s.countdown + STAND_MS) return { lower: held ? 0 : 1, kick: 0 }
   if (!reloading) return { lower: 1, kick: 0 }
   const since = now - s.countdown
   const after = since - RELOAD_AT - RELOAD_MS
   // 든 채면 lower 0(겨누던 자리)에서 시작하는 몫
   const from = held ? RELOAD_LIFT / (1 + RELOAD_LIFT) : 1
-  const down = after < 0 ? raised(since) * from : Math.min(1, after / HOLSTER_MS) ** 3
+  const down = after < 0 ? raised(since - STAND_MS) * from : Math.min(1, after / HOLSTER_MS) ** 3
   return { lower: down * (1 + RELOAD_LIFT) - RELOAD_LIFT, kick: 0 }
 }
 

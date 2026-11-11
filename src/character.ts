@@ -10,7 +10,7 @@ import silas from './assets/characters/silas.json'
 import motionData from './assets/motions.json'
 import revolverData from './assets/revolver-rig.json'
 import { isPool } from './blood.ts'
-import { DRAW_MS, HOLSTER_MS, RELOAD_AT, RELOAD_END, RELOAD_MS, reloadNod, reloadTime, revolverMesh } from './gun.ts'
+import { DRAW_MS, HOLSTER_MS, RELOAD_AT, RELOAD_END, RELOAD_MS, reloadNod, reloadTime, revolverMesh, STAND_MS } from './gun.ts'
 import { HEAD } from './hitcard.ts'
 import { horizonY, pack, tint, type Camera } from './render.ts'
 import { slerp, type Mesh, type Rig } from './rig.ts'
@@ -399,9 +399,10 @@ function build(data: CharacterData, key: string | undefined, hand: Hand): Body {
   const loadingOtherArm: readonly [V, V] = [unit([0.1 * side, -1, 0.5]), unit([0.55 * side, 0.2, 1])]
   const loadingBarrel = unit([-0.3 * side, -0.4, 1])
   const loading = (ms: number): Pose => {
-    if (ms < 0 || ms >= RELOAD_END) return holstered(moves(rest))
+    // 처음 STAND_MS 동안은 선 채로 있음 (SHEEP-206)
+    if (ms < STAND_MS || ms >= RELOAD_END) return holstered(moves(rest))
     const end = RELOAD_AT + RELOAD_MS
-    const k = ms < RELOAD_AT ? ms / RELOAD_AT : ms < end ? 1 : 1 - (ms - end) / HOLSTER_MS
+    const k = ms < RELOAD_AT ? (ms - STAND_MS) / (RELOAD_AT - STAND_MS) : ms < end ? 1 : 1 - (ms - end) / HOLSTER_MS
     const u = k * k * (3 - 2 * k)
     const toward = (from: V, to: V) => unit(add(from, sub(to, from), u))
     // 1인칭 시선처럼 총을 보려고 고개를 숙였다가 권총집에 넣는 동안 듦 (SHEEP-177)
