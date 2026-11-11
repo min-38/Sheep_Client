@@ -28,28 +28,44 @@ export type Dot = Point & { alpha: number }
 // 광선 위 수평 거리 d의 점
 export const along = (r: Ray, d: number): Point => ({ x: r.x + Math.cos(r.angle) * d, y: r.y + Math.sin(r.angle) * d, z: r.z + Math.tan(r.pitch) * d })
 
-// 총알이 가는 수평 거리(칸). 벽까지의 거리 wall, 바닥, 서 있는 사람 people의 몸·머리 원기둥 중 가장 먼저 닿는 곳.
-// 서버 판정(HitScan)과 같은 모양이지만 보이기만 하므로, 맞았는지는 서버가 알려 준 대로 따로 보임.
+// 광선이 처음 닿는 사람. index는 people 안의 번호, distance는 수평 거리(칸), height는 맞은 높이, x·y는 맞은 자리,
+// offset은 맞은 자리가 그 사람 중심에서 쏜 사람 기준 오른쪽으로 떨어진 거리(칸, 사격 결과 카드의 구멍 자리)
+export type ScanHit = { index: number; zone: 'head' | 'body'; distance: number; height: number; offset: number; x: number; y: number }
+
+// 벽까지의 거리 wall보다 먼저 닿는 사람의 몸·머리 원기둥 중 가장 가까운 것. 없으면 null.
+// 서버 HitScan.FirstHit과 같은 식이라 두 곳을 함께 고침. 판에서는 총알 그림에만 쓰고, 연습(SHEEP-195)은 이것으로 판정함 (기술 설계서 서버/클라 역할 분리).
 // ponytail: 원기둥 옆면으로만 들어가는 것을 봄. 위에서 떨어져 머리 윗면으로 들어가는 총알은 지나감. 위아래 조준이 ±0.5라 거의 없음
-export function bulletRange(r: Ray, wall: number, people: readonly { x: number; y: number }[]): number {
+export function firstHit(r: Ray, wall: number, people: readonly { x: number; y: number }[]): ScanHit | null {
   const dx = Math.cos(r.angle)
   const dy = Math.sin(r.angle)
   const slope = Math.tan(r.pitch)
-  let range = Math.min(wall, MAX_RANGE)
-  if (slope < 0) range = Math.min(range, r.z / -slope)
-  for (const p of people) {
-    const vx = p.x - r.x
-    const vy = p.y - r.y
+  let hit: ScanHit | null = null
+  let nearest = wall
+  for (let index = 0; index < people.length; index++) {
+    const vx = people[index].x - r.x
+    const vy = people[index].y - r.y
     const along = vx * dx + vy * dy
     const off2 = vx * vx + vy * vy - along * along
-    for (const [radius, bottom, top] of [[BODY.radius, 0, BODY.top], [HEAD.radius, BODY.top, HEAD.top]]) {
-      if (off2 > radius * radius) continue
-      const d = along - Math.sqrt(radius * radius - off2)
-      const z = r.z + slope * d
-      if (d > 0 && z >= bottom && z <= top) range = Math.min(range, d)
+    for (const [zone, radius, bottom, top] of [['body', BODY.radius, 0, BODY.top], ['head', HEAD.radius, BODY.top, HEAD.top]] as const) {
+      if (along <= 0 || off2 > radius * radius) continue
+      const distance = along - Math.sqrt(radius * radius - off2)
+      const height = r.z + slope * distance
+      if (height < bottom || height > top || distance >= nearest) continue
+      // (−dy, dx)가 쏜 사람의 오른쪽. 맞은 자리는 광선 위라 중심의 반대쪽으로 떨어져 있음
+      hit = { index, zone, distance, height, offset: -(vx * -dy + vy * dx), x: r.x + dx * distance, y: r.y + dy * distance }
+      nearest = distance
     }
   }
-  return range
+  return hit
+}
+
+// 총알이 가는 수평 거리(칸). 벽까지의 거리 wall, 바닥, 서 있는 사람 people의 몸·머리 원기둥 중 가장 먼저 닿는 곳.
+// 판에서는 보이기만 하므로, 맞았는지는 서버가 알려 준 대로 따로 보임
+export function bulletRange(r: Ray, wall: number, people: readonly { x: number; y: number }[]): number {
+  const slope = Math.tan(r.pitch)
+  let range = Math.min(wall, MAX_RANGE)
+  if (slope < 0) range = Math.min(range, r.z / -slope)
+  return firstHit(r, range, people)?.distance ?? range
 }
 
 // 쏜 뒤 elapsed(ms)에 from(총구)에서 to(닿는 곳)로 날아가는 점들. [0]이 머리이고 뒤로 잔상. to를 지난 점은 빼고, 다 지나가면 빈 배열

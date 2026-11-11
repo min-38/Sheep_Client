@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { along, BULLET_SPEED, bulletDots, bulletRange, type Point, type Ray } from './bullet.ts'
+import { along, BULLET_SPEED, bulletDots, bulletRange, EYE_HEIGHT, firstHit, type Point, type Ray } from './bullet.ts'
 import { BODY, HEAD } from './hitcard.ts'
 
 // 원점에서 +x로 수평하게 쏨. 총구 높이는 0.7칸
@@ -26,6 +26,30 @@ describe('bulletRange', () => {
 
   test('아래로 쏘면 바닥에 닿는 데서 멈춤', () => {
     expect(bulletRange({ ...flat, pitch: -Math.atan(0.7 / 7) }, 20, [])).toBeCloseTo(7, 9)
+  })
+})
+
+describe('firstHit', () => {
+  // 눈높이에서 +x로 수평하게 쏨. 서버 HitScan과 같은 판정
+  const eye: Ray = { ...flat, z: EYE_HEIGHT }
+
+  test('눈높이로 수평하게 쏘면 머리. 맞은 높이와 자리는 원기둥 겉', () => {
+    expect(firstHit(eye, 20, [{ x: 5, y: 0 }])).toEqual({ index: 0, zone: 'head', distance: expect.closeTo(5 - HEAD.radius, 9), height: expect.closeTo(EYE_HEIGHT, 9), offset: expect.closeTo(0, 9), x: expect.closeTo(5 - HEAD.radius, 9), y: expect.closeTo(0, 9) })
+  })
+
+  test('몸 높이로 쏘면 몸', () => {
+    expect(firstHit({ ...eye, z: 0.5 }, 20, [{ x: 5, y: 0 }])?.zone).toBe('body')
+  })
+
+  test('offset은 맞은 자리가 그 사람 중심에서 쏜 사람 기준 오른쪽으로 떨어진 거리. +x를 볼 때 오른쪽은 +y', () => {
+    // 사람이 오른쪽(+y)으로 0.1 비켜서 있으면 광선은 그 중심의 왼쪽을 지남
+    expect(firstHit({ ...eye, z: 0.5 }, 20, [{ x: 5, y: 0.1 }])?.offset).toBeCloseTo(-0.1, 9)
+  })
+
+  test('가장 가까운 사람이 맞음. 벽보다 먼 사람과 비켜선 사람은 안 맞음', () => {
+    expect(firstHit(eye, 20, [{ x: 8, y: 0 }, { x: 4, y: 0 }])?.index).toBe(1)
+    expect(firstHit(eye, 3, [{ x: 5, y: 0 }])).toBeNull()
+    expect(firstHit(eye, 20, [{ x: 5, y: BODY.radius + 0.01 }, { x: -3, y: 0 }])).toBeNull()
   })
 })
 
