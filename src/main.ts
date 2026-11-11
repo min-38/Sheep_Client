@@ -6,7 +6,7 @@ import { best, measure, toLocalTime, toServerTime, type ClockSample } from './cl
 import { CYLINDER_TURN, cylinderSvg } from './cylinder.ts'
 import { makeProps, SKIES, timeOfDay } from './desert.ts'
 import { enhanceSelect } from './dropdown.ts'
-import { aimed, DRAW_MS, drawGun, gunClips, lift, RECOIL_MS, RELOAD_END, RELOAD_SEATED, RELOAD_SHUT, reloadNod, reloadSoundAt, revolverMesh } from './gun.ts'
+import { aimed, DRAW_MS, drawGun, gunClips, lift, RECOIL_MS, RELOAD_END, RELOAD_SEATED, RELOAD_SHUT, reloadNod, reloadSoundAt, revolverMesh, templeAim } from './gun.ts'
 import { dotPosition, noBlood, onGameEnd, onRevived, onWalk, onWounded, resultLabel } from './hitcard.ts'
 import { record, sampleAt, type Sample } from './interpolate.ts'
 import { drawMessage, fireMessage, parseServerMessage, type ClientMessage, type HitPoint, type PlayerState, type RoundResult, type ShotResult } from './net.ts'
@@ -329,6 +329,20 @@ function playFallOf(id: string, reason: 'shot' | 'timeout') {
   fallSounds.set(id, { node: playFall(audio, when, heardFrom(view.x, view.y, view.angle, body.x, body.y)), when })
 }
 
+// 시간 초과로 자살하는 총소리 (SHEEP-190). 자살 모습을 보이고(INTERP_DELAY 뒤) 총을 옆머리에 다 댄 때(SUICIDE_AIM)에 냄.
+// 보통 총소리와 같은 소리이고, 나는 가운데서, 다른 사람은 그 사람 쪽에서 들림
+const suicideShots = new Map<string, { node: AudioScheduledSourceNode; when: number }>()
+function playSuicideShotOf(id: string) {
+  const samples = history.get(id)
+  if (!audio || !placed || !samples) return
+  const now = performance.now()
+  const when = toAudioTime(now + INTERP_DELAY + SUICIDE_AIM, stampOf(audio))
+  const view = eyes(now)
+  const body = sampleAt(samples, now - INTERP_DELAY)
+  const node = play(audio, 'shot', when, id === myId ? undefined : heardFrom(view.x, view.y, view.angle, body.x, body.y))
+  if (node) suicideShots.set(id, { node, when })
+}
+
 // 사람마다 예약한 쓰러지는 소리와 나는 시각(AudioContext 초). 판 끝에 마지막 쓰러짐을 느리게 보이면, 아직 나지 않은 그 소리를
 // 느린 몸이 바닥에 닿는 때로 옮김. 위에서 보는 장면이라 방향 없이 가운데서 냄 (SHEEP-169)
 const fallSounds = new Map<string, { node: AudioScheduledSourceNode; when: number }>()
@@ -336,8 +350,17 @@ const fallSounds = new Map<string, { node: AudioScheduledSourceNode; when: numbe
 const lastDown = () => [...downs].reduce<[string, Down] | null>((l, d) => (l === null || d[1].at > l[1].at ? d : l), null)
 function slowLastFallSound() {
   const last = lastDown()
-  const sound = last && fallSounds.get(last[0])
-  if (!audio || !last || !sound || audio.currentTime >= sound.when) return
+  if (!audio || !last) return
+  // 시간 초과면 자살 총소리도 느린 몸이 옆머리를 쏘는 때로 옮김 (SHEEP-190)
+  const shot = suicideShots.get(last[0])
+  if (last[1].reason === 'timeout' && shot && audio.currentTime < shot.when) {
+    shot.node.stop()
+    const when = toAudioTime(last[1].at + INTERP_DELAY + SUICIDE_AIM / fallSlow('timeout'), stampOf(audio))
+    const node = play(audio, 'shot', when)
+    if (node) suicideShots.set(last[0], { node, when })
+  }
+  const sound = fallSounds.get(last[0])
+  if (!sound || audio.currentTime >= sound.when) return
   sound.node.stop()
   const when = toAudioTime(last[1].at + INTERP_DELAY + fallDelay(last[1].reason) / fallSlow(last[1].reason), stampOf(audio))
   fallSounds.set(last[0], { node: playFall(audio, when), when })
@@ -865,6 +888,13 @@ function frame(now: number) {
     renderFrame(pixels, W, H, grid, { ...makeCamera(fall.x, fall.y, fall.angle, FOV, fall.pitch), z: fall.z }, things, SKIES[timeOfDay(standing ?? history.size)])
     putRolled(fall.roll)
     // 옆머리를 쏜 순간 화면이 하얗게 번쩍임
+    // 시간 초과면 넘어지기 전에 1인칭 총을 옆으로 돌려 내 옆머리에 가져감. 쏘는 순간 반동 (SHEEP-190)
+    if (mine.reason === 'timeout' && sceneT < SUICIDE_AIM + SUICIDE_FLASH) {
+      const side = (characters.get(myId!)?.hand ?? settings.hand) === 'left' ? -1 : 1
+      const temple = templeAim(sceneT, SUICIDE_AIM, drawnAt !== null)
+      const pose = { yaw: temple.yaw * side, pitch: temple.pitch, kick: suicideStage(sceneT) === 1 ? 1 : 0, lower: temple.lower, shift: temple.shift }
+      drawGun(ctx, revolverMesh(revolver, [], gun.rounds), pose, W, H, GUN_PROJ, side)
+    }
     if (mine.reason === 'timeout' && suicideStage(sceneT) === 1) {
       ctx.fillStyle = '#fffc'
       ctx.fillRect(0, 0, W, H)
@@ -1708,6 +1738,7 @@ function receive(data: string) {
       downs.set(m.playerId, { at: performance.now(), reason: m.reason, by: m.shooterId, zone: m.hit?.zone ?? null })
       if (m.hit) addHit(m.playerId, m.hit)
       playFallOf(m.playerId, m.reason)
+      if (m.reason === 'timeout') playSuicideShotOf(m.playerId)
       if (m.playerId !== myId) break
       // 맞아 쓰러졌으면 바로 뒤에 downedBy가 와 카드를 다시 채움
       downedBy = null

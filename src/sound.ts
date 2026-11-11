@@ -82,12 +82,14 @@ export function loadEffects(audio: AudioContext) {
 // 효과음의 딸깍(CLICK)이 when(AudioContext 시각, 초)에 들리게 냄. from이 있으면 그 자리에서 들리고(HRTF), 없으면 내 소리라 가운데서 들림.
 // 듣는 사람(AudioListener)은 기본값 그대로 원점에서 -z를 보므로 오른쪽이 +x, 앞이 -z임.
 // 4칸(걷기를 마친 자리의 반지름) 안에서는 같은 크기, 더 멀면 거리에 반비례해 줄어듦. gain은 효과음 크기에 더 곱하는 몫. 아직 풀지 못한 소리는 건너뜀
-export function play(audio: AudioContext, name: Effect, when: number, from?: { right: number; front: number }, gain = 1) {
+// 낸 소리를 돌려줘, 아직 나지 않았으면 멈추고 다른 때로 다시 낼 수 있음
+export function play(audio: AudioContext, name: Effect, when: number, from?: { right: number; front: number }, gain = 1): AudioScheduledSourceNode | undefined {
   const buffer = buffers[name]
   if (!buffer) return
   const source = new AudioBufferSourceNode(audio, { buffer })
   place(audio, source.connect(new GainNode(audio, { gain: VOLUME[name] * gain })), from)
   source.start(when - CLICK[name])
+  return source
 }
 
 // 발소리 한 걸음을 when(AudioContext 시각, 초)에 냄. 방향과 거리는 총소리와 같음.
