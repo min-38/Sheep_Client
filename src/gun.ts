@@ -35,17 +35,20 @@ export const RELOAD_END = RELOAD_AT + RELOAD_MS + HOLSTER_MS
 // 라디안. 장전하는 동안 총을 보려고 고개를 숙이는 각도와, 카운트다운부터 다 숙이기까지(ms). 다 넣으면 권총집에 넣는 동안(HOLSTER_MS) 다시 듦.
 // 서두르지 않게 장전 클립 시작(RELOAD_AT)보다 늦게 다 숙임 (사용자 결정 2026-11-11, SHEEP-177). ponytail: 임시 값. 화면을 보며 맞춤
 const NOD = 0.32
-const NOD_IN_MS = 600
+const NOD_IN_MS = 900
+// 라디안. 1인칭 시선은 약 7°만 숙임. 화면은 위아래 시선을 그림을 밀어 보여 줘(y-shearing) 18°면 화면이 30% 밀려 떨어지듯 보임.
+// 총은 장전할 때 높이 들어 화면에 보여, 실제 총잡이처럼 눈을 조금만 내리면 됨 (사용자 결정 2026-11-11, SHEEP-191 (가))
+export const VIEW_NOD = 0.12
 
-// 카운트다운부터 since(ms) 지난 때 고개를 숙인 각도(라디안, 아래가 +). 1인칭 시선과 남이 보는 머리가 같이 씀.
-// 서버는 카운트다운 동안 시선을 정면으로 두므로 그림에서만 숙임
-export function reloadNod(since: number): number {
+// 카운트다운부터 since(ms) 지난 때 고개를 숙인 각도(라디안, 아래가 +). depth는 다 숙인 각도로 남이 보는 머리는 NOD,
+// 1인칭 시선은 VIEW_NOD. 서버는 카운트다운 동안 시선을 정면으로 두므로 그림에서만 숙임
+export function reloadNod(since: number, depth = NOD): number {
   if (since <= 0 || since >= RELOAD_END) return 0
   const smooth = (k: number) => {
     const u = Math.min(1, Math.max(0, k))
     return u * u * (3 - 2 * u)
   }
-  return NOD * smooth(since / NOD_IN_MS) * (1 - smooth((since - RELOAD_AT - RELOAD_MS) / HOLSTER_MS))
+  return depth * smooth(since / NOD_IN_MS) * (1 - smooth((since - RELOAD_AT - RELOAD_MS) / HOLSTER_MS))
 }
 
 // 카운트다운부터 since(ms) 지난 때의 Reload 클립 시각(초). 장전 중이 아니면 null

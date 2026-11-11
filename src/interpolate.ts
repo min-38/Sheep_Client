@@ -20,6 +20,17 @@ export function record(history: Map<string, Sample[]>, players: readonly PlayerS
   }
 }
 
+// 칸. 마지막 상태가 그리는 자리에서 이보다 멀면 서버가 다시 세운 것으로 봄. 걸음(0.7초에 0.3칸)으로는 보간 지연 동안 0.05칸쯤만 감
+const TELEPORT = 0.5
+
+// 내 눈의 자리 (SHEEP-191). 다른 사람처럼 보간 지연 전(t)을 그리되, 카운트다운에 서버가 시작 자리로 다시 세워 마지막 상태가 멀리 있으면
+// 바로 마지막 상태로 봄. 안 그러면 그동안 쓰러졌던 먼 자리가 보였다가 시작 자리로 미끄러져 옴
+export function viewSample(samples: readonly Sample[], t: number): Sample {
+  const s = sampleAt(samples, t)
+  const last = samples[samples.length - 1]
+  return Math.hypot(last.x - s.x, last.y - s.y) > TELEPORT ? last : s
+}
+
 // t 시각의 위치와 각도를 앞뒤 두 상태 사이에서 구함. 동작은 섞을 수 없어 t까지 마지막으로 받은 상태의 것. t가 쌓인 범위 밖이면 가까운 끝 상태 그대로 (앞질러 짐작하지 않음)
 export function sampleAt(samples: readonly Sample[], t: number): Sample {
   const i = samples.findIndex((s) => s.at > t)

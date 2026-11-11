@@ -18,6 +18,7 @@ import {
   RELOAD_SHUT,
   reloadNod,
   reloadSoundAt,
+  VIEW_NOD,
   revolverMesh,
   shade,
   templeAim,
@@ -276,6 +277,17 @@ describe('reloadNod (SHEEP-177)', () => {
     const holstering = reloadNod(RELOAD_AT + RELOAD_MS + 250)
     expect(holstering).toBeGreaterThan(0)
     expect(holstering).toBeLessThan(loading)
+  })
+
+  test('1인칭 시선은 화면이 떨어지듯 밀리지 않게 약 7°만, 0.9초에 걸쳐 숙임 (SHEEP-191)', () => {
+    const full = reloadNod(RELOAD_AT + RELOAD_MS / 2, VIEW_NOD)
+    expect(full).toBeCloseTo(VIEW_NOD)
+    expect(VIEW_NOD).toBeLessThanOrEqual(0.13)
+    // 시야 90°(투영 거리 240px)에서 화면을 밀어 올리는 양이 화면 높이(270px)의 12% 아래
+    expect(240 * Math.tan(VIEW_NOD)).toBeLessThan(270 * 0.12)
+    // 0.6초에는 아직 다 숙이지 않음
+    expect(reloadNod(600, VIEW_NOD)).toBeLessThan(VIEW_NOD * 0.9)
+    expect(reloadNod(900, VIEW_NOD)).toBeCloseTo(VIEW_NOD)
   })
 })
 
