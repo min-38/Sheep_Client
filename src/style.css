@@ -129,16 +129,15 @@ body {
   pointer-events: none;
 }
 
-/* 쓰러지는 장면 (시스템 기획서 HUD 쓰러짐, SHEEP-119). 바닥에 닿을 때까지 바랜 색으로 옛 영화처럼 보임. 위아래 검은 띠는 main.ts가 캔버스에 그림 */
 /* 내 모자 챙 (SHEEP-159). 머리에 붙어 위아래로 봐도 화면 맨 위 같은 자리에 있음. 눈 바로 위라 초점이 맞지 않아 흐리고,
    그늘진 밑면이 보여 모자 색보다 어둡고 끝만 모래에 비친 빛으로 밝음. 챙 양옆이 올라가 가운데가 가장 내려옴.
-   --brim은 챙이 얼굴보다 앞으로 나온 길이(블록)이고 길수록 크게 보임 */
+   --brim은 챙이 얼굴보다 앞으로 나온 길이(블록)이고 길수록 크게 보임. 시야를 90°로 넓혀 66° 때(4.8cqw)의 tan(33°)/tan(45°)배로 줄임 (SHEEP-163) */
 #brim {
   position: absolute;
   left: -10%;
   right: -10%;
   top: 0;
-  height: calc(var(--brim, 1) * 4.8cqw);
+  height: calc(var(--brim, 1) * 3.1cqw);
   background: radial-gradient(50% 50% at 50% 0%, color-mix(in srgb, var(--hat, #5a3a22) 40%, #120a05) 0 90%, color-mix(in srgb, var(--hat, #5a3a22) 65%, #d9a46a) 96%, #0000 100%);
   filter: blur(0.3cqw);
   pointer-events: none;
