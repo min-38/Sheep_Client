@@ -933,8 +933,10 @@ function frame(now: number) {
   bloodView.hidden = r !== null || !(watch ? watch.wounded : blood.shown)
   // 다시 보기 버튼은 잠시 숨김 (사용자 결정 2026-11-10, SHEEP-143). 다시 보기 코드는 그대로 두어, 다시 켤 때는 `replay === null`일 때만 숨기게 되돌림
   replayButton.hidden = true
-  // "쓰러짐"이 뜰 때부터 판 도중에만 보임. 재대결로 다시 서거나 판이 끝나 술집으로 돌아가면 숨음
-  leaveDown.hidden = !(myId !== null && saloon.hidden && lobby.hidden && isDown(myId, now - INTERP_DELAY))
+  // "쓰러짐"이 뜰 때부터 판 도중에만 보임. 재대결로 다시 서거나 판이 끝나 술집으로 돌아가면 숨음.
+  // 재대결 결과에 내가 끼면(모두 시간 초과 등으로 함께 쓰러짐) 곧 다시 서므로 결과를 보인 때부터 숨김 (SHEEP-188)
+  const revived = result !== null && result.outcome === 'rematch' && myId !== null && result.playerIds.includes(myId) && now - INTERP_DELAY >= result.at
+  leaveDown.hidden = revived || !(myId !== null && saloon.hidden && lobby.hidden && isDown(myId, now - INTERP_DELAY))
   // 내부 px를 cqw로 바꿈. 화면 폭 100cqw가 내부 폭 W px임
   const aim = crosshairOffset(s, view?.pitch ?? pitch, PROJ)
   crosshair.style.transform = `translate(${(aim.x * 100) / W}cqw, ${(aim.y * 100) / W}cqw)`
