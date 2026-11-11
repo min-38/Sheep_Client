@@ -366,26 +366,28 @@ function slowLastFallSound() {
   fallSounds.set(last[0], { node: playFall(audio, when), when })
 }
 
-// 판 끝에 이긴 나의 1인칭 결정타 박자를 정함 (SHEEP-187). at은 결과를 받은 때(ms, 내 시계). 마지막 쓰러짐을 보이는 때(INTERP_DELAY 뒤)
-// 내 한 발로 쓰러졌으면 화면을 잠깐 멈추고 확인음을 내고, 그 몸에 줌해 느리게 봄(SHEEP-194). 쓰러진 몸이 바닥에 닿고 뜸을 들인 뒤 총을 돌림
-function winnerBeat(at: number) {
+// 판 끝에 이긴 사람(winner)의 1인칭 결정타 박자를 정함 (SHEEP-187). 이긴 나와, 이긴 사람을 관전하는 사람이 봄 (SHEEP-194).
+// at은 결과를 받은 때(ms, 내 시계). 마지막 쓰러짐을 보이는 때(INTERP_DELAY 뒤) 이긴 사람의 한 발로 쓰러졌으면 화면을 잠깐 멈추고
+// 확인음을 내고, 그 몸에 줌해 느리게 봄(SHEEP-194). 쓰러진 몸이 바닥에 닿고 뜸을 들인 뒤 총을 돌림. 결정타 줌을 하면 true
+function winnerBeat(at: number, winner: string): boolean {
   const last = lastDown()
   const shown = (last ? last[1].at : at) + INTERP_DELAY
   spinFrom = shown + spinDelay(last ? fallDelay(last[1].reason) : 0)
-  if (!last || last[1].by !== myId || last[1].reason !== 'shot') return
+  if (!last || last[1].by !== winner || last[1].reason !== 'shot') return false
   hitStopAt = shown
   spinFrom = shown + finishSpin(fallDelay('shot'))
-  if (!audio) return
+  if (!audio) return true
   playDing(audio, toAudioTime(shown, stampOf(audio)))
   // 쓰러지는 소리는 느리게 쓰러진 몸이 바닥에 닿는 때로 옮김
   const sound = fallSounds.get(last[0])
   const samples = history.get(last[0])
-  if (!sound || !samples || audio.currentTime >= sound.when) return
+  if (!sound || !samples || audio.currentTime >= sound.when) return true
   sound.node.stop()
   const view = eyes(performance.now())
   const body = sampleAt(samples, shown - INTERP_DELAY)
   const when = toAudioTime(shown + finishLanded(fallDelay('shot')), stampOf(audio))
   fallSounds.set(last[0], { node: playFall(audio, when, heardFrom(view.x, view.y, view.angle, body.x, body.y)), when })
+  return true
 }
 
 // 지금 판 장면에서 마지막 쓰러짐 시각만 옮긴 것. motion은 쓰러짐을 보인 지 seen(ms) 지난 때 보일 동작 시간.
@@ -782,6 +784,8 @@ function frame(now: number) {
   // 판 끝의 이긴 사람과 내가 이겼는지. 이긴 나는 마지막 쓰러짐을 1인칭으로 봄
   const winnerId = ending && result ? result.playerIds[0] : null
   const iWon = winnerId !== null && winnerId === myId
+  // 이긴 사람의 눈으로 판 끝을 보는지. 이긴 나와, 이긴 사람을 관전하다 그 사람의 결정타 줌을 같이 보는 사람 (SHEEP-194)
+  const asWinner = iWon || (!r && winnerId !== null && watch?.id === winnerId && hitStopAt !== null)
   // 마지막으로 쓰러진 사람. 진 사람은 판 끝 처음에 그 사람이 쓰러지는 모습을 위에서 느리게 봄
   const lastFall = ending?.stage === 'fall' ? lastDown() : null
   // 판 끝 걷는 동안 이긴 사람 머리 위 점(px). 닉네임을 거기 띄움
@@ -851,7 +855,7 @@ function frame(now: number) {
       if (bartenderLine.textContent !== text) bartenderLine.textContent = text
       bartenderLine.style.left = `${(bubbleX(bartender.x) * 100) / W}%`
     }
-  } else if (grid && !iWon && lastFall && history.has(lastFall[0]) && characters.has(lastFall[0])) {
+  } else if (grid && !asWinner && lastFall && history.has(lastFall[0]) && characters.has(lastFall[0])) {
     // 마지막 쓰러짐을 진 사람 모두가 그 사람 앞 위에서 내려다보며 느리게 봄. 쓰러져 피가 번지는 데까지 보임. 쓰러진 그 사람도 1인칭 장면 대신 이것을 봄 (SHEEP-169).
     // 이긴 사람은 1인칭으로 봄 (SHEEP-187)
     // 늘 카메라를 보는 소품 그림은 위에서 보면 납작해 뺌
@@ -880,7 +884,7 @@ function frame(now: number) {
     const walker = withWounds({ ...spot, ...motion }, body, hits.get(winnerId), now - INTERP_DELAY)
     // 진 사람은 마지막 쓰러짐의 피 웅덩이를 위에서 빨리 감아 봤으니 그 크기에서 이어 번지게 함. 이긴 나는 1인칭으로 제 빠르기로 봤고 (SHEEP-187 리뷰),
     // 결정타 줌으로 느리게 봤으면 그만큼 늦게 번짐 (SHEEP-194)
-    const staged = iWon ? (hitStopAt !== null ? retimedScene(now - INTERP_DELAY, finishFall) : live()) : retimedScene(now - INTERP_DELAY, watchedFall)
+    const staged = asWinner ? (hitStopAt !== null ? retimedScene(now - INTERP_DELAY, finishFall) : live()) : retimedScene(now - INTERP_DELAY, watchedFall)
     pullFrom ??= seenView ?? walkoffView(at.x, at.y)
     const cam = strolling ? walkoffCamera(at.x, at.y, STAGED_FOV) : toCamera(pullView(pullFrom, walkoffView(at.x, at.y), ending.elapsed), STAGED_FOV)
     // 이긴 사람 눈에서 빠지기 시작할 때는 카메라가 머리 안에 있어 몸을 그리지 않음
@@ -917,7 +921,7 @@ function frame(now: number) {
     playSteps(now)
   } else if (grid && view) {
     // 판 끝에 내 한 발로 끝낸 나는 마지막 쓰러짐에 줌해 느리게 봄 (SHEEP-194). 줌 정도와 그 쓰러짐
-    const finish = iWon && !r && hitStopAt !== null ? lastDown() : null
+    const finish = asWinner && !r && hitStopAt !== null ? lastDown() : null
     const zoom = finish ? finishZoom(now - hitStopAt!, fallDelay(finish[1].reason)) : 0
     const played = finish ? retimedScene(now - INTERP_DELAY, finishFall) : scene
     // 내 자리도 다른 사람처럼 INTERP_DELAY 전을 그림. 받은 그대로 그리면 걷는 동안 20Hz로 끊겨 보임
@@ -942,7 +946,7 @@ function frame(now: number) {
     // 눈은 캐릭터 눈 자리 높이라 마주 선 사람과 눈높이가 같음 (SHEEP-158)
     const eye = { ...makeCamera(view.x, view.y, look.angle + bump.tilt * STEP_SWAY, zoomFov(FOV, zoom), look.pitch - bump.dip * STEP_DIP - nod), z: EYE_HEIGHT }
     // 판 끝에 이긴 나는 이 눈에서 카메라가 뒤로 빠짐 (SHEEP-187)
-    if (iWon) seenView = { x: view.x, y: view.y, angle: view.angle, pitch: view.pitch, z: EYE_HEIGHT }
+    if (asWinner) seenView = { x: view.x, y: view.y, angle: view.angle, pitch: view.pitch, z: EYE_HEIGHT }
     renderFrame(pixels, W, H, grid, eye, things, SKIES[timeOfDay(standing ?? history.size)])
     ctx.putImageData(image, 0, 0)
     playSteps(now)
@@ -957,7 +961,7 @@ function frame(now: number) {
     const plays = clock ? gunClips(scene.schedule, toServerTime(t, clock.offset), loading, toServerTime(fired, clock.offset), viewDrawn) : []
     const kick = Math.max(hold.kick, 1 - (t - fired) / RECOIL_MS)
     // 판 끝에 이긴 나는 결정타 뒤 총을 손가락에 걸어 돌린 뒤 권총집에 넣음 (SHEEP-187). 뽑지 않고 이겼으면(상대 시간 초과) 넣은 채 둠
-    const twirl = iWon && !r && spinFrom !== null && viewDrawn !== null ? spinGun(now - spinFrom) : null
+    const twirl = asWinner && !r && spinFrom !== null && viewDrawn !== null ? spinGun(now - spinFrom) : null
     // 결정타 줌 동안은 총을 화면 아래로 내림 (SHEEP-194)
     const muzzle = drawGun(ctx, revolverMesh(revolver, plays, rounds ?? 0), { ...s, pitch: s.pitch - (twirl?.spin ?? 0), kick, lower: Math.max(twirl ? twirl.lower : hold.lower, zoom) }, W, H, GUN_PROJ, hand === 'left' ? -1 : 1)
     flash.style.transform = `translate(${(muzzle.x * 100) / W}cqw, ${(muzzle.y * 100) / W}cqw)`
@@ -985,7 +989,7 @@ function frame(now: number) {
   const winnerName = winnerId === null ? '' : (roster.find((p) => p.id === winnerId)?.nickname ?? '')
   showBoard(ending?.stage === 'walk' && winnerName !== '' ? ending.elapsed : null, winnerName, walkerHead)
   // 마지막 쓰러짐 보기 동안은 뜸을 들인 뒤 진 사람 모두에게 그 사람을 쓰러뜨린 이를 띄움 (SHEEP-180). 내 쓰러짐 장면 카드는 판 끝이 되면 닫음
-  const fallCard = lastFall !== null && !iWon && result !== null && now - INTERP_DELAY - result.at >= FALL_CARD_AT
+  const fallCard = lastFall !== null && !asWinner && result !== null && now - INTERP_DELAY - result.at >= FALL_CARD_AT
   const fallKey = fallCard ? `${lastFall[0]}:${lastFall[1].at}` : null
   if (fallCard && fallKey !== fallCardFor) fallCardFilled = fillFallCard(lastFall[0], lastFall[1])
   fallCardFor = fallKey
@@ -1788,8 +1792,9 @@ function receive(data: string) {
       // 창이 숨어 그리기가 멈춘 동안에는 앞 결과가 끝나지 않은 채 다음 결과가 올 수 있어 먼저 끝냄
       if (result) endResult(result)
       result = { ...m, at: performance.now() }
-      if (m.outcome === 'win' && m.playerIds[0] === myId) winnerBeat(result.at)
-      else if (m.outcome === 'win') slowLastFallSound()
+      if (m.outcome === 'win' && m.playerIds[0] === myId) winnerBeat(result.at, myId)
+      // 이긴 사람을 관전하던 사람은 그 사람의 결정타 줌을 같이 봄 (SHEEP-194). 아니면 마지막 쓰러짐을 위에서 느리게 봄
+      else if (m.outcome === 'win' && !(watch?.id === m.playerIds[0] && winnerBeat(result.at, m.playerIds[0]))) slowLastFallSound()
       break
     case 'shotResult':
       showHitCard(m)
