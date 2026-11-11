@@ -170,19 +170,19 @@ export const en = {
   },
   // 설정 창
   // 첫 화면 메뉴의 도움말 창 (시스템 기획서 방 화면 도움말, SHEEP-196). 창 이름은 lobby.help, 닫기는 settings.close.
-  // pages는 장마다 한 줄이고 그림(src/assets/help/)과 같은 차례. 서부 사투리 말투, 규칙은 바로 읽히게 짧게 (CLAUDE.md Language)
+  // pages는 장마다 한 줄이고 그림(src/assets/help/)과 같은 차례. 서부 말투 없이 바로 알아듣게, 창에서 한 줄에 들어가게 씀 (사용자 결정 2026-11-11, CLAUDE.md Language)
   help: {
     prev: 'Back',
     next: 'Next',
     pages: [
-      'Make a room, or ride into one with its six-letter code.',
-      "Belly up to the bar and hit Ready. Once ever'body's ready, the duel's on.",
-      'One bullet goes in. Then back to back, ten slow paces.',
-      `Hear "Draw!", spin 'round and hit D to pull your iron.`,
-      "Hold your aim still a spell. Spin fast and it'll wobble.",
-      'A head shot drops a man. The body takes two.',
-      `Shoot within five seconds of "Draw!", or you're done for.`,
-      "Last one standin' wins. Two drop at once? They go again.",
+      'Create a room, or join one by code.',
+      'The duel starts when all are Ready.',
+      'One bullet. Back to back, ten paces.',
+      'At "Draw!", turn and press D.',
+      'Turning shakes your aim. Hold still.',
+      'Head: 1 shot. Body: 2 shots.',
+      'Fire within 5 seconds of "Draw!".',
+      'Last one standing wins. Ties go again.',
     ],
   },
   settings: {

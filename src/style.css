@@ -853,11 +853,11 @@ body {
   image-rendering: pixelated;
 }
 
-/* 한 줄 설명. 두 줄로 넘어가도 아래 버튼이 들썩이지 않게 두 줄 높이를 잡아 둠 */
+/* 한 줄 설명. 모든 언어에서 한 줄에 들어가게 씀 (사용자 결정 2026-11-11) */
 #help-line {
   display: grid;
   place-items: center;
-  min-height: 2.4em;
+  min-height: 1.4em;
   margin: 0;
   font-weight: bold;
   text-align: center;
