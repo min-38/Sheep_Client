@@ -1,7 +1,8 @@
 import { describe, expect, test } from 'vitest'
-import { BLEED, CARD_MS, endingAt, irisOpen, IRIS_MS, lastFallCamera, lastFallMotion, POSTER_MS, SLOW, walkerAt, walkoffCamera, WALKOFF_MS } from './ceremony.ts'
+import { BLEED, CARD_MS, endingAt, fallSlow, irisOpen, IRIS_MS, lastFallCamera, lastFallMotion, POSTER_MS, SLOW, walkerAt, walkoffCamera, WALKOFF_MS } from './ceremony.ts'
 import { FALL_LAND_MS } from './character.ts'
 import { POOL_MS } from './blood.ts'
+import { fallDelay } from './sound.ts'
 import { SUN_AZ } from './desert.ts'
 
 const end = 100000
@@ -30,15 +31,22 @@ describe('endingAt (SHEEP-169 시안 B)', () => {
 describe('lastFallMotion (사용자 요청 2026-11-11: 쓰러져 피 흘리는 데까지 느리게)', () => {
   test('바닥에 닿을 때까지는 SLOW배로 느리게, 닿은 뒤로는 피 웅덩이가 번지게 BLEED배로', () => {
     const land = FALL_LAND_MS / SLOW
-    expect(lastFallMotion(1000, FALL_LAND_MS)).toBeCloseTo(1000 * SLOW)
-    expect(lastFallMotion(land, FALL_LAND_MS)).toBeCloseTo(FALL_LAND_MS)
-    expect(lastFallMotion(land + 500, FALL_LAND_MS)).toBeCloseTo(FALL_LAND_MS + 500 * BLEED)
+    expect(lastFallMotion(1000, FALL_LAND_MS, SLOW)).toBeCloseTo(1000 * SLOW)
+    expect(lastFallMotion(land, FALL_LAND_MS, SLOW)).toBeCloseTo(FALL_LAND_MS)
+    expect(lastFallMotion(land + 500, FALL_LAND_MS, SLOW)).toBeCloseTo(FALL_LAND_MS + 500 * BLEED)
   })
 
   test('맞아 쓰러지면 위에서 보는 동안(결과가 정해지고 보이기까지 0.3초를 빼고) 바닥에 닿고 웅덩이가 다 자란 크기의 80%까지 번짐', () => {
     // 웅덩이 반지름은 1 - (1 - 지난 시간 / POOL_MS)² 몫 (blood.ts pool)
     const spread = POOL_MS * (1 - Math.sqrt(0.2))
-    expect(FALL_LAND_MS / SLOW + spread / BLEED).toBeLessThanOrEqual(WIN_RESULT_MS - POSTER_MS - WALKOFF_MS - CARD_MS - 300)
+    expect(fallDelay('shot') / fallSlow('shot') + spread / BLEED).toBeLessThanOrEqual(WIN_RESULT_MS - POSTER_MS - WALKOFF_MS - CARD_MS - 300)
+  })
+
+  test('시간 초과(자살)는 옆머리를 쏘는 동작부터라 길어, 더 빨리 틀어 위에서 보는 동안 바닥에 닿고 웅덩이가 80%까지 번짐 (SHEEP-172)', () => {
+    const spread = POOL_MS * (1 - Math.sqrt(0.2))
+    expect(fallDelay('timeout') / fallSlow('timeout') + spread / BLEED).toBeLessThanOrEqual(WIN_RESULT_MS - POSTER_MS - WALKOFF_MS - CARD_MS - 300)
+    // 맞아 쓰러진 것은 지금처럼 느리게
+    expect(fallSlow('shot')).toBe(SLOW)
   })
 })
 

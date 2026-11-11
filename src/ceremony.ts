@@ -16,13 +16,18 @@ export const CARD_MS = 3000
 // 마지막 쓰러짐을 늦추는 배율과 바닥에 닿은 뒤 피 웅덩이를 빨리 감는 배율
 export const SLOW = 0.4
 export const BLEED = 4
+// 시간 초과(자살)를 늦추는 배율. 옆머리를 쏘는 동작(0.7초)부터 틀어 SLOW로는 위에서 보는 동안 바닥에 닿지 못해 더 빨리 틂 (SHEEP-172)
+export const SUICIDE_SLOW = 0.8
+
+// 쓰러진 사유별로 마지막 쓰러짐을 늦추는 배율
+export const fallSlow = (reason: 'shot' | 'timeout') => (reason === 'timeout' ? SUICIDE_SLOW : SLOW)
 
 export type EndingStage = 'top' | 'poster' | 'walk' | 'card'
 
-// 마지막 쓰러짐을 보인 지 elapsed(ms) 지났을 때의 동작 시간(ms). land는 바닥에 닿는 동작 시간(시간 초과면 옆머리를 쏘는 동작까지)
-export function lastFallMotion(elapsed: number, land: number): number {
-  const slow = land / SLOW
-  return elapsed <= slow ? elapsed * SLOW : land + (elapsed - slow) * BLEED
+// 마지막 쓰러짐을 보인 지 elapsed(ms) 지났을 때의 동작 시간(ms). land는 바닥에 닿는 동작 시간(시간 초과면 옆머리를 쏘는 동작까지), slow는 닿을 때까지의 배율(fallSlow)
+export function lastFallMotion(elapsed: number, land: number, slow: number): number {
+  const landed = land / slow
+  return elapsed <= landed ? elapsed * slow : land + (elapsed - landed) * BLEED
 }
 
 // now(서버 시계)의 판 끝 단계와 그 단계가 시작하고 지난 시간(ms). 'top'은 결과를 받은 때부터라 시작이 사람마다 달라, 포스터까지 남은 시간을 음수로 줌
