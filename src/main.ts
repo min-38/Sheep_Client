@@ -23,7 +23,7 @@ import { banner, DUEL_LIMIT, dueling, formatTime, joins, locked, resultText, sta
 import { bartenderFigure, bountyText, bubbleX, COPIED_MS, copyKeys, drawSaloon, SALOON_CAMERA, seatSlots, seatSpot, seatTag, startBartender, startChatter, stepBartender, stepChatter, STOOL } from './saloon.ts'
 import { cut, replayWindow } from './replay.ts'
 import { endingAt, fallSlow, irisOpen, lastFallCamera, lastFallMotion, stampHitAt, walkerAt, walkoffCamera } from './ceremony.ts'
-import { fallEye, fallSide, LANDED_MS, SCENE_MS, suicideSide } from './downscene.ts'
+import { fallEye, fallSide, LANDED_MS, SCENE_MS, suicideSide, TEXT_PAUSE } from './downscene.ts'
 import { DOOR_PUSH_AT, drawEntrance, ENTER_FADE, ENTER_MS, entranceAt, entranceTrack, WHOOSH_AT, WHOOSH_MS } from './entrance.ts'
 // 지금 언어의 문구. 이 파일은 t를 시각 변수로 많이 써 문구는 copy로 부름
 import { copyOf, HTML_LANG, LANGUAGES, setLanguage, t as copy, textAt, type Language } from './i18n/index.ts'
@@ -653,8 +653,8 @@ function frame(now: number) {
   const inScene = mine !== undefined && sceneT >= 0 && sceneT < SCENE_MS
   // 장면이 끝나도 관전할 서 있는 사람이 없으면(함께 쓰러져 재대결 등) 다시 서지 않고 누운 눈 그대로 둠. 재대결로 다시 서면 끝남 (사용자 결정 2026-11-11, SHEEP-175)
   const lying = mine !== undefined && sceneT >= 0
-  // 재대결 글자는 장면이 끝나기를 기다리지 않고 바닥에 닿으면 누운 화면 위에 띄움 (사용자 결정 2026-11-11, SHEEP-175)
-  const landed = mine !== undefined && sceneT >= LANDED_MS + (mine.reason === 'timeout' ? SUICIDE_AIM + SUICIDE_FLASH : 0)
+  // 재대결 글자는 바닥에 닿고 뜸을 들인 뒤 누운 화면 위에 띄움 (사용자 결정 2026-11-11, SHEEP-175)
+  const settled = mine !== undefined && sceneT >= LANDED_MS + TEXT_PAUSE + (mine.reason === 'timeout' ? SUICIDE_AIM + SUICIDE_FLASH : 0)
   // 술집에서 모두 준비해 카운트다운을 기다리는 동안은 바에서 뒤돌아 문을 나서는 장면을 보이고, 카운트다운 시각에 술집을 닫음 (SHEEP-137).
   // 시계를 맞추기 전이면 바로 닫음
   const serverNow = clock ? toServerTime(now, clock.offset) : Infinity
@@ -836,7 +836,7 @@ function frame(now: number) {
   }
   if (ending?.stage !== 'poster') winView.hidden = true
   // 판 끝에는 글자 대신 포스터와 자막 카드로 알림. 이긴 사람이 그사이 나가 포스터가 없으면 글자로 알림
-  const text = (inScene && !(landed && shown?.outcome === 'rematch')) || (ending && winnerName !== '')
+  const text = (lying && (!settled || (inScene && shown?.outcome !== 'rematch'))) || (ending && winnerName !== '')
     ? ''
     : r
       ? clock
