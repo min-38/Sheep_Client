@@ -458,6 +458,14 @@ body {
   font-size: 1.8cqw;
 }
 
+/* 연습에 들어가고 나갈 때 덮는 검은 막 (SHEEP-198). 진하기는 main.ts가 움직임 */
+#fade {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  background: #000;
+}
+
 /* 연습에서는 방 코드가 없어 비는 오른쪽 위에 둠 (시스템 기획서 방 화면 연습, SHEEP-195) */
 #game.practice #leave-down {
   left: auto;

@@ -829,7 +829,7 @@ replayButton.addEventListener('click', () => {
 // 판 도중이라 서버는 탈락으로 보고, 이 방의 현상금은 사라짐
 const leaveDown = document.querySelector<HTMLButtonElement>('#leave-down')!
 // 연습에서는 같은 버튼으로 메뉴로 돌아감 (SHEEP-195)
-leaveDown.addEventListener('click', () => (practice ? endPractice() : send({ type: 'leaveRoom' })))
+leaveDown.addEventListener('click', () => (practice ? fadeThrough(endPractice) : send({ type: 'leaveRoom' })))
 
 // 술집 주인. 프레임마다 지난 시간만큼 움직임
 let bartender = startBartender(performance.now())
@@ -1557,6 +1557,27 @@ document.querySelector('#back')!.addEventListener('click', backToMenu)
 // 내가, 나머지에 과녁이 가운데를 보고 섬. 판 시각은 "시작!"이 막 지난 결투 중으로 두어 판의 뽑기, 쏘기, 조준점을 그대로 씀.
 // 판 시각을 서버 시계로 재므로 시계를 맞춘 뒤에만 들어감
 const PRACTICE_ME = 'practice'
+// ms. 연습에 들어가고 나갈 때 화면을 검게 덮는 시간과 다시 걷는 시간 (SHEEP-198). ponytail: 임시 값. 보며 정함
+const FADE_OUT_MS = 350
+const FADE_IN_MS = 500
+const fade = document.querySelector<HTMLDivElement>('#fade')!
+// 화면을 검게 덮은 뒤 change로 화면을 바꾸고 다시 걷음. 덮인 동안은 막이 누르기를 받아 두 번 들어가지 않음.
+// 움직임 줄이기를 켠 브라우저는 바로 바꿈
+function fadeThrough(change: () => void) {
+  if (!fade.hidden) return
+  fade.hidden = false
+  const still = matchMedia('(prefers-reduced-motion: reduce)').matches
+  fade
+    .animate([{ opacity: 0 }, { opacity: 1 }], { duration: still ? 0 : FADE_OUT_MS, fill: 'forwards' })
+    .finished.then(() => {
+      change()
+      return fade.animate([{ opacity: 1 }, { opacity: 0 }], { duration: still ? 0 : FADE_IN_MS, fill: 'forwards' }).finished
+    })
+    .then(() => {
+      fade.getAnimations().forEach((a) => a.cancel())
+      fade.hidden = true
+    })
+}
 function startPractice() {
   if (!clock) return
   practice = true
@@ -1584,7 +1605,7 @@ function startPractice() {
   hitHole.style.visibility = 'hidden'
   lockPointer()
 }
-practiceButton.addEventListener('click', startPractice)
+practiceButton.addEventListener('click', () => fadeThrough(startPractice))
 
 // 연습에서 메뉴로 돌아감. 다음 방의 판이 처음 상태로 시작하게 연습에서 바꾼 것을 되돌림
 function endPractice() {
