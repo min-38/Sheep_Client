@@ -4,7 +4,7 @@ import { makeCamera, type Camera } from './render.ts'
 // 판 끝 (사용자 결정 2026-11-11, SHEEP-169 시안 B. SHEEP-136·150의 세레모니를 바꿈). 승리 결과 시간이 끝나는 시각(준비 중 시각, 서버 시계)에서
 // 거꾸로 잼. 결과를 받은 때부터 포스터 전까지 모두가 마지막 쓰러짐을 위에서 느리게 봄(서버 RoundFlow.WinResultDuration 12초에서
 // 아래 셋을 뺀 약 4초). 바닥에 닿을 때까지는 SLOW배로 느리게, 닿은 뒤로는 피 웅덩이가 번지는 것이 보이게 BLEED배로 빨리 감음
-// (사용자 요청 2026-11-11: 쓰러져 피 흘리는 데까지 보임). 이긴 사람 1인칭으로 넘어가지 않고 검은 화면에 돈 없는 WINNER 포스터를 POSTER_MS, 이긴 사람이 해 쪽으로 걸어가는
+// (사용자 요청 2026-11-11: 쓰러져 피 흘리는 데까지 보임). 이긴 사람 1인칭으로 넘어가지 않고 검은 화면에 돈 없는 WANTED 포스터를 POSTER_MS(뜬 뒤 Winner 도장을 쾅 찍음, SHEEP-172), 이긴 사람이 해 쪽으로 걸어가는
 // 뒷모습을 WALKOFF_MS(마지막 IRIS_MS 동안 화면이 동그랗게 닫힘), 검은 화면 자막 카드를 CARD_MS 동안 보인 뒤 술집으로 넘어감.
 // 자막 카드에는 이긴 사람에게만 받은 돈을, 모두에게 자기 킬 수를 보임
 
@@ -13,16 +13,24 @@ export const POSTER_MS = 2500
 export const WALKOFF_MS = 2500
 export const IRIS_MS = 1200
 export const CARD_MS = 3000
+// ms. 포스터가 뜨고 Winner 도장이 돌며 떨어지기 시작하는 때와, 떨어져 종이에 찍히기까지 (SHEEP-172 B안). style.css #win .stamp 애니메이션과 같은 값
+export const STAMP_AT = 600
+export const STAMP_FALL = 240
 // 마지막 쓰러짐을 늦추는 배율과 바닥에 닿은 뒤 피 웅덩이를 빨리 감는 배율
 export const SLOW = 0.4
 export const BLEED = 4
+// 시간 초과(자살)를 늦추는 배율. 옆머리를 쏘는 동작(0.7초)부터 틀어 SLOW로는 위에서 보는 동안 바닥에 닿지 못해 더 빨리 틂 (SHEEP-172)
+export const SUICIDE_SLOW = 0.8
+
+// 쓰러진 사유별로 마지막 쓰러짐을 늦추는 배율
+export const fallSlow = (reason: 'shot' | 'timeout') => (reason === 'timeout' ? SUICIDE_SLOW : SLOW)
 
 export type EndingStage = 'top' | 'poster' | 'walk' | 'card'
 
-// 마지막 쓰러짐을 보인 지 elapsed(ms) 지났을 때의 동작 시간(ms). land는 바닥에 닿는 동작 시간(시간 초과면 옆머리를 쏘는 동작까지)
-export function lastFallMotion(elapsed: number, land: number): number {
-  const slow = land / SLOW
-  return elapsed <= slow ? elapsed * SLOW : land + (elapsed - slow) * BLEED
+// 마지막 쓰러짐을 보인 지 elapsed(ms) 지났을 때의 동작 시간(ms). land는 바닥에 닿는 동작 시간(시간 초과면 옆머리를 쏘는 동작까지), slow는 닿을 때까지의 배율(fallSlow)
+export function lastFallMotion(elapsed: number, land: number, slow: number): number {
+  const landed = land / slow
+  return elapsed <= landed ? elapsed * slow : land + (elapsed - landed) * BLEED
 }
 
 // now(서버 시계)의 판 끝 단계와 그 단계가 시작하고 지난 시간(ms). 'top'은 결과를 받은 때부터라 시작이 사람마다 달라, 포스터까지 남은 시간을 음수로 줌
@@ -35,6 +43,9 @@ export function endingAt(end: number, now: number): { stage: EndingStage; elapse
   if (now >= poster) return { stage: 'poster', elapsed: now - poster }
   return { stage: 'top', elapsed: now - poster }
 }
+
+// 서버 시각. 승리 결과가 끝나는 end에서 거꾸로 잰, Winner 도장이 종이에 찍히는 때. 찍히는 소리를 이 시각에 예약함
+export const stampHitAt = (end: number) => end - CARD_MS - WALKOFF_MS - POSTER_MS + STAMP_AT + STAMP_FALL
 
 // 해가 있는 쪽(라디안). 하늘의 해는 늘 같은 방위에 있음 (desert.ts)
 const SUN = (SUN_AZ * Math.PI) / 180
