@@ -23,7 +23,7 @@ import { banner, DUEL_LIMIT, dueling, formatTime, joins, locked, resultText, sta
 import { bartenderFigure, bountyRise, bountyText, bubbleX, COPIED_MS, copyKeys, drawSaloon, SALOON_CAMERA, seatSlots, seatSpot, seatTag, startBartender, startChatter, stepBartender, stepChatter, STOOL } from './saloon.ts'
 import { cut, replayWindow } from './replay.ts'
 import { irisOpen, paidShown, walkerAt, walkoffAt, walkoffCamera } from './ceremony.ts'
-import { filming, motionMs, SCENE_MS, sceneCamera, SLOW } from './downscene.ts'
+import { fallEye, fallSide, LANDED_MS, SCENE_MS, suicideSide } from './downscene.ts'
 import { DOOR_PUSH_AT, drawEntrance, ENTER_FADE, ENTER_MS, entranceAt, entranceTrack, WHOOSH_AT, WHOOSH_MS } from './entrance.ts'
 // 지금 언어의 문구. 이 파일은 t를 시각 변수로 많이 써 문구는 copy로 부름
 import { copyOf, HTML_LANG, LANGUAGES, setLanguage, t as copy, textAt, type Language } from './i18n/index.ts'
@@ -64,7 +64,6 @@ const SYNC_COUNT = 5
 // 그 안에 다 와서, 관전을 시작한 뒤 오는 shotResult는 관전 대상의 복사본임 (시스템 기획서 HUD 관전)
 const SPECTATE_AFTER = SCENE_MS
 // px. 쓰러짐 장면의 위아래 검은 띠 높이(화면 높이의 9%)
-const FILM_BAR = Math.round(H * 0.09)
 
 const canvas = document.querySelector<HTMLCanvasElement>('#screen')!
 canvas.width = W
@@ -72,6 +71,25 @@ canvas.height = H
 const ctx = canvas.getContext('2d')!
 const image = ctx.createImageData(W, H)
 const pixels = new Uint32Array(image.data.buffer)
+// 옆으로 넘어질 때 결투장 그림을 기울여 얹음. 기운 그림이 화면을 다 덮게 키움 (SHEEP-166). 레이캐스터는 기울어진 눈을 그리지 못함
+const rolled = document.createElement('canvas')
+rolled.width = W
+rolled.height = H
+const rolledCtx = rolled.getContext('2d')!
+function putRolled(roll: number) {
+  if (roll === 0) {
+    ctx.putImageData(image, 0, 0)
+    return
+  }
+  rolledCtx.putImageData(image, 0, 0)
+  const cover = Math.abs(Math.cos(roll)) + (W / H) * Math.abs(Math.sin(roll))
+  ctx.save()
+  ctx.translate(W / 2, H / 2)
+  ctx.rotate(-roll)
+  ctx.scale(cover, cover)
+  ctx.drawImage(rolled, -W / 2, -H / 2)
+  ctx.restore()
+}
 
 // 브라우저에 기억한 설정. 사생활 보호 모드처럼 저장소를 막으면 던지므로 그때는 기본값으로 두고 기억하지 않음
 const SAVED_SETTINGS = 'settings'
@@ -278,8 +296,8 @@ function playFallOf(id: string, reason: 'shot' | 'timeout') {
   if (!audio || !placed || !samples) return
   const now = performance.now()
   const when = toAudioTime(now + INTERP_DELAY + (id === myId ? 0 : fallDelay(reason)), stampOf(audio))
-  // 내 쓰러짐은 장면처럼 늦춰 느리게 넘어진 몸이 바닥에 닿을 때 낮게 들림 (SHEEP-119)
-  if (id === myId) return playFall(audio, toAudioTime(now + INTERP_DELAY + fallDelay(reason) / SLOW, stampOf(audio)), undefined, SLOW)
+  // 내 쓰러짐은 1인칭으로 넘어진 눈이 바닥에 닿을 때 들림 (SHEEP-166)
+  if (id === myId) return playFall(audio, toAudioTime(now + INTERP_DELAY + (reason === 'timeout' ? SUICIDE_AIM + SUICIDE_FLASH : 0) + LANDED_MS, stampOf(audio)))
   const view = eyes(now)
   const body = sampleAt(samples, now - INTERP_DELAY)
   playFall(audio, when, heardFrom(view.x, view.y, view.angle, body.x, body.y))
@@ -661,20 +679,20 @@ function frame(now: number) {
       ctx.putImageData(image, 0, 0)
     }
   } else if (grid && view && inScene) {
-    // 내 앞 위에서 내 몸을 내려다보며 넘어지는 동작만 늦춤. 늘 카메라를 보는 소품 그림은 위에서 보면 납작해 빼고, 하늘은 화면 밖임 (SHEEP-119)
+    // 내 눈 그대로 맞은 쪽으로 넘어져 바닥에 누움. 시간 초과는 총 든 손으로 옆머리를 쏴 반대쪽으로 넘어짐 (SHEEP-166).
+    // 쏜 사람은 downedBy로 알고, 그 전 한두 프레임은 아직 거의 서 있어 뒤로 넘어지는 셈으로 둠
     const me = sampleAt(history.get(myId!)!, now - INTERP_DELAY)
-    const look = characters.get(myId!)!
-    const body = characterBody(look.character, look.color, look.hand)
-    const fallen = { landed: motionMs(sceneT) - fallDelay(mine.reason), reason: mine.reason }
-    const self = withWounds({ x: me.x, y: me.y, facing: me.angle, ...poseAt(body, { at: 0, reason: mine.reason }, motionMs(sceneT), body.rest) }, body, hits.get(myId!), now - INTERP_DELAY, fallen)
-    const things = [self, ...othersAt(now - INTERP_DELAY, myId!, scene), ...bulletsAt(now - INTERP_DELAY, myId!, scene, grid), ...bloodAt(now - INTERP_DELAY, scene)]
-    renderFrame(pixels, W, H, grid, sceneCamera(me.x, me.y, me.angle, sceneT, FOV), things, SKIES[timeOfDay(standing ?? history.size)])
-    ctx.putImageData(image, 0, 0)
-    // 바닥에 닿을 때까지 옛 영화처럼 위아래에 검은 띠
-    if (filming(sceneT, mine.reason)) {
-      ctx.fillStyle = '#000'
-      ctx.fillRect(0, 0, W, FILM_BAR)
-      ctx.fillRect(0, H - FILM_BAR, W, FILM_BAR)
+    const shooter = mine.reason === 'shot' && downedBy ? history.get(downedBy.playerId) : undefined
+    const from = shooter ? sampleAt(shooter, now - INTERP_DELAY) : null
+    const side = from ? fallSide(me.x, me.y, me.angle, from.x, from.y) : mine.reason === 'timeout' ? suicideSide(characters.get(myId!)?.hand ?? settings.hand) : 'back'
+    const fall = fallEye(me.x, me.y, me.angle, side, sceneT - (mine.reason === 'timeout' ? SUICIDE_AIM + SUICIDE_FLASH : 0), EYE_HEIGHT)
+    const things = [...othersAt(now - INTERP_DELAY, myId!, scene), ...bulletsAt(now - INTERP_DELAY, myId!, scene, grid), ...bloodAt(now - INTERP_DELAY, scene), ...props]
+    renderFrame(pixels, W, H, grid, { ...makeCamera(fall.x, fall.y, fall.angle, FOV, fall.pitch), z: fall.z }, things, SKIES[timeOfDay(standing ?? history.size)])
+    putRolled(fall.roll)
+    // 옆머리를 쏜 순간 화면이 하얗게 번쩍임
+    if (mine.reason === 'timeout' && suicideStage(sceneT) === 1) {
+      ctx.fillStyle = '#fffc'
+      ctx.fillRect(0, 0, W, H)
     }
     playSteps(now)
   } else if (grid && view) {
@@ -719,7 +737,6 @@ function frame(now: number) {
   flash.hidden = t - fired >= FLASH_SHOWN
   // 다시 보기에서는 그 사람의 혈흔과 사격 결과를 몰라 숨김
   game.classList.toggle('replaying', r !== null)
-  game.classList.toggle('filming', inScene && filming(sceneT, mine.reason))
   // 세레모니 동안은 HUD를 숨기고 마지막에 화면을 동그랗게 닫음 (SHEEP-136)
   game.classList.toggle('ceremony', walkoff !== null)
   iris.hidden = walkoff === null
