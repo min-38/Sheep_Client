@@ -365,6 +365,21 @@ function aheadScene(t: number): Scene {
   return { ...live(), downs: new Map([...downs, [id, { ...down, at: down.at - ahead }]]) }
 }
 
+// 내 몸의 상처를 붙임. 남의 몸은 othersAt이 맞은 뒤 처음 그릴 때 그때 모습에 붙이지만, 나는 1인칭이라 그리지 않아 판 끝에 처음 그리면
+// 그때는 맞은 때의 자리와 방향 기록(history, 약 6초)이 지워져 돌아선 몸에 붙어 남이 보는 자리와 어긋남 (SHEEP-187 리뷰).
+// 그래서 프레임마다 남이 보는 것과 같은 때(t, 맞은 것을 보인 뒤)와 같은 모습(othersAt의 결투 중 모습)으로 붙여 둠
+function pinMyWounds(t: number) {
+  const list = myId !== null ? hits.get(myId) : undefined
+  const samples = myId !== null ? history.get(myId) : undefined
+  const look = myId !== null ? characters.get(myId) : undefined
+  if (!list || !samples || !look || list.every((h) => h.wound || h.at > t)) return
+  const body = characterBody(look.character, look.color, look.hand)
+  const s = sampleAt(samples, t)
+  const drawn = s.drawnAt !== null && clock ? toServerTime(t, clock.offset) - s.drawnAt : -1
+  const upright = drawn >= 0 ? body.draw(drawn, s.pitch) : body.rest
+  for (const h of list) if (!h.wound && h.at <= t) h.wound = pinWound(upright.boxes.slice(0, body.rest.boxes.length), toModel(s.x, s.y, s.angle, h.x, h.y, h.height))
+}
+
 // viewer는 눈이 되는 사람이라 그리지 않음. 관전이나 다시 보기면 쓰러진 나도 보임
 function othersAt(t: number, viewer: string, scene: Scene): Thing[] {
   const duel = clock !== null && dueling(scene.schedule, toServerTime(t, clock.offset))
@@ -745,6 +760,7 @@ function frame(now: number) {
   showAmmo(rounds)
   const dt = now - lastFrame
   lastFrame = now
+  pinMyWounds(now - INTERP_DELAY)
   // 내가 쓰러진 것을 보인 때부터 장면 시간(ms). 다시 보기와 관전 중에는 장면이 없음 (시스템 기획서 HUD 쓰러짐)
   const mine = !r && !watch && myId !== null ? downs.get(myId) : undefined
   const sceneT = mine ? now - INTERP_DELAY - mine.at : -1
@@ -824,14 +840,6 @@ function frame(now: number) {
     const turned = ending.elapsed - TURN_AT
     const motion = strolling ? body.walk(ending.elapsed) : turned >= 0 && turned < TURN_MS ? body.turn(turned) : body.rest
     const spot = strolling ? walkerAt(at.x, at.y, ending.elapsed) : { x: at.x, y: at.y, facing: turnFacing(at.angle, ending.elapsed) }
-    // 상처는 맞은 때 그 사람이 선 자리와 보던 쪽으로 몸에 붙임. 이긴 나처럼 판 끝에 처음 그리는 몸은 돌아선 몸에 붙어 자리가 어긋남 (SHEEP-187 리뷰)
-    // 다른 사람 눈(othersAt)과 같게 그때 뽑아 든 모습이면 그 모습에 붙임
-    for (const h of hits.get(winnerId) ?? []) {
-      const then = sampleAt(history.get(winnerId)!, h.at)
-      const drawn = then.drawnAt !== null && clock ? toServerTime(h.at, clock.offset) - then.drawnAt : -1
-      const upright = drawn >= 0 ? body.draw(drawn, then.pitch) : body.rest
-      h.wound ??= pinWound(upright.boxes.slice(0, body.rest.boxes.length), toModel(then.x, then.y, then.angle, h.x, h.y, h.height))
-    }
     const walker = withWounds({ ...spot, ...motion }, body, hits.get(winnerId), now - INTERP_DELAY)
     // 진 사람은 마지막 쓰러짐의 피 웅덩이를 위에서 빨리 감아 봤으니 그 크기에서 이어 번지게 함. 이긴 나는 1인칭으로 제 빠르기로 봤음 (SHEEP-187 리뷰)
     const staged = iWon ? live() : aheadScene(now - INTERP_DELAY)
