@@ -4,6 +4,8 @@ import {
   BLEED,
   boardTimes,
   coinTimes,
+  DIM_MS,
+  dimAt,
   END_FADE_MS,
   endingAt,
   FALL_MS,
@@ -158,10 +160,20 @@ describe('결정타 줌 (SHEEP-194 시안 A)', () => {
   })
 })
 
+describe('dimAt (걷기 시작 뒤 어두워짐, SHEEP-197)', () => {
+  test('걷기 전에는 밝고, 걷기 시작부터 DIM_MS 동안 점점 짙어진 뒤 그대로', () => {
+    expect(dimAt(-500)).toBe(0)
+    expect(dimAt(0)).toBe(0)
+    expect(dimAt(DIM_MS / 2)).toBeCloseTo(0.5)
+    expect(dimAt(DIM_MS)).toBe(1)
+    expect(dimAt(DIM_MS * 3)).toBe(1)
+  })
+})
+
 describe('boardTimes (결과 보드)', () => {
   test('이긴 사람은 포스터, 도장, 문구, 잔고, +$100, 세어 올리기, 킬 수 차례로 뜨고, 다 뜬 뒤 1초 넘게 보이고 닫힘', () => {
     const t = boardTimes(true)
-    const order = [t.dim, t.poster, t.stamp, t.phrase, t.money, t.plus, t.count, t.counted, t.kills] as number[]
+    const order = [t.poster, t.stamp, t.phrase, t.money, t.plus, t.count, t.counted, t.kills] as number[]
     expect([...order].sort((a, b) => a - b)).toEqual(order)
     expect(t.kills! + 1000).toBeLessThanOrEqual(WALK_MS - END_FADE_MS)
   })

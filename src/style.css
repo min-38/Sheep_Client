@@ -1451,17 +1451,12 @@ body {
   pointer-events: none;
 }
 
-/* 걷기 시작부터 1.5초 동안 가장자리부터 살짝 어두워짐. 가운데의 걷는 사람과 해는 밝게 남음 */
+/* 걷기 시작부터 1.5초 동안 가장자리부터 살짝 어두워짐. 가운데의 걷는 사람과 해는 밝게 남음. 짙기(--dim)는 main.ts가 정함 (SHEEP-197) */
 #end-dim {
   position: absolute;
   inset: 0;
   background: radial-gradient(ellipse at 50% 46%, #0000 25%, #00000059 60%, #000000b8 100%), #0000002e;
-  opacity: 0;
-  transition: opacity 1.5s linear;
-}
-
-#end-dim.on {
-  opacity: 1;
+  opacity: var(--dim, 0);
 }
 
 /* 끝에 검게 닫혀 술집으로 넘어감. 짙기(--fade)는 main.ts가 정함 */
