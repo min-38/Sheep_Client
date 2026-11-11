@@ -220,13 +220,13 @@
             <label class="hand-choice"><input type="radio" name="hand" value="left" /><span class="hand-plank" data-i18n="settings.left"></span></label>
             <label class="hand-choice"><input type="radio" name="hand" value="right" /><span class="hand-plank" data-i18n="settings.right"></span></label>
           </div>
-          <!-- 조준점 모양. 칸마다 결투 화면의 조준점과 같은 그림과 이름 (시스템 기획서 HUD 조준점) -->
+          <!-- 조준점 모양. 칸마다 결투 화면과 같은 그림. 이름은 칸 아래에 적지 않고 aria-label로만 둠. 칸은 손 판처럼 이름 칸 바로 뒤부터 붙임 (시스템 기획서 HUD 조준점, 시안 B, SHEEP-185) -->
           <div class="row" role="radiogroup" aria-labelledby="crosshair-label">
             <span id="crosshair-label" data-i18n="settings.crosshair"></span>
-            <label class="reticle-choice"><input type="radio" name="crosshair" value="ringDot" /><span class="reticle-tile"><span class="reticle" data-shape="ringDot"></span></span><span data-i18n="settings.ringDot"></span></label>
-            <label class="reticle-choice"><input type="radio" name="crosshair" value="cross" /><span class="reticle-tile"><span class="reticle" data-shape="cross"></span></span><span data-i18n="settings.cross"></span></label>
-            <label class="reticle-choice"><input type="radio" name="crosshair" value="dot" /><span class="reticle-tile"><span class="reticle" data-shape="dot"></span></span><span data-i18n="settings.dot"></span></label>
-            <label class="reticle-choice"><input type="radio" name="crosshair" value="ring" /><span class="reticle-tile"><span class="reticle" data-shape="ring"></span></span><span data-i18n="settings.ring"></span></label>
+            <label class="reticle-choice"><input type="radio" name="crosshair" value="ringDot" data-i18n-label="settings.ringDot" /><span class="reticle-tile"><span class="reticle" data-shape="ringDot"></span></span></label>
+            <label class="reticle-choice"><input type="radio" name="crosshair" value="cross" data-i18n-label="settings.cross" /><span class="reticle-tile"><span class="reticle" data-shape="cross"></span></span></label>
+            <label class="reticle-choice"><input type="radio" name="crosshair" value="dot" data-i18n-label="settings.dot" /><span class="reticle-tile"><span class="reticle" data-shape="dot"></span></span></label>
+            <label class="reticle-choice"><input type="radio" name="crosshair" value="ring" data-i18n-label="settings.ring" /><span class="reticle-tile"><span class="reticle" data-shape="ring"></span></span></label>
           </div>
           <button id="settings-close" class="plank" data-i18n="settings.close"></button>
         </form>

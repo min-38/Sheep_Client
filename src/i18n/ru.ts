@@ -143,7 +143,7 @@ export const ru: Copy = {
   settings: {
     music: 'Музыка',
     effects: 'Эффекты',
-    hand: 'Рука с оружием',
+    hand: 'Рука',
     right: 'Правая',
     left: 'Левая',
     crosshair: 'Прицел',
