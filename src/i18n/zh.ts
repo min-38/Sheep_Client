@@ -41,6 +41,13 @@ export const zh: Copy = {
       body: (name: string) => `${name}第二枪把你撂倒了，伙计。`,
       timeout: '时间用光喽，伙计。',
     },
+    lastFall: '最后一人怎么倒下的',
+    shotDownBy: '开枪的是',
+    fallLine: {
+      head: (shooter, fallen) => `${shooter}一枪打穿了${fallen}的帽子。`,
+      body: (shooter, fallen) => `${shooter}第二枪把${fallen}撂倒了。`,
+      timeout: (fallen) => `时间用光喽，${fallen}把枪口对准了自己。`,
+    },
   },
   saloon: {
     seats: '吧台边的人',

@@ -52,6 +52,14 @@ export const en = {
       body: (name: string) => `${name}'s second slug laid you low, partner.`,
       timeout: 'Ran plumb outta time, partner.',
     },
+    // 판 끝 마지막 쓰러짐 보기의 자막 카드 (SHEEP-180). 보는 사람 모두에게 3인칭으로 씀. 서부 사투리 말투 (CLAUDE.md Language)
+    lastFall: 'How the last one fell',
+    shotDownBy: 'Shot down by',
+    fallLine: {
+      head: (shooter: string, fallen: string) => `${shooter}'s bullet found ${fallen}'s hat.`,
+      body: (shooter: string, fallen: string) => `${shooter}'s second slug laid ${fallen} low.`,
+      timeout: (fallen: string) => `${fallen} ran outta time and turned the iron on their own self.`,
+    },
   },
   // 술집 대기실과 판 끝 포스터
   saloon: {

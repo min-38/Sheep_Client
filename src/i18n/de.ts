@@ -41,6 +41,13 @@ export const de: Copy = {
       body: (name: string) => `Die zweite Kugel von ${name} hat dich umgehauen, Partner.`,
       timeout: 'Die Zeit ist dir davongelaufen, Partner.',
     },
+    lastFall: 'Wie der Letzte fiel',
+    shotDownBy: 'Abgeknallt von',
+    fallLine: {
+      head: (shooter, fallen) => `Die Kugel von ${shooter} hat den Hut von ${fallen} gefunden.`,
+      body: (shooter, fallen) => `Die zweite Kugel von ${shooter} hat ${fallen} umgehauen.`,
+      timeout: (fallen) => `Zeit um – ${fallen} hat das Eisen gegen sich selbst gerichtet.`,
+    },
   },
   saloon: {
     seats: 'Leute an der Theke',

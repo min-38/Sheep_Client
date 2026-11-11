@@ -22,7 +22,7 @@ import type { Rig } from './rig.ts'
 import { banner, DUEL_LIMIT, dueling, formatTime, joins, locked, resultText, standingCount, stepIndex, STEPS_FROM, timeLeft, TURN_MS, walking, type Schedule } from './round.ts'
 import { bartenderFigure, bountyText, bubbleX, COPIED_MS, copyKeys, drawSaloon, SALOON_CAMERA, seatSlots, seatSpot, seatTag, startBartender, startChatter, stepBartender, stepChatter, STOOL } from './saloon.ts'
 import { cut, replayWindow } from './replay.ts'
-import { endingAt, fallSlow, irisOpen, lastFallCamera, lastFallMotion, stampHitAt, walkerAt, walkoffCamera } from './ceremony.ts'
+import { endingAt, FALL_CARD_AT, fallSlow, irisOpen, lastFallCamera, lastFallMotion, stampHitAt, walkerAt, walkoffCamera } from './ceremony.ts'
 import { fallEye, fallSide, LANDED_MS, SCENE_MS, suicideSide, TEXT_PAUSE } from './downscene.ts'
 import { barShift, DOOR_PUSH_AT, drawEntrance, ENTER_FADE, ENTER_MS, entranceAt, entranceTrack, WHOOSH_AT, WHOOSH_MS } from './entrance.ts'
 // 지금 언어의 문구. 이 파일은 t를 시각 변수로 많이 써 문구는 copy로 부름
@@ -143,7 +143,7 @@ let holding = new Set<string>()
 // ponytail: 사람마다 마지막 발사 하나만 둠. 발사 간격(250ms)이 불꽃(100ms)보다 길어 겹치지 않음. 지연이 크게 흔들려 둘이 붙어 오면 앞 불꽃이 빠짐
 const shots = new Map<string, Shot>()
 // 쓰러진 사람마다 탈락을 받은 시각(ms)과 사유. 시간 초과면 쓰러진 그림 전에 자살 모습을 보여 줌
-const downs = new Map<string, { at: number; reason: 'shot' | 'timeout' }>()
+const downs = new Map<string, Down>()
 const isDown = (id: string, t: number) => (downs.get(id)?.at ?? Infinity) <= t
 // 사람마다 맞은 자리. 판이 끝나면 비우고, 함께 쓰러졌다 다시 서는 사람은 그 라운드에 맞은 것을 지움 (SHEEP-126)
 const hits = new Map<string, Hit[]>()
@@ -158,7 +158,8 @@ let result: (RoundResult & { at: number; end?: number }) | null = null
 type Watch = { id: string; wounded: boolean; rounds: number | null; lastShot: number }
 let watch: Watch | null = null
 // 그릴 장면. 지금 판이거나, 다시 보기로 떠 둔 기록
-type Down = { at: number; reason: 'shot' | 'timeout' }
+// by와 zone은 쓰러뜨린 사람과 맞은 부위이고 시간 초과면 null. 판 끝 마지막 쓰러짐 보기의 자막 카드에 씀 (SHEEP-180)
+type Down = { at: number; reason: 'shot' | 'timeout'; by: string | null; zone: 'head' | 'body' | null }
 // 발사 하나. at은 받은 시각(ms, 내 시계, 내 발사는 쏜 시각), angle과 pitch는 쏜 각도와 위아래 각도
 type Shot = { at: number; angle: number; pitch: number }
 // 맞은 자리 하나 (SHEEP-126). at은 받은 시각(ms, 내 시계). wound는 맞은 뒤 처음 그릴 때 그때 모습의 가장 가까운 상자에 붙인 상처
@@ -534,22 +535,45 @@ const OLD_WOUND = [45, 38] as const
 // 나를 쓰러뜨린 사람과 맞은 부위. 시간 초과면 null
 let downedBy: { playerId: string; zone: 'head' | 'body' } | null = null
 
-function fillKillCard() {
-  const by = downedBy && roster.find((p) => p.id === downedBy!.playerId)
-  const me = roster.find((p) => p.id === myId)
-  const who = by ?? me
-  if (!who) return
-  killFace.src = portraitUrl(who.character, who.color)
-  killKicker.textContent = by ? copy.hud.downedBy : copy.hud.outtaTime
-  killName.textContent = who.nickname
-  killLine.textContent = by ? copy.hud.killLine[downedBy!.zone](by.nickname) : copy.hud.killLine.timeout
-  const [x, y] = KILL_HOLES[by ? downedBy!.zone : 'timeout']
+// 자막 카드를 채움. face는 초상화와 이름을 띄울 사람, hole은 몸 그림에서 구멍을 찍을 자리
+function setKillCard(face: PlayerState, kicker: string, line: string, hole: keyof typeof KILL_HOLES, label: string) {
+  killCard.setAttribute('aria-label', label)
+  killFace.src = portraitUrl(face.character, face.color)
+  killKicker.textContent = kicker
+  killName.textContent = face.nickname
+  killLine.textContent = line
+  const [x, y] = KILL_HOLES[hole]
   killHole.setAttribute('cx', `${x}`)
   killHole.setAttribute('cy', `${y}`)
   killOld.setAttribute('cx', `${OLD_WOUND[0]}`)
   killOld.setAttribute('cy', `${OLD_WOUND[1]}`)
-  killOld.style.display = by && downedBy!.zone === 'body' ? '' : 'none'
+  killOld.style.display = hole === 'body' ? '' : 'none'
 }
+
+function fillKillCard() {
+  const by = downedBy && roster.find((p) => p.id === downedBy!.playerId)
+  const me = roster.find((p) => p.id === myId)
+  if (by) setKillCard(by, copy.hud.downedBy, copy.hud.killLine[downedBy!.zone](by.nickname), downedBy!.zone, copy.hud.killCard)
+  else if (me) setKillCard(me, copy.hud.outtaTime, copy.hud.killLine.timeout, 'timeout', copy.hud.killCard)
+}
+
+// 판 끝 마지막 쓰러짐 보기의 자막 카드 (SHEEP-180). 보는 사람 모두에게 그 사람을 쏜 이를, 시간 초과면 자살을 3인칭으로 띄움.
+// 쓰러진 사람이나 쏜 사람이 그사이 방을 나가 이름을 모르면 false
+function fillFallCard(fallenId: string, down: Down): boolean {
+  const fallen = roster.find((p) => p.id === fallenId)
+  if (!fallen) return false
+  if (down.reason === 'timeout') {
+    setKillCard(fallen, copy.hud.outtaTime, copy.hud.fallLine.timeout(fallen.nickname), 'timeout', copy.hud.lastFall)
+    return true
+  }
+  const shooter = roster.find((p) => p.id === down.by)
+  if (!shooter || !down.zone) return false
+  setKillCard(shooter, copy.hud.shotDownBy, copy.hud.fallLine[down.zone](shooter.nickname, fallen.nickname), down.zone, copy.hud.lastFall)
+  return true
+}
+// 지금 자막 카드에 채운 마지막 쓰러짐("id:at")과 채웠는지. 같은 쓰러짐이면 다시 채우지 않음
+let fallCardFor: string | null = null
+let fallCardFilled = false
 const hitHole = document.querySelector<SVGGElement>('#hit-hole')!
 const hitStamp = document.querySelector<HTMLOutputElement>('#hit-stamp')!
 const bloodView = document.querySelector<HTMLDivElement>('#blood')!
@@ -738,7 +762,7 @@ function frame(now: number) {
     const body = characterBody(look.character, look.color, look.hand)
     const motion = lastFallMotion(now - INTERP_DELAY - down.at, fallDelay(down.reason), fallSlow(down.reason))
     const fallen = { landed: motion - fallDelay(down.reason), since: motion, reason: down.reason }
-    const figure = withWounds({ x: at.x, y: at.y, facing: at.angle, ...poseAt(body, { at: 0, reason: down.reason }, motion, body.rest) }, body, hits.get(id), now - INTERP_DELAY, fallen, body.rest)
+    const figure = withWounds({ x: at.x, y: at.y, facing: at.angle, ...poseAt(body, { ...down, at: 0 }, motion, body.rest) }, body, hits.get(id), now - INTERP_DELAY, fallen, body.rest)
     const things = [figure, ...othersAt(now - INTERP_DELAY, id, live()), ...bulletsAt(now - INTERP_DELAY, id, live(), grid), ...bloodAt(now - INTERP_DELAY, live())]
     renderFrame(pixels, W, H, grid, lastFallCamera(at.x, at.y, at.angle, now - INTERP_DELAY - down.at, STAGED_FOV), things, SKIES[timeOfDay(standing ?? history.size)])
     ctx.putImageData(image, 0, 0)
@@ -847,7 +871,12 @@ function frame(now: number) {
     const kills = copy.hud.kills(roster.find((p) => p.id === myId)?.kills ?? 0)
     if (paidKills.textContent !== kills) paidKills.textContent = kills
   }
-  killCard.hidden = !inScene || ending !== null
+  // 마지막 쓰러짐 보기 동안은 뜸을 들인 뒤 모두에게 그 사람을 쓰러뜨린 이를 띄움 (SHEEP-180). 내 쓰러짐 장면 카드는 판 끝이 되면 닫음
+  const fallCard = lastFall !== null && result !== null && now - INTERP_DELAY - result.at >= FALL_CARD_AT
+  const fallKey = fallCard ? `${lastFall[0]}:${lastFall[1].at}` : null
+  if (fallCard && fallKey !== fallCardFor) fallCardFilled = fillFallCard(lastFall[0], lastFall[1])
+  fallCardFor = fallKey
+  killCard.hidden = fallCard ? !fallCardFilled : !inScene || ending !== null
   bloodView.hidden = r !== null || !(watch ? watch.wounded : blood.shown)
   // 다시 보기 버튼은 잠시 숨김 (사용자 결정 2026-11-10, SHEEP-143). 다시 보기 코드는 그대로 두어, 다시 켤 때는 `replay === null`일 때만 숨기게 되돌림
   replayButton.hidden = true
@@ -1571,7 +1600,7 @@ function receive(data: string) {
       if (m.playerId !== myId) showShot(m.playerId, m.angle, m.pitch)
       break
     case 'eliminated':
-      downs.set(m.playerId, { at: performance.now(), reason: m.reason })
+      downs.set(m.playerId, { at: performance.now(), reason: m.reason, by: m.shooterId, zone: m.hit?.zone ?? null })
       if (m.hit) addHit(m.playerId, m.hit)
       playFallOf(m.playerId, m.reason)
       if (m.playerId !== myId) break

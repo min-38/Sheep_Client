@@ -41,6 +41,13 @@ export const es: Copy = {
       body: (name: string) => `El segundo plomazo de ${name} te tumbó, compadre.`,
       timeout: 'Se te acabó el tiempo, compadre.',
     },
+    lastFall: 'Cómo cayó el último',
+    shotDownBy: 'Cayó a manos de',
+    fallLine: {
+      head: (shooter, fallen) => `La bala de ${shooter} le halló el sombrero a ${fallen}.`,
+      body: (shooter, fallen) => `El segundo plomazo de ${shooter} tumbó a ${fallen}.`,
+      timeout: (fallen) => `A ${fallen} se le acabó el tiempo y volteó el fierro contra sí.`,
+    },
   },
   saloon: {
     seats: 'La gente de la barra',
