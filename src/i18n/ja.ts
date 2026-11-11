@@ -166,6 +166,8 @@ export const ja: Copy = {
     title: 'クレジット',
     hint: 'クリックで閉じる',
     entries: [
+      { role: 'ゲーム制作', who: 'minbape', detail: 'Claude Codeで開発' },
+      { role: 'ツール', who: 'Claude Code · Blender', detail: 'TypeScript · Vite · ASP.NET Core' },
       { role: 'リボルバーのモデル', who: 'Loafbrr', detail: 'Revolver pack · CC BY 1.0 · loafbrr.itch.io' },
       { role: '銃声', who: 'f8studios', detail: "Snake's SECOND Authentic Gun Sounds Pack · パブリックドメイン · f8studios.itch.io" },
       { role: 'モーション', who: 'Quaternius', detail: 'Universal Animation Library · CC0 1.0 · quaternius.itch.io' },

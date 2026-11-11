@@ -167,6 +167,8 @@ export const de: Copy = {
     title: 'Credits',
     hint: 'Klicken zum Schließen',
     entries: [
+      { role: 'Spiel von', who: 'minbape', detail: 'Entwickelt mit Claude Code' },
+      { role: 'Werkzeuge', who: 'Claude Code · Blender', detail: 'TypeScript · Vite · ASP.NET Core' },
       { role: 'Revolvermodell', who: 'Loafbrr', detail: 'Revolver pack · CC BY 1.0 · loafbrr.itch.io' },
       { role: 'Schussgeräusche', who: 'f8studios', detail: "Snake's SECOND Authentic Gun Sounds Pack · Gemeinfrei · f8studios.itch.io" },
       { role: 'Bewegungen', who: 'Quaternius', detail: 'Universal Animation Library · CC0 1.0 · quaternius.itch.io' },
