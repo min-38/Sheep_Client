@@ -884,59 +884,49 @@ body {
   margin-top: 1.6cqw;
 }
 
-/* 첫 화면 오른쪽 위 놋쇠 동전 단추 (SHEEP-203 시안 B). 제목과 이정표를 가리지 않게 작게 둠.
-   #lobby button의 글꼴과 여백을 덮게 #coins로 묶음 */
-#coins {
+/* 첫 화면 오른쪽 위 크레딧·후원 표지판 (SHEEP-205 시안 A). 위 가장자리에서 내려온 작은 나무 기둥(::before)에
+   메뉴 이정표와 같은 화살표 판을 박고, 후원 판은 밝은 나무. 깎은 판은 그림자가 잘려 묶음 전체에 줌.
+   #lobby button의 글꼴과 여백을 덮게 #signpost로 묶음 */
+#signpost {
   position: absolute;
-  right: 3cqw;
-  top: 2.5cqw;
-  display: flex;
-  gap: 1.6cqw;
+  right: 2.4cqw;
+  top: 2.8cqw;
+  display: grid;
+  justify-items: end;
+  gap: 1cqw;
+  filter: drop-shadow(0 0.35cqw 0 #3d2412) drop-shadow(0 0.5cqw 0.5cqw #0007);
 }
 
-#coins[hidden],
-#coins .coin[hidden] {
+#signpost[hidden],
+#signpost .plank[hidden] {
   display: none;
 }
 
-#coins .coin {
-  display: grid;
-  justify-items: center;
-  gap: 0.6cqw;
-  padding: 0;
-  border: 0;
-  background: none;
-  font: 1.4cqw / 1 var(--text);
-  color: #f6e3b4;
-  text-shadow: 0 0.15cqw 0 #000;
+#signpost::before {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  right: 2.1cqw;
+  top: -2.8cqw;
+  bottom: -2.2cqw;
+  width: 1.4cqw;
+  border: 0.2cqw solid #3d2412;
+  background: repeating-linear-gradient(90deg, #6e4424 0 0.5cqw, #5c381c 0.5cqw 0.8cqw);
+}
+
+#signpost .plank {
+  padding-block: 0.6cqw;
+  font: bold 1.6cqw / 1.2 var(--text);
   text-decoration: none;
-  cursor: pointer;
 }
 
-#coins .coin i {
-  display: grid;
-  place-items: center;
-  width: 5.6cqw;
-  aspect-ratio: 1;
-  border-radius: 50%;
-  font: normal 2.6cqw / 1 var(--display);
-  color: #5a3a0a;
-  text-shadow: none;
-  background: var(--brass);
-  box-shadow: inset 0 0 0 0.35cqw #a07818, 0 0.4cqw 0.6cqw #0009;
+#signpost #support {
+  background: var(--nails), repeating-linear-gradient(180deg, #a06a30 0 1.1cqw, #8a5a26 1.1cqw 1.4cqw);
 }
 
-#coins .coin:hover i {
-  filter: brightness(1.12);
-}
-
-#coins .coin:active i {
-  translate: 0 0.2cqw;
-}
-
-#coins .coin:focus-visible {
-  outline: 0.3cqw solid #f7d27a;
-  outline-offset: 0.3cqw;
+/* 깎은 판 바깥은 잘려 보이지 않아 초점 테두리를 판 안쪽에 그림 */
+#signpost .plank:focus-visible {
+  outline-offset: -0.7cqw;
 }
 
 /* 크레딧 (SHEEP-203 시안 B). 검은 화면 아래 끝에서 올라오기 시작해 위 끝을 다 지나면 animationend로 닫힘.
