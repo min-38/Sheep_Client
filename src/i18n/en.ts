@@ -34,8 +34,8 @@ export const en = {
     // 세레모니 동안 이긴 사람 이름 아래에 적는 한 줄 (SHEEP-142). 이름은 위에 따로 크게 적음
     lastStanding: "Last one standin'",
     // 세레모니 끝 검은 화면의 받은 돈 자막 (SHEEP-150). 윗줄, 가운데 큰 금액(바꾸지 않음), 아랫줄의 이긴 사람 이름
-    paidLine: "The bounty's been paid out",
     paidTo: (name: string) => `to ${name}, fair an' square`,
+    kills: (n: number) => (n === 1 ? '1 kill' : `${n} kills`),
     lose: 'Not your day, partner',
     rematch: (n: number) => `${n} fellers go again`,
     // 내 사격 결과 카드의 도장
@@ -72,7 +72,6 @@ export const en = {
     // 클립보드가 막혀 코드를 선택해 둠. keys는 Ctrl+C 또는 ⌘C
     copyFailed: (keys: string) => `Press ${keys}, partner`,
     readyStamp: 'Ready',
-    winStamp: 'Winner',
     // 왼쪽 벽 현상금 게시판의 캐릭터·색 바꾸기 (SHEEP-118). keyParts는 캐릭터 번호 순서의 핵심 파츠 이름, colors는 사람 색 번호 순서의 색 이름
     wardrobe: 'Duds and colors',
     keyParts: ['Neckerchief', 'Sombrero', 'Shirt', 'Corset', 'Waistcoat', 'Coat', 'Hat', 'Poncho'],

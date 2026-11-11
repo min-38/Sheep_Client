@@ -54,6 +54,8 @@ export type PlayerState = {
   hand: Hand
   // D 키로 총을 뽑기 시작한 시각(ms, 서버 시계). 아직 안 뽑았으면 null (SHEEP-123)
   drawnAt: number | null
+  // 이번 판에 쏴서 쓰러뜨린 사람 수. 판 끝 자막 카드에 각자 자기 것을 보임 (SHEEP-169)
+  kills: number
 }
 
 // 서버가 알리는 판 단계. lobby는 판이 끝나 준비 중으로 돌아가는 시각임
@@ -218,7 +220,9 @@ const isPlayer = (p: any): p is PlayerState =>
   isCount(p.seat) &&
   p.seat < 8 &&
   (p.hand === 'right' || p.hand === 'left') &&
-  (p.drawnAt === null || typeof p.drawnAt === 'number')
+  (p.drawnAt === null || typeof p.drawnAt === 'number') &&
+  Number.isInteger(p.kills) &&
+  p.kills >= 0
 
 // 레이캐스터는 칸이 다 숫자이고 모든 줄 길이가 같다고 봄
 function isGrid(cells: unknown, width: unknown, height: unknown): cells is Grid {

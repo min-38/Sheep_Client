@@ -58,7 +58,7 @@ describe('sampleAt drawnAt (SHEEP-123)', () => {
 })
 
 describe('record', () => {
-  const p = (id: string, x: number) => ({ id, x, y: 0, angle: 0, pitch: -0.2, pose: 'stand' as const, ready: false, nickname: '보안관', color: 0, wins: 0, character: 0, seat: 0, hand: 'right' as const, drawnAt: null })
+  const p = (id: string, x: number) => ({ id, x, y: 0, angle: 0, pitch: -0.2, pose: 'stand' as const, ready: false, nickname: '보안관', color: 0, wins: 0, character: 0, seat: 0, hand: 'right' as const, drawnAt: null, kills: 0 })
 
   test('플레이어마다 받은 시각과 함께 쌓음', () => {
     const history = new Map<string, Sample[]>()

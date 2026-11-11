@@ -271,7 +271,8 @@ body {
   background: radial-gradient(circle at 50% 58%, #0000 calc(var(--iris, 1) * 60cqw), #000 calc(var(--iris, 1) * 60cqw + 0.3cqw));
 }
 
-/* 받은 돈 자막 (SHEEP-150, 시안 C). 다 닫힌 검은 화면 가운데에 무성 영화 자막처럼 흰 겹테 카드. 돈은 놋쇠 빛으로 크게 */
+/* 판 끝 자막 카드 (SHEEP-150, SHEEP-169 시안 B). 다 닫힌 검은 화면 가운데에 무성 영화 자막처럼 흰 겹테 카드.
+   이긴 사람의 돈은 놋쇠 빛으로 크게, 그 아래 킬 수, 맨 아래 한 줄 */
 #paid-card {
   position: absolute;
   inset: 0;
@@ -302,6 +303,15 @@ body {
 #paid-card b {
   color: #f6dc8f;
   font: 6cqw / 1 var(--display);
+}
+
+#paid-card [hidden] {
+  display: none;
+}
+
+/* 킬 수. 제목 글꼴은 숫자 0이 동그란 점처럼 보여 본문 글꼴로 씀 */
+#paid-kills {
+  font: bold 3.4cqw / 1.2 var(--text);
 }
 
 /* 걷는 동안 화면 가장자리 어둠 (SHEEP-141). 가운데는 비우고 가장자리로 갈수록 검게. 짙기(opacity)와 크기(scale)는 main.ts가 정함 */
@@ -1490,7 +1500,7 @@ body {
   place-content: center;
   justify-items: center;
   gap: 2cqw;
-  background: #000b;
+  background: #000;
   pointer-events: none;
 }
 
@@ -1516,18 +1526,6 @@ body {
 
 #win .nick {
   font-size: 3cqw;
-}
-
-#win .stamp {
-  top: 9cqw;
-  border-width: 0.5cqw;
-  font-size: 3cqw;
-}
-
-#win-bounty {
-  color: #f7d27a;
-  font: 3cqw / 1 var(--display);
-  text-shadow: 0 0.2cqw 0 #3d2412, 0 0 0.6cqw #000;
 }
 
 /* 술집 주인 말풍선. 무성 영화 자막처럼 검은 판에 흰 이중 테와 기울인 글씨 (SHEEP-116, 시안 B).

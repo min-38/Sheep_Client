@@ -1,22 +1,44 @@
 import { describe, expect, test } from 'vitest'
-import { irisOpen, IRIS_MS, PAID_MS, paidShown, walkerAt, walkoffAt, walkoffCamera, WALKOFF_MS } from './ceremony.ts'
+import { BLEED, CARD_MS, endingAt, irisOpen, IRIS_MS, lastFallCamera, lastFallMotion, POSTER_MS, SLOW, walkerAt, walkoffCamera, WALKOFF_MS } from './ceremony.ts'
+import { FALL_LAND_MS } from './character.ts'
+import { POOL_MS } from './blood.ts'
 import { SUN_AZ } from './desert.ts'
 
 const end = 100000
 const SUN = (SUN_AZ * Math.PI) / 180
+// 서버 RoundFlow.WinResultDuration
+const WIN_RESULT_MS = 12000
 
-describe('walkoffAt', () => {
-  test('받은 돈 자막(PAID_MS)과 걸어감(WALKOFF_MS) 앞부터 세레모니 시간을 셈. 그 전은 포스터라 null (SHEEP-136, SHEEP-150)', () => {
-    const start = end - PAID_MS - WALKOFF_MS
-    expect(walkoffAt(end, start - 1)).toBeNull()
-    expect(walkoffAt(end, start)).toBe(0)
-    expect(walkoffAt(end, end - 100)).toBe(PAID_MS + WALKOFF_MS - 100)
+describe('endingAt (SHEEP-169 시안 B)', () => {
+  test('끝에서 거꾸로 자막 카드, 뒷모습, 포스터. 그 앞은 마지막 쓰러짐을 위에서 봄', () => {
+    const card = end - CARD_MS
+    const walk = card - WALKOFF_MS
+    const poster = walk - POSTER_MS
+    expect(endingAt(end, poster - 1).stage).toBe('top')
+    expect(endingAt(end, poster)).toEqual({ stage: 'poster', elapsed: 0 })
+    expect(endingAt(end, walk + 100)).toEqual({ stage: 'walk', elapsed: 100 })
+    expect(endingAt(end, card)).toEqual({ stage: 'card', elapsed: 0 })
+    expect(endingAt(end, end - 1).stage).toBe('card')
   })
 
-  test('서버의 승리 결과 시간(10초) 안에 포스터 4초, 걸어감과 닫힘 4초, 받은 돈 자막 2초 (사용자 결정 2026-11-11, SHEEP-150 시안 C)', () => {
-    expect(WALKOFF_MS).toBe(4000)
-    expect(PAID_MS).toBe(2000)
-    expect(10000 - WALKOFF_MS - PAID_MS).toBe(4000)
+  test('서버 승리 결과 12초 안에 위에서 보기 4초, 포스터 2.5초, 뒷모습 2.5초, 자막 카드 3초', () => {
+    expect([POSTER_MS, WALKOFF_MS, CARD_MS]).toEqual([2500, 2500, 3000])
+    expect(WIN_RESULT_MS - POSTER_MS - WALKOFF_MS - CARD_MS).toBe(4000)
+  })
+})
+
+describe('lastFallMotion (사용자 요청 2026-11-11: 쓰러져 피 흘리는 데까지 느리게)', () => {
+  test('바닥에 닿을 때까지는 SLOW배로 느리게, 닿은 뒤로는 피 웅덩이가 번지게 BLEED배로', () => {
+    const land = FALL_LAND_MS / SLOW
+    expect(lastFallMotion(1000, FALL_LAND_MS)).toBeCloseTo(1000 * SLOW)
+    expect(lastFallMotion(land, FALL_LAND_MS)).toBeCloseTo(FALL_LAND_MS)
+    expect(lastFallMotion(land + 500, FALL_LAND_MS)).toBeCloseTo(FALL_LAND_MS + 500 * BLEED)
+  })
+
+  test('맞아 쓰러지면 위에서 보는 동안(결과가 정해지고 보이기까지 0.3초를 빼고) 바닥에 닿고 웅덩이가 다 자란 크기의 80%까지 번짐', () => {
+    // 웅덩이 반지름은 1 - (1 - 지난 시간 / POOL_MS)² 몫 (blood.ts pool)
+    const spread = POOL_MS * (1 - Math.sqrt(0.2))
+    expect(FALL_LAND_MS / SLOW + spread / BLEED).toBeLessThanOrEqual(WIN_RESULT_MS - POSTER_MS - WALKOFF_MS - CARD_MS - 300)
   })
 })
 
@@ -41,8 +63,8 @@ describe('walkoffCamera', () => {
 })
 
 describe('irisOpen', () => {
-  test('받은 돈 자막 앞 IRIS_MS 동안 다 열린 데서 다 닫히고, 자막 동안은 닫혀 있음', () => {
-    const closed = end - PAID_MS
+  test('자막 카드 앞 IRIS_MS 동안 다 열린 데서 다 닫히고, 카드 동안은 닫혀 있음', () => {
+    const closed = end - CARD_MS
     expect(irisOpen(end, closed - IRIS_MS - 1)).toBe(1)
     expect(irisOpen(end, closed - IRIS_MS / 2)).toBeCloseTo(0.5)
     expect(irisOpen(end, closed)).toBe(0)
@@ -50,10 +72,19 @@ describe('irisOpen', () => {
   })
 })
 
-describe('paidShown (SHEEP-150)', () => {
-  test('화면이 다 닫힌 뒤(걸어감이 끝난 뒤)에만 받은 돈 자막을 보임', () => {
-    expect(paidShown(null)).toBe(false)
-    expect(paidShown(WALKOFF_MS - 1)).toBe(false)
-    expect(paidShown(WALKOFF_MS)).toBe(true)
+describe('lastFallCamera', () => {
+  test('쓰러지는 사람이 보던 쪽 앞 위에서 그 사람을 내려다보고, 천천히 물러나며 올라감', () => {
+    for (const facing of [0, 1, 4]) {
+      const first = lastFallCamera(10, 10, facing, 0, 66)
+      const later = lastFallCamera(10, 10, facing, 3000, 66)
+      for (const cam of [first, later]) {
+        // 카메라는 바라보던 쪽 앞에 있고, 그 사람을 향해 내려다봄
+        expect(Math.cos(facing) * (cam.x - 10) + Math.sin(facing) * (cam.y - 10)).toBeGreaterThan(1)
+        expect(cam.dirX * Math.cos(facing) + cam.dirY * Math.sin(facing)).toBeCloseTo(-1)
+        expect(cam.pitch).toBeLessThan(0)
+      }
+      expect(Math.hypot(later.x - 10, later.y - 10)).toBeGreaterThan(Math.hypot(first.x - 10, first.y - 10))
+      expect(later.z!).toBeGreaterThan(first.z!)
+    }
   })
 })
