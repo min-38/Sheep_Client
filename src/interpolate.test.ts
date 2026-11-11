@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { record, sampleAt, type Sample } from './interpolate.ts'
+import { record, sampleAt, viewSample, type Sample } from './interpolate.ts'
 
 const deg = (d: number) => (d * Math.PI) / 180
 
@@ -90,5 +90,20 @@ describe('record', () => {
     const history = new Map<string, Sample[]>()
     for (let i = 0; i < 200; i++) record(history, [p('a', i)], i * 50)
     expect(history.get('a')).toHaveLength(120)
+  })
+})
+
+describe('viewSample (SHEEP-191)', () => {
+  const at = (t: number, x: number): Sample => ({ at: t, x, y: 0, angle: 0, pitch: 0, pose: 'stand', drawnAt: null })
+  test('걷는 동안은 다른 사람처럼 보간 지연 전 자리', () => {
+    const walking = [at(0, 0), at(50, 0.02), at(100, 0.04)]
+    expect(viewSample(walking, 50)).toEqual(sampleAt(walking, 50))
+  })
+
+  test('서버가 시작 자리로 다시 세워 마지막 상태가 멀리 떨어져 있으면 바로 새 자리', () => {
+    const placed = [at(0, 5), at(50, 5), at(100, 0)]
+    expect(viewSample(placed, 50).x).toBe(0)
+    // 그 사이를 미끄러지지도 않음
+    expect(viewSample(placed, 75).x).toBe(0)
   })
 })
