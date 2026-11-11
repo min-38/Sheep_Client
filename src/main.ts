@@ -591,8 +591,8 @@ function lockPointer() {
   Promise.resolve(canvas.requestPointerLock()).catch(() => {})
 }
 canvas.addEventListener('click', lockPointer)
-// 판 도중(술집 밖에서 서 있는 동안)인데 잠기지 않았으면 다시 잠가야 돎
-const wantsLock = () => saloon.hidden && grid !== null && myId !== null && !downs.has(myId) && document.pointerLockElement !== canvas
+// 판 도중(술집 밖에서 서 있는 동안)인데 잠기지 않았으면 다시 잠가야 돎. Esc 메뉴가 떠 있으면 메뉴를 고를 때까지 잠그지 않음 (SHEEP-199)
+const wantsLock = () => pauseMenu.hidden && saloon.hidden && grid !== null && myId !== null && !downs.has(myId) && document.pointerLockElement !== canvas
 // 판 도중에 누른 키(D로 뽑기 등)도 사용자 입력이라 그 김에 잠금을 다시 걺. Esc는 잠금을 푸는 키라 뺌
 document.addEventListener('keydown', (e) => {
   if (e.code !== 'Escape' && wantsLock()) lockPointer()
@@ -828,8 +828,40 @@ replayButton.addEventListener('click', () => {
 // 쓰러진 뒤 판 도중에 나가기 (컨셉 기획서 규칙 탈락한 뒤). 술집의 나가기와 같이 답(left)이 오면 첫 화면으로 돌아감.
 // 판 도중이라 서버는 탈락으로 보고, 이 방의 현상금은 사라짐
 const leaveDown = document.querySelector<HTMLButtonElement>('#leave-down')!
-// 연습에서는 같은 버튼으로 메뉴로 돌아감 (SHEEP-195)
-leaveDown.addEventListener('click', () => (practice ? fadeThrough(endPractice) : send({ type: 'leaveRoom' })))
+leaveDown.addEventListener('click', () => send({ type: 'leaveRoom' }))
+
+// Esc 메뉴 (시스템 기획서 HUD Esc 메뉴, SHEEP-199). 판(술집 밖)과 연습에서 서 있다가 Esc로 잠금이 풀리면 띄움. 쓰러지거나 판이 끝날 때는
+// 코드가 잠금을 풀어 띄우지 않음. 판은 여럿이 하므로 메뉴를 띄워도 멈추지 않음
+const pauseMenu = document.querySelector<HTMLDivElement>('#pause')!
+const inPlay = () => saloon.hidden && lobby.hidden && grid !== null && myId !== null
+// 잠겨 있었는지와 잠금이 풀린 시각(ms). 잠금을 푼 Esc가 키 이벤트로도 오는 브라우저에서 메뉴를 바로 다시 닫지 않게 함
+let wasLocked = false
+let unlockedAt = -Infinity
+document.addEventListener('pointerlockchange', () => {
+  const locked = document.pointerLockElement === canvas
+  if (locked) pauseMenu.hidden = true
+  else if (wasLocked) {
+    unlockedAt = performance.now()
+    if (inPlay() && !downs.has(myId!)) pauseMenu.hidden = false
+  }
+  wasLocked = locked
+})
+// 잠기지 않은 동안(쓰러진 뒤 등)은 Esc로 메뉴를 열고 닫음. 설정 창의 Esc는 설정 창만 닫음
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Escape' || document.pointerLockElement === canvas || settingsPanel.contains(e.target as Node) || e.timeStamp - unlockedAt < 500) return
+  if (!pauseMenu.hidden) pauseMenu.hidden = true
+  else if (inPlay()) pauseMenu.hidden = false
+})
+document.querySelector('#pause-resume')!.addEventListener('click', () => {
+  pauseMenu.hidden = true
+  lockPointer()
+})
+// 나가기는 연습이면 첫 화면 메뉴로, 판이면 방을 나감(술집의 나가기와 같음)
+document.querySelector('#pause-leave')!.addEventListener('click', () => {
+  pauseMenu.hidden = true
+  if (practice) fadeThrough(endPractice)
+  else send({ type: 'leaveRoom' })
+})
 
 // 술집 주인. 프레임마다 지난 시간만큼 움직임
 let bartender = startBartender(performance.now())
@@ -1075,8 +1107,6 @@ function frame(now: number) {
   // 재대결 결과에 내가 끼면(모두 시간 초과 등으로 함께 쓰러짐) 곧 다시 서므로 결과를 보인 때부터 숨김 (SHEEP-188)
   const revived = result !== null && result.outcome === 'rematch' && myId !== null && result.playerIds.includes(myId) && now - INTERP_DELAY >= result.at
   leaveDown.hidden = revived || !(myId !== null && saloon.hidden && lobby.hidden && isDown(myId, now - INTERP_DELAY))
-  // 연습에서는 Esc로 포인터 잠금을 푼 동안 오른쪽 위에 보임 (SHEEP-195)
-  if (practice) leaveDown.hidden = document.pointerLockElement === canvas
   // 내부 px를 cqw로 바꿈. 화면 폭 100cqw가 내부 폭 W px임
   const aim = crosshairOffset(s, view?.pitch ?? pitch, PROJ)
   crosshair.style.transform = `translate(${(aim.x * 100) / W}cqw, ${(aim.y * 100) / W}cqw)`
@@ -1581,7 +1611,6 @@ function fadeThrough(change: () => void) {
 function startPractice() {
   if (!clock) return
   practice = true
-  game.classList.add('practice')
   lobby.hidden = true
   grid = BACKDROP
   props = makeProps(BACKDROP_MID, BACKDROP_MID)
@@ -1610,7 +1639,6 @@ practiceButton.addEventListener('click', () => fadeThrough(startPractice))
 // 연습에서 메뉴로 돌아감. 다음 방의 판이 처음 상태로 시작하게 연습에서 바꾼 것을 되돌림
 function endPractice() {
   practice = false
-  game.classList.remove('practice')
   document.exitPointerLock()
   grid = null
   myId = null
@@ -1776,6 +1804,7 @@ function clearMatch() {
   replay = replayPlan = replayFrom = null
   hitCard.hidden = true
   endingView.hidden = true
+  pauseMenu.hidden = true
 }
 // 접속할 때와 판 사이에 부름. 한 번에 하나씩 보내 앞의 답이 뒤의 왕복을 늘리지 않게 하고, 답이 오면 다음 것을 보냄
 function syncClock() {
@@ -1794,6 +1823,7 @@ function connect() {
   // 처음부터 못 붙어도 여기로 옴. ponytail: 재접속 없음. 재접속 이슈에서 다시 붙어 방으로 돌아가게 함
   ws.addEventListener('close', () => {
     if (practice) endPractice()
+    pauseMenu.hidden = true
     document.exitPointerLock()
     connected = false
     createPanel.hidden = true

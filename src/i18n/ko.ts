@@ -141,6 +141,10 @@ export const ko: Copy = {
     ok: '생성',
     cancel: '취소',
   },
+  pause: {
+    menu: '게임 메뉴',
+    resume: '게임으로 돌아가기',
+  },
   help: {
     prev: '이전',
     next: '다음',

@@ -142,6 +142,10 @@ export const ru: Copy = {
     ok: 'Создать',
     cancel: 'Отмена',
   },
+  pause: {
+    menu: 'Меню игры',
+    resume: 'Вернуться в игру',
+  },
   help: {
     prev: 'Назад',
     next: 'Далее',

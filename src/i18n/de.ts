@@ -142,6 +142,10 @@ export const de: Copy = {
     ok: 'Erstellen',
     cancel: 'Abbrechen',
   },
+  pause: {
+    menu: 'Spielmenü',
+    resume: 'Zurück zum Spiel',
+  },
   help: {
     prev: 'Zurück',
     next: 'Weiter',

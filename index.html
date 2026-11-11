@@ -189,6 +189,15 @@
           </div>
         </form>
       </div>
+      <!-- Esc 메뉴 (시스템 기획서 HUD Esc 메뉴, SHEEP-199). 판(술집 밖)과 연습에서 Esc로 포인터 잠금이 풀리면 띄움. 사용자가 준 참고 그림처럼
+           폭 넓은 돌아가기 판 아래 줄에 설정과 나가기를 반씩 둠. 설정 창이 그 위에 뜨게 설정 창보다 앞에 둠 -->
+      <div id="pause" role="dialog" aria-modal="true" data-i18n-label="pause.menu" hidden>
+        <div id="pause-buttons">
+          <button type="button" id="pause-resume" class="plank" data-i18n="pause.resume"></button>
+          <button type="button" class="plank settings-open" data-i18n="lobby.settings"></button>
+          <button type="button" id="pause-leave" class="plank" data-i18n="hud.leave"></button>
+        </div>
+      </div>
       <!-- 설정 창. 첫 화면과 대기실에서 같은 판을 띄움. 바꾸면 바로 적용하고 브라우저에 기억함 (시스템 기획서 방 화면 설정) -->
       <div id="settings-panel" role="dialog" aria-modal="true" aria-labelledby="settings-title" hidden>
         <form id="settings-form" class="sheet">
