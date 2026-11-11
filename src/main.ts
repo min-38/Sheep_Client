@@ -1,5 +1,13 @@
 import './style.css'
 import revolverData from './assets/revolver-rig.json'
+import helpRooms from './assets/help/1-rooms.png'
+import helpSaloon from './assets/help/2-saloon.png'
+import helpPaces from './assets/help/3-paces.png'
+import helpDraw from './assets/help/4-draw.png'
+import helpSway from './assets/help/5-sway.png'
+import helpHoles from './assets/help/6-holes.png'
+import helpTimer from './assets/help/7-timer.png'
+import helpSunset from './assets/help/8-sunset.png'
 import { orbit } from './backdrop.ts'
 import { bartenderBody, brimOf, CHARACTERS, characterBody, drawFigure, inWorld, keyColor, pinWound, portraitUrl, savedCharacter, savedColor, SUICIDE_AIM, SUICIDE_FLASH, suicideStage, toModel, woundBox, type Body, type Figure, type Pose, type Wound } from './character.ts'
 import { best, measure, toLocalTime, toServerTime, type ClockSample } from './clock.ts'
@@ -2098,6 +2106,48 @@ settingsForm.addEventListener('submit', (e) => {
 })
 settingsPanel.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') settingsPanel.hidden = true
+})
+
+// 도움말 창 (시스템 기획서 방 화면 도움말, SHEEP-196). 장마다 그림 한 장과 한 줄(copy.help.pages, 그림과 같은 차례).
+// 이전·다음으로 넘기고, 닫기나 Esc로 메뉴로 돌아감. 열 때마다 첫 장부터. 그림은 글자를 숨긴 게임 캡처라 모든 언어가 같이 씀
+const HELP_PICTURES = [helpRooms, helpSaloon, helpPaces, helpDraw, helpSway, helpHoles, helpTimer, helpSunset]
+const helpOpen = document.querySelector<HTMLButtonElement>('#help-open')!
+const helpPanel = document.querySelector<HTMLDivElement>('#help-panel')!
+const helpPicture = document.querySelector<HTMLImageElement>('#help-picture')!
+const helpLine = document.querySelector<HTMLParagraphElement>('#help-line')!
+const helpCount = document.querySelector<HTMLOutputElement>('#help-count')!
+const helpPrev = document.querySelector<HTMLButtonElement>('#help-prev')!
+const helpNext = document.querySelector<HTMLButtonElement>('#help-next')!
+let helpPage = 0
+function showHelp() {
+  helpPicture.src = HELP_PICTURES[helpPage]
+  helpLine.textContent = copy.help.pages[helpPage]
+  helpCount.value = `${helpPage + 1} / ${HELP_PICTURES.length}`
+  helpPrev.disabled = helpPage === 0
+  helpNext.disabled = helpPage === HELP_PICTURES.length - 1
+}
+// 넘긴 쪽 버튼이 막히면(첫 장, 끝 장) 초점을 반대쪽 버튼으로 옮겨 키보드로 이어 넘김
+function turnHelp(step: number) {
+  helpPage = Math.min(HELP_PICTURES.length - 1, Math.max(0, helpPage + step))
+  showHelp()
+  if (helpPrev.disabled) helpNext.focus()
+  if (helpNext.disabled) helpPrev.focus()
+}
+function closeHelp() {
+  helpPanel.hidden = true
+  helpOpen.focus()
+}
+helpOpen.addEventListener('click', () => {
+  helpPage = 0
+  showHelp()
+  helpPanel.hidden = false
+  helpNext.focus()
+})
+helpPrev.addEventListener('click', () => turnHelp(-1))
+helpNext.addEventListener('click', () => turnHelp(1))
+document.querySelector('#help-close')!.addEventListener('click', closeHelp)
+helpPanel.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') closeHelp()
 })
 
 // 설정의 언어로 글자를 모두 넣음 (시스템 기획서 방 화면 설정). index.html의 data-i18n 글자와 한 번만 넣는 글자를 여기서 넣고,

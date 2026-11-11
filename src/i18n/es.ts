@@ -102,6 +102,7 @@ export const es: Copy = {
     join: 'Entrar',
     play: 'Jugar',
     practice: 'Práctica',
+    help: 'Ayuda',
     rooms: 'Salas',
     back: 'Atrás',
     doubleClick: "Doble clic en una sala pa' entrar",
@@ -140,6 +141,20 @@ export const es: Copy = {
     players: 'Jugadores',
     ok: 'Crear',
     cancel: 'Cancelar',
+  },
+  help: {
+    prev: 'Atrás',
+    next: 'Siguiente',
+    pages: [
+      'Crea una sala o entra con un código.',
+      'Todos listos y empieza el duelo.',
+      'Una bala. Espalda con espalda, 10 pasos.',
+      'Con «¡Desenfunda!», gira y pulsa D.',
+      'Girar desvía la mira. Quédate quieto.',
+      'Cabeza: 1 tiro. Cuerpo: 2 tiros.',
+      'Dispara en 5 s tras «¡Desenfunda!».',
+      'Gana el último en pie. Empate: otra.',
+    ],
   },
   settings: {
     music: 'Música',

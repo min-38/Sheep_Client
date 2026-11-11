@@ -57,6 +57,10 @@ describe('문구', () => {
     for (const key of htmlKeys) expect(textAt(copyOf(l), key), key).toEqual(expect.any(String))
   })
 
+  test.each(LANGUAGES)('%s: 도움말은 그림 8장과 같은 수의 줄 (시스템 기획서 방 화면 도움말, SHEEP-196)', (l) => {
+    expect(copyOf(l).help.pages).toHaveLength(8)
+  })
+
   test.each(LANGUAGES)('%s: 빈 문구가 없음', (l) => {
     for (const [path, text] of strings(copyOf(l))) expect(text.trim(), path).not.toBe('')
   })

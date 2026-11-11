@@ -102,6 +102,7 @@ export const de: Copy = {
     join: 'Beitreten',
     play: 'Spielen',
     practice: 'Training',
+    help: 'Hilfe',
     rooms: 'Räume',
     back: 'Zurück',
     doubleClick: "Doppelklick auf 'nen Raum, und rein mit dir",
@@ -140,6 +141,20 @@ export const de: Copy = {
     players: 'Spieler',
     ok: 'Erstellen',
     cancel: 'Abbrechen',
+  },
+  help: {
+    prev: 'Zurück',
+    next: 'Weiter',
+    pages: [
+      'Raum erstellen oder mit Code beitreten.',
+      'Sind alle bereit, beginnt das Duell.',
+      'Eine Kugel. Zehn Schritte auseinander.',
+      'Bei „Zieh!“ umdrehen und D drücken.',
+      'Drehen verwackelt. Ruhig zielen.',
+      'Kopf: 1 Treffer. Körper: 2 Treffer.',
+      'Schieß binnen 5 Sekunden nach „Zieh!“.',
+      'Der Letzte gewinnt. Gleichstand: neu.',
+    ],
   },
   settings: {
     music: 'Musik',

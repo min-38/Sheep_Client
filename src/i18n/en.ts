@@ -124,6 +124,7 @@ export const en = {
     // 첫 화면 메뉴와 입장 게시판 (시스템 기획서 방 화면 M8 첫 화면, 연습)
     play: 'Play',
     practice: 'Practice',
+    help: 'Help',
     rooms: 'Rooms',
     back: 'Back',
     doubleClick: 'Double-click a room to mosey in',
@@ -168,6 +169,22 @@ export const en = {
     cancel: 'Cancel',
   },
   // 설정 창
+  // 첫 화면 메뉴의 도움말 창 (시스템 기획서 방 화면 도움말, SHEEP-196). 창 이름은 lobby.help, 닫기는 settings.close.
+  // pages는 장마다 한 줄이고 그림(src/assets/help/)과 같은 차례. 서부 말투 없이 바로 알아듣게, 창에서 한 줄에 들어가게 씀 (사용자 결정 2026-11-11, CLAUDE.md Language)
+  help: {
+    prev: 'Back',
+    next: 'Next',
+    pages: [
+      'Create a room, or join one by code.',
+      'The duel starts when all are Ready.',
+      'One bullet. Back to back, ten paces.',
+      'At "Draw!", turn and press D.',
+      'Turning shakes your aim. Hold still.',
+      'Head: 1 shot. Body: 2 shots.',
+      'Fire within 5 seconds of "Draw!".',
+      'Last one standing wins. Ties go again.',
+    ],
+  },
   settings: {
     music: 'Music',
     effects: 'SFX',

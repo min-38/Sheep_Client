@@ -777,7 +777,8 @@ body {
 /* 줄마다 폭을 같게 나눔 */
 #lobby .row,
 #create-panel .row,
-#settings-panel .row {
+#settings-panel .row,
+#help-panel .row {
   display: flex;
   align-items: center;
   gap: 1cqw;
@@ -789,7 +790,8 @@ body {
 
 /* 방 만들기 창과 설정 창. 화면 위를 어둡게 덮고 가운데에 낡은 종이 한 장 */
 #create-panel,
-#settings-panel {
+#settings-panel,
+#help-panel {
   position: absolute;
   inset: 0;
   display: grid;
@@ -799,12 +801,14 @@ body {
 }
 
 #create-panel[hidden],
-#settings-panel[hidden] {
+#settings-panel[hidden],
+#help-panel[hidden] {
   display: none;
 }
 
 #create-panel .sheet,
 #settings-panel .sheet,
+#help-panel .sheet,
 #lobby #room-step {
   display: grid;
   gap: 1.2cqw;
@@ -827,10 +831,49 @@ body {
 }
 
 #create-title,
-#settings-title {
+#settings-title,
+#help-title {
   margin: 0;
   font: 3cqw / 1 var(--display);
   text-align: center;
+}
+
+/* 도움말 창 (SHEEP-196 시안 A). 설정 창보다 넓혀 그림을 크게 보임 */
+#help-panel .sheet {
+  width: 44cqw;
+}
+
+/* 게임 화면을 찍은 그림. 검은 테를 두른 사진처럼, 도트가 흐려지지 않게 키움 */
+#help-picture {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border: 0.5cqw solid #2a1a0e;
+  box-sizing: border-box;
+  image-rendering: pixelated;
+}
+
+/* 한 줄 설명. 모든 언어에서 한 줄에 들어가게 씀 (사용자 결정 2026-11-11) */
+#help-line {
+  display: grid;
+  place-items: center;
+  min-height: 1.4em;
+  margin: 0;
+  font-weight: bold;
+  text-align: center;
+  text-wrap: balance;
+}
+
+#help-panel .row {
+  justify-content: space-between;
+}
+
+#help-count {
+  font-variant-numeric: tabular-nums;
+}
+
+#help-close {
+  justify-self: center;
 }
 
 /* 입장 게시판: 설정 창과 같은 못 박은 종이를 오른쪽에 붙임 (시안 C) */
@@ -871,6 +914,7 @@ body {
 #room-name,
 #settings-nickname,
 #settings-panel button,
+#help-panel button,
 .settings-open {
   font: inherit;
   padding: 0.6cqw 1.2cqw;

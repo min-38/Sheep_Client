@@ -141,6 +141,7 @@
         <div id="menu" hidden>
           <button type="button" id="enter" class="plank sign" data-i18n="lobby.play"></button>
           <button type="button" id="practice" class="plank sign left" data-i18n="lobby.practice"></button>
+          <button type="button" id="help-open" class="plank sign" data-i18n="lobby.help" aria-controls="help-panel"></button>
           <button type="button" class="plank sign settings-open" data-i18n="lobby.settings"></button>
         </div>
         <!-- 입장 게시판: 못 박은 종이. 머리에 방 만들기, 그 아래 방 목록, 맨 아래 뒤로·방 코드·입장. 캐릭터는 술집에서 고름 (SHEEP-118) -->
@@ -231,6 +232,21 @@
           </div>
           <button id="settings-close" class="plank" data-i18n="settings.close"></button>
         </form>
+      </div>
+      <!-- 도움말 창. 메뉴의 도움말을 누르면 설정 창처럼 띄움. 장마다 글자를 숨긴 게임 그림 한 장과 한 줄. 이전·다음으로 넘기고 닫기나 Esc로 메뉴로 돌아감
+           (시스템 기획서 방 화면 도움말, SHEEP-196 시안 A). 그림, 글, 장 번호는 main.ts가 넣음 -->
+      <div id="help-panel" role="dialog" aria-modal="true" aria-labelledby="help-title" hidden>
+        <div class="sheet">
+          <h2 id="help-title" data-i18n="lobby.help"></h2>
+          <img id="help-picture" alt="" />
+          <p id="help-line" aria-live="polite"></p>
+          <div class="row">
+            <button type="button" id="help-prev" class="plank" data-i18n="help.prev"></button>
+            <output id="help-count"></output>
+            <button type="button" id="help-next" class="plank" data-i18n="help.next"></button>
+          </div>
+          <button type="button" id="help-close" class="plank" data-i18n="settings.close"></button>
+        </div>
       </div>
     </div>
     <script type="module" src="/src/main.ts"></script>
