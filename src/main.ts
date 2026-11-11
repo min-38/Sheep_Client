@@ -1128,6 +1128,8 @@ function makeSeats(seats: number) {
   seatViews = Array.from({ length: seats }, (_, i) => {
     const li = document.createElement('li')
     li.className = 'seat'
+    // 첫 state 전에 빈 좌석이 Ready 도장 찍힌 꼬리표로 보이지 않게 숨긴 채 만듦. 앉은 좌석은 showSeats가 보임 (SHEEP-192)
+    li.hidden = true
     const at = seatTag(i, seats)
     li.style.left = `${(at.x * 100) / W}%`
     li.style.top = `${(at.y * 100) / H}%`
