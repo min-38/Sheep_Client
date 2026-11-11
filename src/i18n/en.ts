@@ -61,7 +61,7 @@ export const en = {
     leave: 'Leave',
     ready: 'Ready',
     unready: 'Not yet',
-    readyCount: (ready: number, total: number) => `${ready} of ${total} ready to draw`,
+    changeDuds: 'Change Duds',
     settings: 'Settings',
     mySeat: 'My seat',
     // 좌석 꼬리표에 적는 이긴 횟수. 0승도 "0 Win"으로 적음 (사용자 결정 2026-11-10, SHEEP-148)

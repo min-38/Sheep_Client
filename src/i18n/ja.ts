@@ -49,7 +49,7 @@ export const ja: Copy = {
     leave: '退出',
     ready: '準備OK',
     unready: 'まだだ',
-    readyCount: (ready, total) => `${total}人中${ready}人が支度よし`,
+    changeDuds: '着替える',
     settings: '設定',
     mySeat: '自分の席',
     wins: (n) => `${n}勝`,

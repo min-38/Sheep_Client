@@ -201,12 +201,12 @@ function applyState(players: readonly PlayerState[]) {
   showReady()
 }
 
-// 준비 버튼 글자와 준비한 사람 수. state를 받을 때와 언어를 바꿀 때 넣음
+// 준비 버튼 글자. state를 받을 때와 언어를 바꿀 때 넣음. 준비 남은 사람 수는 보이지 않음 (SHEEP-170).
+// 준비한 동안은 캐릭터를 바꿀 수 없어 캐릭터 변경 버튼을 막고 펼친 고르기 판도 닫음
 function showReady() {
   readyButton.textContent = ready ? copy.saloon.unready : copy.saloon.ready
-  const count = copy.saloon.readyCount(roster.filter((p) => p.ready).length, roster.length)
-  // 같은 글자를 틱마다 다시 넣으면 화면 낭독기가 되풀이해 읽음
-  if (readyCount.value !== count) readyCount.value = count
+  dressOpen.disabled = ready
+  if (ready) showWardrobePanel(false)
 }
 
 // 지금 그릴 눈. 관전 중이면 그 사람, 아니면 나. 자리는 다른 사람처럼 INTERP_DELAY 전이고,
@@ -855,7 +855,7 @@ function showStatus(text: () => string) {
 const room = document.querySelector<HTMLOutputElement>('#room')!
 // 술집 대기실. 방에 들어가 판이 시작되기 전과 판이 끝난 뒤에 보임
 const saloon = document.querySelector<HTMLDivElement>('#saloon')!
-const boardName = document.querySelector<HTMLParagraphElement>('#board-name')!
+const saloonSign = document.querySelector<HTMLParagraphElement>('#saloon-sign')!
 const boardCode = document.querySelector<HTMLButtonElement>('#board-code')!
 const boardCodeText = document.querySelector<HTMLSpanElement>('#board-code-text')!
 const boardPrivate = document.querySelector<HTMLParagraphElement>('#board-private')!
@@ -985,7 +985,7 @@ function showSeats(players: readonly PlayerState[]) {
   guestsCtx.putImageData(guestImage, 0, 0)
 }
 const readyButton = document.querySelector<HTMLButtonElement>('#ready')!
-const readyCount = document.querySelector<HTMLOutputElement>('#ready-count')!
+const dressOpen = document.querySelector<HTMLButtonElement>('#dress-open')!
 const bannerText = document.querySelector<HTMLOutputElement>('#banner')!
 // 술집에서 받은 카운트다운 시각(서버 시계). 이 시각까지 술집을 나서는 장면을 보이고 술집을 닫음. 술집 밖에서 받았거나 닫았으면 null (SHEEP-137)
 let leaveSaloonAt: number | null = null
@@ -1089,7 +1089,7 @@ function showWardrobe(players: readonly PlayerState[]) {
   const me = players.find((p) => p.id === myId)
   if (!me) return
   const taken = players.filter((p) => p.id !== myId).map((p) => p.color)
-  const key = JSON.stringify([me.character, me.color, taken])
+  const key = JSON.stringify([me.character, me.color, taken, me.ready])
   if (key === shownWardrobe) return
   shownWardrobe = key
   // 모든 포스터를 내 색으로 칠해 어느 캐릭터를 골라도 어떻게 보일지 앎
@@ -1109,10 +1109,22 @@ function showWardrobe(players: readonly PlayerState[]) {
     button.setAttribute('aria-label', used ? copy.saloon.colorTaken(copy.saloon.colors[i]) : copy.saloon.colors[i])
   })
 }
+// 캐릭터 변경 버튼으로 고르기 판을 펼치고 닫음. 판 밖을 누르거나 Esc로도 닫음 (SHEEP-170)
+function showWardrobePanel(open: boolean) {
+  wardrobe.hidden = !open
+  dressOpen.setAttribute('aria-expanded', String(open))
+}
+dressOpen.addEventListener('click', () => showWardrobePanel(dressOpen.getAttribute('aria-expanded') !== 'true'))
+saloon.addEventListener('pointerdown', (e) => {
+  if (!wardrobe.hidden && !wardrobe.contains(e.target as Node) && !dressOpen.contains(e.target as Node)) showWardrobePanel(false)
+})
+saloon.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') showWardrobePanel(false)
+})
 wardrobe.addEventListener('click', (e) => {
   const button = (e.target as HTMLElement).closest('button')
   const me = roster.find((p) => p.id === myId)
-  if (!button || !me) return
+  if (!button || !me || me.ready) return
   if (button.dataset.character !== undefined) {
     character = Number(button.dataset.character)
     remember(SAVED_CHARACTER, character)
@@ -1357,8 +1369,11 @@ function receive(data: string) {
       lobby.hidden = true
       showStep()
       saloon.hidden = false
-      // 칠판에 방 이름, 코드, 비공개를 적음. 판 도중에는 칠판이 없어 코드만 오른쪽 위에 둠 (시스템 기획서 방 화면)
-      boardName.textContent = m.name
+      // 방 이름은 술장 위 간판에, 코드와 비공개는 칠판에 적음 (SHEEP-168, SHEEP-170). 간판은 길면 …로 잘려 올리면 다 보임.
+      // 판 도중에는 칠판이 없어 코드만 오른쪽 위에 둠 (시스템 기획서 방 화면)
+      saloonSign.textContent = m.name
+      saloonSign.title = m.name
+      showWardrobePanel(false)
       boardCodeText.textContent = m.code
       roomPrivate = m.private
       showCopied(null)

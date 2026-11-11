@@ -49,7 +49,7 @@ export const zh: Copy = {
     leave: '离开',
     ready: '准备',
     unready: '还没好',
-    readyCount: (ready, total) => `${total}个里${ready}个准备好了`,
+    changeDuds: '换身行头',
     settings: '设置',
     mySeat: '我的座位',
     wins: (n) => `${n} 胜`,

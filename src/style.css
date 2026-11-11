@@ -1318,8 +1318,7 @@ body {
 }
 
 #lobby button,
-#lobby input,
-#counter button {
+#lobby input {
   font: inherit;
   padding: 0.6cqw 1.2cqw;
 }
@@ -1371,7 +1370,9 @@ body {
   font: 1.35cqw / 1.1 var(--display);
 }
 
-.seat[hidden] {
+.seat[hidden],
+.seat .stamp[hidden],
+#wardrobe[hidden] {
   display: none;
 }
 
@@ -1401,19 +1402,22 @@ body {
   filter: drop-shadow(0 0.1cqw 0.1cqw #0009);
 }
 
-/* 준비 도장. 꼬리표 위에 비스듬히 */
+/* 준비 표시. 꼬리표 위에 비스듬히 찍은 붉은 고무 도장, 겹테 (사용자 결정 2026-11-11, SHEEP-170: 밀랍 도장보다 서부 느낌).
+   멀리서도 보이게 전보다 크고 굵게 */
 .seat .stamp {
   position: absolute;
   top: 55%;
   left: 50%;
   translate: -50% -50%;
   rotate: -12deg;
-  padding: 0 0.4cqw;
-  border: 0.22cqw solid #c0262d;
+  padding: 0.15cqw 0.6cqw;
+  border: 0.3cqw solid #c0262d;
   border-radius: 0.3cqw;
+  box-shadow: inset 0 0 0 0.15cqw #f3e3c0, inset 0 0 0 0.3cqw #c0262d;
   color: #c0262d;
-  font: 1.05cqw / 1.2 var(--display);
-  opacity: 0.9;
+  font: 1.6cqw / 1.2 var(--display);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
   white-space: nowrap;
 }
 
@@ -1557,12 +1561,12 @@ body {
   opacity: 0.7;
 }
 
-/* 왼쪽 벽의 현상금 게시판 (SHEEP-118). 자리는 saloon.ts WARDROBE_RIGHT와 같은 캔버스 px(x 8~116, y 8~75)이고,
-   8명 방의 왼쪽 좌석 꼬리표와 앉은 손님 모자 위에서 끝남. 나무 판에 포스터 8장을 압정으로 꽂고 그 아래 색 견본 */
+/* 캐릭터·색 고르기 판 (SHEEP-118). 칠판의 캐릭터 변경 버튼으로 칠판 왼쪽(캔버스 px x 238~346, y 12~79)에 펼침 (SHEEP-170).
+   나무 판에 포스터 8장을 압정으로 꽂고 그 아래 색 견본 */
 #wardrobe {
   position: absolute;
-  left: calc(8 * 100cqw / 480);
-  top: calc(8 * 100cqw / 480);
+  left: calc(238 * 100cqw / 480);
+  top: calc(12 * 100cqw / 480);
   width: calc(108 * 100cqw / 480);
   height: calc(67 * 100cqw / 480);
   box-sizing: border-box;
@@ -1574,7 +1578,7 @@ body {
   background: #8a6a42;
   box-shadow:
     inset 0 0 calc(6 * 100cqw / 480) #0008,
-    0 calc(2 * 100cqw / 480) calc(4 * 100cqw / 480) #0007;
+    0 calc(3 * 100cqw / 480) calc(8 * 100cqw / 480) #000c;
 }
 
 #wanted {
@@ -1668,13 +1672,13 @@ body {
 #chalkboard {
   position: absolute;
   left: calc(358 * 100cqw / 480);
-  top: calc(20 * 100cqw / 480);
+  top: calc(14 * 100cqw / 480);
   width: calc(98 * 100cqw / 480);
-  height: calc(54 * 100cqw / 480);
+  height: calc(22 * 100cqw / 480);
   display: grid;
   place-content: center;
   justify-items: center;
-  gap: 0.4cqw;
+  gap: 0.1cqw;
   color: #e8ecdfdd;
   font-family: var(--display);
   text-shadow: 0 0 0.15cqw #e8ecdf88;
@@ -1686,10 +1690,6 @@ body {
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
-}
-
-#board-name {
-  font-size: 1.8cqw;
 }
 
 /* 방 코드 버튼. 분필 글씨 그대로이고, 올리거나 초점이 오면 분필 물결 밑줄 (SHEEP-114) */
@@ -1758,22 +1758,50 @@ body {
   font-size: 1.3cqw;
 }
 
-/* 바닥 쪽 한 줄의 버튼. 왼쪽 나가기, 가운데 준비, 오른쪽 설정. 바 의자 다리 앞에 놓임 */
-#counter {
+/* 칠판 아래 못 박은 나무 판 버튼 두 줄 (SHEEP-170 시안 B). 캔버스 px x 352~462, y 43~75라 8명 방의 오른쪽 좌석 꼬리표(y 76부터)에 걸리지 않음.
+   준비는 놋쇠 빛으로 가장 눈에 띄게 함 */
+#board-buttons {
   position: absolute;
-  left: calc(24 * 100cqw / 480);
-  right: calc(24 * 100cqw / 480);
-  top: calc(238 * 100cqw / 480);
-  height: calc(28 * 100cqw / 480);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+  left: calc(352 * 100cqw / 480);
+  top: calc(43 * 100cqw / 480);
+  width: calc(110 * 100cqw / 480);
+  height: calc(32 * 100cqw / 480);
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: calc(3 * 100cqw / 480);
 }
 
-#ready-box {
-  display: flex;
-  align-items: center;
-  gap: 1cqw;
-  color: #f2dfa7;
-  text-shadow: 0 0 0.3cqw #000;
+#board-buttons button {
+  min-width: 0;
+  padding: 0 0.3cqw;
+  overflow: hidden;
+  font: bold 1.4cqw / 1 var(--text);
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
+
+#board-buttons #ready {
+  background: var(--nails), linear-gradient(#c89a44, #8a6024);
+  color: #2a180c;
+  text-shadow: 0 0.1cqw 0 #f6dc9a;
+  font-size: 1.6cqw;
+}
+
+/* 술장 위 방 이름 간판 글씨 (SHEEP-168 시안 B). 판은 saloon.ts SIGN(캔버스 px x 135~344, y 14~40)이 그리고, 금박 테 안쪽에 한 줄로 씀. 길면 …로 자름 */
+#saloon-sign {
+  position: absolute;
+  left: calc(141 * 100cqw / 480);
+  top: calc(14 * 100cqw / 480);
+  width: calc(197 * 100cqw / 480);
+  height: calc(26 * 100cqw / 480);
+  margin: 0;
+  overflow: hidden;
+  color: #e7bf55;
+  font: 2.6cqw / calc(26 * 100cqw / 480) var(--display);
+  letter-spacing: 0.08em;
+  text-align: center;
+  text-overflow: ellipsis;
+  text-shadow: 0 0 0.6cqw #e7bf5566, 0 0.15cqw 0 #3d2412;
+  white-space: nowrap;
+}
+
