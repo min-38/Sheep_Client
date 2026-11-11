@@ -71,9 +71,10 @@
   mask: var(--paper-mask) 0 0 / 100% 100% no-repeat;
 }
 
-/* 도장 잉크가 종이에 스며 군데군데 빠짐. 좌석 꼬리표의 준비 표시는 밀랍 도장이라 뺌 (SHEEP-170) */
+/* 도장 잉크가 종이에 스며 군데군데 빠짐 */
 #hit-stamp,
-.poster .stamp {
+.poster .stamp,
+.seat .stamp {
   mix-blend-mode: multiply;
   mask: var(--paper-ink) 0 0 / 3cqw;
 }
@@ -1401,21 +1402,22 @@ body {
   filter: drop-shadow(0 0.1cqw 0.1cqw #0009);
 }
 
-/* 준비 표시. 꼬리표 오른쪽 아래에 찍은 붉은 밀랍 도장 (SHEEP-170 시안 B). 멀리서도 보이게 크고 진함 */
+/* 준비 표시. 꼬리표 위에 비스듬히 찍은 붉은 고무 도장, 겹테 (사용자 결정 2026-11-11, SHEEP-170: 밀랍 도장보다 서부 느낌).
+   멀리서도 보이게 전보다 크고 굵게 */
 .seat .stamp {
   position: absolute;
-  right: -1.4cqw;
-  bottom: -1.4cqw;
-  display: grid;
-  place-items: center;
-  width: 3.6cqw;
-  aspect-ratio: 1;
-  border-radius: 50%;
-  background: radial-gradient(circle at 38% 32%, #e0574a, #a3231c 55%, #6e140f);
-  box-shadow: 0 0.15cqw 0.3cqw #0009, inset 0 0 0 0.25cqw #8a1c15;
-  color: #f8ddd0;
-  font: 0.85cqw / 1 var(--display);
-  rotate: -14deg;
+  top: 55%;
+  left: 50%;
+  translate: -50% -50%;
+  rotate: -12deg;
+  padding: 0.15cqw 0.6cqw;
+  border: 0.3cqw solid #c0262d;
+  border-radius: 0.3cqw;
+  box-shadow: inset 0 0 0 0.15cqw #f3e3c0, inset 0 0 0 0.3cqw #c0262d;
+  color: #c0262d;
+  font: 1.6cqw / 1.2 var(--display);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
   white-space: nowrap;
 }
 
