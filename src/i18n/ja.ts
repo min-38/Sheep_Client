@@ -92,7 +92,7 @@ export const ja: Copy = {
     },
   },
   lobby: {
-    nickname: 'なんて呼べばいい？',
+    nickname: '名前',
     nicknameRule: '2〜8文字',
     ok: 'OK',
     characterNames: ['チャールズ', 'ロサ', 'サイラス', 'ベル', 'クレイトン', 'ジェシー', 'ケイト', 'ディエゴ'],

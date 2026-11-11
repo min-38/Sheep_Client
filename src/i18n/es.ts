@@ -92,7 +92,7 @@ export const es: Copy = {
     },
   },
   lobby: {
-    nickname: '¿Cómo te dicen?',
+    nickname: 'Apodo',
     nicknameRule: '2–8 caracteres',
     ok: 'Aceptar',
     characterNames: ['Charles', 'Rosa', 'Silas', 'Belle', 'Clayton', 'Jesse', 'Kate', 'Diego'],

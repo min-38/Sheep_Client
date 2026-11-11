@@ -92,7 +92,7 @@ export const ru: Copy = {
     },
   },
   lobby: {
-    nickname: 'Как тебя звать?',
+    nickname: 'Никнейм',
     nicknameRule: '2–8 символов',
     ok: 'ОК',
     characterNames: ['Чарльз', 'Роса', 'Сайлас', 'Белль', 'Клейтон', 'Джесси', 'Кейт', 'Диего'],

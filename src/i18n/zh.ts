@@ -92,7 +92,7 @@ export const zh: Copy = {
     },
   },
   lobby: {
-    nickname: '大伙怎么叫你？',
+    nickname: '昵称',
     nicknameRule: '2–8 个字符',
     ok: '确定',
     characterNames: ['查尔斯', '罗莎', '塞拉斯', '贝尔', '克莱顿', '杰西', '凯特', '迭戈'],
