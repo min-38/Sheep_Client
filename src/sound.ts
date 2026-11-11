@@ -187,6 +187,31 @@ export function playDoor(audio: AudioContext, when: number) {
   }
 }
 
+// 판 끝 포스터에 Winner 도장이 쾅 찍히는 소리 (SHEEP-172). 나무 판에 댄 종이를 고무 도장으로 내려치는 낮은 쿵에, 종이가 눌리는 짧은 탁.
+// ponytail: 합성한 임시음. 들어 보고 CC0 효과음으로 바꿀지 정함 (시스템 기획서 사운드)
+export function playStamp(audio: AudioContext, when: number) {
+  const out = effectsOut(audio)
+  const thump = new OscillatorNode(audio, { type: 'sine', frequency: 110 })
+  thump.frequency.setValueAtTime(110, when)
+  thump.frequency.exponentialRampToValueAtTime(45, when + 0.2)
+  const body = new GainNode(audio, { gain: 0 })
+  body.gain.setValueAtTime(0.9, when)
+  body.gain.exponentialRampToValueAtTime(0.001, when + 0.25)
+  thump.connect(body).connect(out)
+  thump.start(when)
+  thump.stop(when + 0.25)
+  const noise = new AudioBuffer({ length: Math.round(audio.sampleRate * 0.06), sampleRate: audio.sampleRate })
+  const data = noise.getChannelData(0)
+  for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1
+  const slap = new AudioBufferSourceNode(audio, { buffer: noise })
+  const paper = new BiquadFilterNode(audio, { type: 'lowpass', frequency: 1800 })
+  const slapVolume = new GainNode(audio, { gain: 0 })
+  slapVolume.gain.setValueAtTime(0.6, when)
+  slapVolume.gain.exponentialRampToValueAtTime(0.001, when + 0.06)
+  slap.connect(paper).connect(slapVolume).connect(out)
+  slap.start(when)
+}
+
 // 탈락을 보여 주기 시작한 때부터 뒤로 넘어지는 동작이 바닥에 닿기까지(ms). 시간 초과는 자살 모습(총을 댐, 불꽃)이 끝난 뒤에 넘어짐
 export const fallDelay = (reason: 'shot' | 'timeout') => (reason === 'timeout' ? SUICIDE_AIM + SUICIDE_FLASH : 0) + FALL_LAND_MS
 

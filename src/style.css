@@ -701,6 +701,11 @@ body {
   .plank {
     transition: none;
   }
+
+  /* 도장은 떨어지지 않고 처음부터 찍혀 있음 */
+  #win :is(.poster, .stamp, .dust) {
+    animation: none;
+  }
 }
 
 /* 칸은 낡은 종이색. 나무 판 버튼과 같은 테두리와 높이 */
@@ -1526,6 +1531,90 @@ body {
 
 #win .nick {
   font-size: 3cqw;
+}
+
+/* Winner 도장 (SHEEP-172 B안). 별을 박은 둥근 보안관 도장을 오른쪽 아래 귀퉁이에 걸쳐 찍어 얼굴과 이름을 덜 가림.
+   포스터가 뜨고 0.6초 뒤 돌며 떨어져 0.24초에 찍히고(ceremony.ts STAMP_AT, STAMP_FALL), 그때 종이가 눌리고 흙먼지 고리가 퍼짐 */
+#win .stamp {
+  top: auto;
+  left: auto;
+  right: -1.8cqw;
+  bottom: 2.6cqw;
+  width: 12.8cqw;
+  aspect-ratio: 1;
+  box-sizing: border-box;
+  translate: none;
+  rotate: 16deg;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  padding: 0;
+  border: 0.5cqw solid #c0262d;
+  border-radius: 50%;
+  font: 1.7cqw / 1 var(--display);
+  animation: win-stamp 0.24s cubic-bezier(0.5, 0, 1, 0.6) 0.6s both;
+}
+
+/* 겹테의 안쪽 테. 틈을 종이색으로 칠하면 종이 밖으로 나간 부분에 밝은 고리가 떠서 비워 둠 */
+#win .stamp::before {
+  content: '';
+  position: absolute;
+  inset: 0.4cqw;
+  border: 0.3cqw solid #c0262d;
+  border-radius: 50%;
+}
+
+#win .stamp small {
+  font-size: 1.2cqw;
+  letter-spacing: 0.4cqw;
+}
+
+#win .poster {
+  animation: win-press 0.3s ease-out 0.84s;
+}
+
+#win .dust {
+  position: absolute;
+  right: 4.6cqw;
+  bottom: 9cqw;
+  width: 2cqw;
+  aspect-ratio: 1;
+  border: 0.3cqw solid #d9b77a;
+  border-radius: 50%;
+  opacity: 0;
+  pointer-events: none;
+  /* forwards만: 찍히기 전에는 보이지 않게 기다리는 동안 첫 장면을 미리 깔지 않음 */
+  animation: win-dust 0.5s ease-out 0.84s forwards;
+}
+
+@keyframes win-stamp {
+  from {
+    opacity: 0;
+    scale: 3;
+    rotate: 60deg;
+  }
+  to {
+    opacity: 0.85;
+    scale: 1;
+    rotate: 16deg;
+  }
+}
+
+@keyframes win-press {
+  30% {
+    scale: 0.965;
+  }
+}
+
+@keyframes win-dust {
+  from {
+    opacity: 0.9;
+    scale: 1;
+  }
+  to {
+    opacity: 0;
+    scale: 9;
+  }
 }
 
 /* 술집 주인 말풍선. 무성 영화 자막처럼 검은 판에 흰 이중 테와 기울인 글씨 (SHEEP-116, 시안 B).

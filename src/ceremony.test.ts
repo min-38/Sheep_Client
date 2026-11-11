@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { BLEED, CARD_MS, endingAt, fallSlow, irisOpen, IRIS_MS, lastFallCamera, lastFallMotion, POSTER_MS, SLOW, walkerAt, walkoffCamera, WALKOFF_MS } from './ceremony.ts'
+import { BLEED, CARD_MS, endingAt, fallSlow, irisOpen, IRIS_MS, lastFallCamera, lastFallMotion, POSTER_MS, SLOW, STAMP_AT, STAMP_FALL, stampHitAt, walkerAt, walkoffCamera, WALKOFF_MS } from './ceremony.ts'
 import { FALL_LAND_MS } from './character.ts'
 import { POOL_MS } from './blood.ts'
 import { fallDelay } from './sound.ts'
@@ -47,6 +47,13 @@ describe('lastFallMotion (사용자 요청 2026-11-11: 쓰러져 피 흘리는 �
     expect(fallDelay('timeout') / fallSlow('timeout') + spread / BLEED).toBeLessThanOrEqual(WIN_RESULT_MS - POSTER_MS - WALKOFF_MS - CARD_MS - 300)
     // 맞아 쓰러진 것은 지금처럼 느리게
     expect(fallSlow('shot')).toBe(SLOW)
+  })
+})
+
+describe('stampHitAt (SHEEP-172 B안)', () => {
+  test('포스터가 뜨고 STAMP_AT 뒤 떨어지기 시작해 STAMP_FALL 뒤 찍히고, 찍힌 도장이 1초 넘게 보임', () => {
+    expect(endingAt(end, stampHitAt(end))).toEqual({ stage: 'poster', elapsed: STAMP_AT + STAMP_FALL })
+    expect(POSTER_MS - (STAMP_AT + STAMP_FALL)).toBeGreaterThan(1000)
   })
 })
 

@@ -176,13 +176,15 @@
           </div>
         </form>
       </div>
-      <!-- 판 끝 포스터. 마지막 쓰러짐을 위에서 본 뒤 검은 화면에 이긴 사람의 WINNER 포스터를 크게 띄움. 돈은 적지 않음
-           (시스템 기획서 방 화면 M8 판 끝, SHEEP-169 시안 B) -->
+      <!-- 판 끝 포스터. 마지막 쓰러짐을 위에서 본 뒤 검은 화면에 이긴 사람의 WANTED 포스터를 크게 띄우고, 뜬 뒤 별을 박은 둥근 WINNER 도장을
+           쾅 찍음. 도장과 흙먼지 고리는 CSS 애니메이션으로 움직임. 돈은 적지 않음 (시스템 기획서 방 화면 M8 판 끝, SHEEP-169 시안 B, 도장은 SHEEP-172 B안) -->
       <div id="win" hidden>
         <div class="poster">
-          <span class="wanted">WINNER</span>
+          <span class="wanted">WANTED</span>
           <img id="win-face" alt="" />
           <span class="nick" id="win-name"></span>
+          <span class="stamp"><small aria-hidden="true">★ ★ ★</small>WINNER<small aria-hidden="true">★ ★ ★</small></span>
+          <span class="dust" aria-hidden="true"></span>
         </div>
       </div>
       <!-- 설정 창. 첫 화면과 대기실에서 같은 판을 띄움. 바꾸면 바로 적용하고 브라우저에 기억함 (시스템 기획서 방 화면 설정) -->

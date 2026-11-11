@@ -22,7 +22,7 @@ import type { Rig } from './rig.ts'
 import { banner, DUEL_LIMIT, dueling, formatTime, joins, locked, resultText, standingCount, stepIndex, STEPS_FROM, timeLeft, TURN_MS, walking, type Schedule } from './round.ts'
 import { bartenderFigure, bountyText, bubbleX, COPIED_MS, copyKeys, drawSaloon, SALOON_CAMERA, seatSlots, seatSpot, seatTag, startBartender, startChatter, stepBartender, stepChatter, STOOL } from './saloon.ts'
 import { cut, replayWindow } from './replay.ts'
-import { endingAt, fallSlow, irisOpen, lastFallCamera, lastFallMotion, walkerAt, walkoffCamera } from './ceremony.ts'
+import { endingAt, fallSlow, irisOpen, lastFallCamera, lastFallMotion, stampHitAt, walkerAt, walkoffCamera } from './ceremony.ts'
 import { fallEye, fallSide, LANDED_MS, SCENE_MS, suicideSide } from './downscene.ts'
 import { DOOR_PUSH_AT, drawEntrance, ENTER_FADE, ENTER_MS, entranceAt, entranceTrack, WHOOSH_AT, WHOOSH_MS } from './entrance.ts'
 // 지금 언어의 문구. 이 파일은 t를 시각 변수로 많이 써 문구는 copy로 부름
@@ -33,7 +33,7 @@ import { nextTarget } from './spectate.ts'
 import { drawSmoke, HALO_ALPHA, HALO_SIZE, smoke, SMOKE_MS, SMOKE_PX } from './smoke.ts'
 import { along, bulletDots, bulletRange, EYE_HEIGHT, FLIGHT_MS } from './bullet.ts'
 import { burst, BURST_MS, pool } from './blood.ts'
-import { fallDelay, heardFrom, loadEffects, play, playDoor, playFall, playSignal, playStep, playWhoosh, setEffectsVolume, stampOf, toAudioTime } from './sound.ts'
+import { fallDelay, heardFrom, loadEffects, play, playDoor, playFall, playSignal, playStamp, playStep, playWhoosh, setEffectsVolume, stampOf, toAudioTime } from './sound.ts'
 import { darkness, stepDip } from './tension.ts'
 import type { Thing } from './sprite.ts'
 import { afterTurn, aimAt, crosshairOffset, scaleAt, steady, sway, type Unsteady } from './sway.ts'
@@ -822,7 +822,11 @@ function frame(now: number) {
   // 승리는 글자 대신 이긴 사람의 포스터를 띄움
   const shown = result && now - INTERP_DELAY >= result.at ? result : null
   // 포스터는 판 끝의 포스터 단계에만 검은 화면 위에 띄움 (SHEEP-169)
-  if (ending?.stage === 'poster' && winView.hidden && result) showWinner(result.playerIds[0])
+  if (ending?.stage === 'poster' && winView.hidden && result) {
+    showWinner(result.playerIds[0])
+    // 도장이 찍히는 때 쿵. 포스터를 띄웠을 때만 냄. 이긴 사람이 나가 포스터가 없으면 내지 않음 (SHEEP-172)
+    if (!winView.hidden && audio && clock && result.end !== undefined) playStamp(audio, toAudioTime(toLocalTime(stampHitAt(result.end), clock.offset), stampOf(audio)))
+  }
   if (ending?.stage !== 'poster') winView.hidden = true
   // 판 끝에는 글자 대신 포스터와 자막 카드로 알림. 이긴 사람이 그사이 나가 포스터가 없으면 글자로 알림
   const text = inScene || (ending && winnerName !== '')
