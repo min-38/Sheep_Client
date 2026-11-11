@@ -75,4 +75,8 @@ describe('fallDelay', () => {
     expect(suicideStage(fallDelay('timeout') - FALL_LAND_MS - 1)).not.toBeNull()
     expect(suicideStage(fallDelay('timeout') - FALL_LAND_MS)).toBeNull()
   })
+
+  test('판 도중 나가기는 시간 초과와 같은 자살 모습 (SHEEP-200)', () => {
+    expect(fallDelay('left')).toBe(fallDelay('timeout'))
+  })
 })

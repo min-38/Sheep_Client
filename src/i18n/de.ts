@@ -37,6 +37,7 @@ export const de: Copy = {
     killCard: 'Wer dich umgelegt hat',
     downedBy: 'Umgelegt von',
     outtaTime: 'Zeit um',
+    litOut: 'Abgehauen',
     killLine: {
       head: (name: string) => `Die Kugel von ${name} hat deinen Hut gefunden, Partner.`,
       body: (name: string) => `Die zweite Kugel von ${name} hat dich umgehauen, Partner.`,
@@ -48,6 +49,7 @@ export const de: Copy = {
       head: (shooter, fallen) => `Die Kugel von ${shooter} hat den Hut von ${fallen} gefunden.`,
       body: (shooter, fallen) => `Die zweite Kugel von ${shooter} hat ${fallen} umgehauen.`,
       timeout: (fallen) => `Zeit um – ${fallen} hat das Eisen gegen sich selbst gerichtet.`,
+      left: (fallen) => `${fallen} ist abgehauen, eh sich der Rauch verzogen hat.`,
     },
   },
   saloon: {

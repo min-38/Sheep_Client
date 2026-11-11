@@ -37,6 +37,7 @@ export const ru: Copy = {
     killCard: 'Кто тебя уложил',
     downedBy: 'Стрелок',
     outtaTime: 'Время вышло',
+    litOut: 'Дал дёру',
     killLine: {
       head: (name: string) => `Стрелок ${name} — и пуля прямо под шляпу, приятель.`,
       body: (name: string) => `Стрелок ${name} — вторая пуля тебя и уложила, приятель.`,
@@ -48,6 +49,7 @@ export const ru: Copy = {
       head: (shooter, fallen) => `Стрелок ${shooter} — и ${fallen} получает пулю под шляпу.`,
       body: (shooter, fallen) => `Стрелок ${shooter} — вторая пуля, и ${fallen} лежит.`,
       timeout: (fallen) => `Время вышло — и ${fallen} наводит ствол на себя.`,
+      left: (fallen) => `${fallen} дал дёру, пока дым не рассеялся.`,
     },
   },
   saloon: {

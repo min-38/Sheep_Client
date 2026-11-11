@@ -1,5 +1,6 @@
 import { SUN_AZ } from './desert.ts'
 import { HOLSTER_MS } from './gun.ts'
+import type { DownReason } from './net.ts'
 import { horizonY, makeCamera, type Camera } from './render.ts'
 
 // 판 끝 (사용자 결정 2026-11-11, SHEEP-187 시안 A. SHEEP-169·172의 검은 화면 포스터, 뒷모습, 자막 카드를 끊김 없는 한 장면으로 바꿈).
@@ -112,7 +113,7 @@ export function spinGun(since: number): { spin: number; lower: number } {
 }
 
 // 마지막 쓰러짐을 늦추는 배율 (진 사람이 위에서 볼 때)
-export const fallSlow = (reason: 'shot' | 'timeout') => (reason === 'timeout' ? SUICIDE_SLOW : SLOW)
+export const fallSlow = (reason: DownReason) => (reason !== 'shot' ? SUICIDE_SLOW : SLOW)
 
 export type EndingStage = 'fall' | 'pull' | 'walk'
 

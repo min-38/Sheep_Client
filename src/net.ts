@@ -64,6 +64,10 @@ export type Phase = 'countdown' | 'walk' | 'duel' | 'lobby'
 // 판 결과. playerIds는 이긴 사람 1명, 또는 재대결하는 사람들. rounds는 재대결 때 새로 장전하는 총알 수이고 승리면 0
 export type RoundResult = { outcome: 'win' | 'rematch'; playerIds: string[]; rounds: number }
 
+// 쓰러진 사유 (기술 설계서 메시지 eliminated). shot은 머리나 두 번째 반샷을 맞음, timeout은 제한 시간 안에 쏘지 않아 자살함,
+// left는 판 도중 방을 나가 자살함 (SHEEP-200). shot이 아닌 둘은 남이 보기에 같은 자살 모습임
+export type DownReason = 'shot' | 'timeout' | 'left'
+
 // 맞은 자리 (SHEEP-126). zone은 부위, height는 맞은 높이(칸, 바닥 0), x·y는 격자 좌표(state의 x·y와 같은 축)
 export type HitPoint = { zone: 'head' | 'body'; height: number; x: number; y: number }
 
@@ -86,9 +90,8 @@ export type ServerMessage =
   | { type: 'phase'; phase: Phase; at: number }
   // 서버가 받아들인 발사. angle과 pitch는 fire의 것 그대로. pitch로 날아가는 총알을 그림 (SHEEP-125)
   | { type: 'shot'; playerId: string; angle: number; pitch: number }
-  // reason은 쓰러진 사유. shot은 머리나 두 번째 반샷을 맞음, timeout은 제한 시간 안에 쏘지 않아 자살함.
-  // hit은 쓰러뜨린 발사가 맞은 자리, shooterId는 그 발사를 쏜 사람이고 시간 초과면 둘 다 null (SHEEP-126, SHEEP-180)
-  | { type: 'eliminated'; playerId: string; reason: 'shot' | 'timeout'; hit: HitPoint | null; shooterId: string | null }
+  // hit은 쓰러뜨린 발사가 맞은 자리, shooterId는 그 발사를 쏜 사람이고 시간 초과나 나가기면 둘 다 null (SHEEP-126, SHEEP-180)
+  | { type: 'eliminated'; playerId: string; reason: DownReason; hit: HitPoint | null; shooterId: string | null }
   // 결과 시간이 끝나는 시각은 바로 뒤의 phase로 옴 (승리면 lobby, 재대결이면 countdown)
   | ({ type: 'result' } & RoundResult)
   // 판정이 확정된 틱에 쏜 사람에게만 옴. 누구를 맞혔는지는 담지 않음
@@ -150,7 +153,7 @@ export function parseServerMessage(text: string): ServerMessage | null {
         ? { type: 'shot', playerId: m.playerId, angle: m.angle, pitch: m.pitch }
         : null
     case 'eliminated': {
-      if (typeof m.playerId !== 'string' || (m.reason !== 'shot' && m.reason !== 'timeout')) return null
+      if (typeof m.playerId !== 'string' || !['shot', 'timeout', 'left'].includes(m.reason)) return null
       const hit = hitPoint(m)
       return hit !== undefined ? { type: 'eliminated', playerId: m.playerId, reason: m.reason, hit, shooterId: typeof m.shooterId === 'string' ? m.shooterId : null } : null
     }

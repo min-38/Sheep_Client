@@ -37,6 +37,7 @@ export const ja: Copy = {
     killCard: 'あんたを仕留めた奴',
     downedBy: '仕留めたのは',
     outtaTime: '時間切れ',
+    litOut: 'ずらかった',
     killLine: {
       head: (name: string) => `${name}の弾が帽子をぶち抜いたぜ、相棒。`,
       body: (name: string) => `${name}の二発目でお陀仏だ、相棒。`,
@@ -48,6 +49,7 @@ export const ja: Copy = {
       head: (shooter, fallen) => `${shooter}の弾が${fallen}の帽子をぶち抜いたぜ。`,
       body: (shooter, fallen) => `${shooter}の二発目で${fallen}はお陀仏だ。`,
       timeout: (fallen) => `時間切れで、${fallen}は自分に銃を向けちまった。`,
+      left: (fallen) => `${fallen}は硝煙が晴れる前にずらかっちまった。`,
     },
   },
   saloon: {

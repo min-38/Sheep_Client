@@ -37,6 +37,7 @@ export const ko: Copy = {
     killCard: '나를 쓰러뜨린 이',
     downedBy: '쓰러뜨린 이',
     outtaTime: '시간 다 됐수',
+    litOut: '줄행랑쳤수',
     killLine: {
       head: (name: string) => `${name}의 총알이 모자를 꿰뚫었구먼, 친구.`,
       body: (name: string) => `${name}의 두 번째 총알에 고꾸라졌구먼, 친구.`,
@@ -48,6 +49,7 @@ export const ko: Copy = {
       head: (shooter, fallen) => `${shooter}의 총알이 ${fallen}의 모자를 꿰뚫었구먼.`,
       body: (shooter, fallen) => `${fallen}, ${shooter}의 두 번째 총알에 고꾸라졌구먼.`,
       timeout: (fallen) => `시간이 다 되자 ${fallen}, 제 손으로 방아쇠를 당겼구먼.`,
+      left: (fallen) => `${fallen}, 연기가 걷히기도 전에 줄행랑쳤구먼.`,
     },
   },
   saloon: {

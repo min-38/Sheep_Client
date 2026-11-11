@@ -47,6 +47,8 @@ export const en = {
     killCard: 'Who brought you down',
     downedBy: 'Downed by',
     outtaTime: 'Outta time',
+    // 판 도중 나가 자살로 쓰러진 사람 (SHEEP-200). 판 끝 마지막 쓰러짐 보기에만 씀
+    litOut: 'Lit out',
     killLine: {
       head: (name: string) => `${name}'s bullet found your hat, partner.`,
       body: (name: string) => `${name}'s second slug laid you low, partner.`,
@@ -59,6 +61,7 @@ export const en = {
       head: (shooter: string, fallen: string) => `${shooter}'s bullet found ${fallen}'s hat.`,
       body: (shooter: string, fallen: string) => `${shooter}'s second slug laid ${fallen} low.`,
       timeout: (fallen: string) => `${fallen} ran outta time and turned the iron on their own self.`,
+      left: (fallen: string) => `${fallen} lit out 'fore the smoke cleared.`,
     },
   },
   // 술집 대기실과 판 끝 포스터
