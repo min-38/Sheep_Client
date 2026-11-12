@@ -163,7 +163,6 @@ export const es: Copy = {
   },
   credits: {
     open: 'Créditos',
-    support: 'Apoyar',
     title: 'Créditos',
     hint: 'Clic para cerrar',
     entries: [

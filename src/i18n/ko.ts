@@ -162,7 +162,6 @@ export const ko: Copy = {
   },
   credits: {
     open: '크레딧',
-    support: '후원',
     title: '크레딧',
     hint: '눌러서 닫기',
     entries: [

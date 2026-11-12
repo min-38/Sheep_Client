@@ -1228,7 +1228,7 @@ const roomStep = document.querySelector<HTMLFieldSetElement>('#room-step')!
 const roomList = document.querySelector<HTMLUListElement>('#room-list')!
 const roomHint = document.querySelector<HTMLParagraphElement>('#room-hint')!
 const menu = document.querySelector<HTMLDivElement>('#menu')!
-// 메뉴와 함께 보이는 오른쪽 위 크레딧·후원 표지판 (SHEEP-203, SHEEP-205)
+// 메뉴와 함께 보이는 오른쪽 위 크레딧 표지판 (SHEEP-203, SHEEP-205)
 const signpost = document.querySelector<HTMLDivElement>('#signpost')!
 const enterButton = document.querySelector<HTMLButtonElement>('#enter')!
 const practiceButton = document.querySelector<HTMLButtonElement>('#practice')!
@@ -2268,15 +2268,11 @@ helpPanel.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') closeHelp()
 })
 
-// 크레딧과 후원 (시스템 기획서 방 화면 크레딧과 후원, SHEEP-203). 크레딧은 열 때마다 지금 언어로 줄을 채우고 처음부터 올림.
-// 다 올라가거나(animationend) 누르거나 Esc·Enter·스페이스로 닫음. 후원 주소는 빌드 설정이고, 없으면(스팀 판 등) 후원 판을 숨김
+// 크레딧 (시스템 기획서 방 화면 크레딧과 후원, SHEEP-203). 크레딧은 열 때마다 지금 언어로 줄을 채우고 처음부터 올림.
+// 다 올라가거나(animationend) 누르거나 Esc·Enter·스페이스로 닫음. 후원은 itch.io 페이지가 받음 (SHEEP-217)
 const creditsOpen = document.querySelector<HTMLButtonElement>('#credits-open')!
 const creditsPanel = document.querySelector<HTMLDivElement>('#credits-panel')!
 const creditsList = document.querySelector<HTMLDListElement>('#credits-list')!
-const supportLink = document.querySelector<HTMLAnchorElement>('#support')!
-const SUPPORT_URL: string = import.meta.env.VITE_SUPPORT_URL ?? ''
-supportLink.href = SUPPORT_URL
-supportLink.hidden = SUPPORT_URL === ''
 function closeCredits() {
   creditsPanel.hidden = true
   creditsOpen.focus()

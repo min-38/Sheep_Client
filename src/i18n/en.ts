@@ -192,12 +192,11 @@ export const en = {
       'Last one standing wins. Ties go again.',
     ],
   },
-  // 첫 화면 오른쪽 위 크레딧·후원 단추와 크레딧 (시스템 기획서 방 화면 크레딧과 후원, SHEEP-203). 서부 말투 없이 씀 (사용자 결정 2026-11-12).
+  // 첫 화면 오른쪽 위 크레딧 단추와 크레딧 (시스템 기획서 방 화면 크레딧과 후원, SHEEP-203). 서부 말투 없이 씀 (사용자 결정 2026-11-12).
   // entries는 맨 앞에 만든 사람과 만든 도구(SHEEP-208), 그 뒤 CREDITS.md의 외부 에셋과 같게 둠: 역할, 만든 사람, 작품·라이선스·받은 곳.
   // 이름과 작품 이름은 옮기지 않음
   credits: {
     open: 'Credits',
-    support: 'Support',
     title: 'Credits',
     hint: 'Click to close',
     entries: [

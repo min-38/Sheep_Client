@@ -162,7 +162,6 @@ export const zh: Copy = {
   },
   credits: {
     open: '制作人员',
-    support: '赞助',
     title: '制作人员',
     hint: '点击关闭',
     entries: [

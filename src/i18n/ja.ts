@@ -162,7 +162,6 @@ export const ja: Copy = {
   },
   credits: {
     open: 'クレジット',
-    support: '支援',
     title: 'クレジット',
     hint: 'クリックで閉じる',
     entries: [

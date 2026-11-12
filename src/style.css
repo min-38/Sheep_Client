@@ -912,8 +912,8 @@ body {
   margin-top: 1.6cqw;
 }
 
-/* 첫 화면 오른쪽 위 크레딧·후원 표지판 (SHEEP-205 시안 A). 위 가장자리에서 내려온 작은 나무 기둥(::before)에
-   메뉴 이정표와 같은 화살표 판을 박고, 후원 판은 밝은 나무. 깎은 판은 그림자가 잘려 묶음 전체에 줌.
+/* 첫 화면 오른쪽 위 크레딧 표지판 (SHEEP-205 시안 A). 위 가장자리에서 내려온 작은 나무 기둥(::before)에
+   메뉴 이정표와 같은 화살표 판을 박음 (후원 판은 SHEEP-217에서 뺌). 깎은 판은 그림자가 잘려 묶음 전체에 줌.
    #lobby button의 글꼴과 여백을 덮게 #signpost로 묶음 */
 #signpost {
   position: absolute;
@@ -946,10 +946,6 @@ body {
   padding-block: 0.6cqw;
   font: bold 1.6cqw / 1.2 var(--text);
   text-decoration: none;
-}
-
-#signpost #support {
-  background: var(--nails), repeating-linear-gradient(180deg, #a06a30 0 1.1cqw, #8a5a26 1.1cqw 1.4cqw);
 }
 
 /* 깎은 판 바깥은 잘려 보이지 않아 초점 테두리를 판 안쪽에 그림 */
