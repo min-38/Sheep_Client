@@ -22,3 +22,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# itch.io 올림 파일 (README)
+itch.zip

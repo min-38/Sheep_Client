@@ -1817,7 +1817,7 @@ function enterWith(message: (nickname: string) => ClientMessage) {
   send(message(nickname))
 }
 
-// 같은 출처의 /ws. 개발 중에는 vite가 로컬 서버로 넘김 (vite.config.ts). 탭 잠금(tablock.ts)을 잡은 뒤에 붙고, 못 잡은 탭은 끝까지 null
+// 서버의 /ws(SERVER_URL). 개발 중에는 vite가 로컬 서버로 넘김 (vite.config.ts). 탭 잠금(tablock.ts)을 잡은 뒤에 붙고, 못 잡은 탭은 끝까지 null
 let ws: WebSocket | null = null
 // 개발 빌드에서만 주소의 ?lag=N(ms)만큼 왕복을 늘림. 보내기와 받기를 반씩 늦춰 지연이 다른 창끼리 판정을 확인함 (기술 설계서 개발 마일스톤 5).
 // 늦추는 시간이 모두 같아 메시지 순서는 그대로임
@@ -1880,8 +1880,10 @@ function syncClock() {
   send({ type: 'clockSync', t0: performance.now() })
 }
 
+// 서버 주소는 빌드 설정. 없으면(개발 서버) 같은 호스트의 /ws. itch.io처럼 서버와 다른 곳에서 열리는 판은 주소가 있어야 붙음
+const SERVER_URL: string = import.meta.env.VITE_SERVER_URL || '/ws'
 function connect() {
-  ws = new WebSocket('/ws')
+  ws = new WebSocket(SERVER_URL)
   ws.addEventListener('open', () => {
     connected = true
     showStep()
