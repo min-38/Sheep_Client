@@ -107,8 +107,9 @@ function putRolled(roll: number) {
   ctx.restore()
 }
 
-// 브라우저에 기억한 설정. 사생활 보호 모드처럼 저장소를 막으면 던지므로 그때는 기본값으로 두고 기억하지 않음
-const SAVED_SETTINGS = 'settings'
+// 브라우저에 기억한 설정. 사생활 보호 모드처럼 저장소를 막으면 던지므로 그때는 기본값으로 두고 기억하지 않음.
+// itch.io는 모든 HTML 게임을 같은 origin(html-classic.itch.zone)에서 열어 저장 키가 겹치지 않게 모두 tqtsts.로 시작함
+const SAVED_SETTINGS = 'tqtsts.settings'
 let settings: Settings = readSettings(null)
 try {
   settings = readSettings(localStorage.getItem(SAVED_SETTINGS))
@@ -1500,7 +1501,7 @@ const BACKDROP_THINGS: Thing[] = [
 // 방위 0은 동쪽에서 서쪽을 봐 두 사람이 옆모습으로 마주 서고 지는 해가 오른쪽 사람 어깨 뒤에 걸림
 const BACKDROP_T0 = performance.now()
 // 브라우저에 기억해 다음에는 다시 넣지 않음. 사생활 보호 모드처럼 저장소를 막으면 던지므로 기억 못 해도 그냥 둠
-const SAVED_NICKNAME = 'nickname'
+const SAVED_NICKNAME = 'tqtsts.nickname'
 try {
   nicknameInput.value = localStorage.getItem(SAVED_NICKNAME) ?? ''
 } catch {}
@@ -1515,8 +1516,8 @@ function saveNickname(name: string) {
 }
 // 고른 캐릭터 번호와 사람 색 번호 (시스템 기획서 캐릭터 고르기). 술집 왼쪽 벽 게시판에서 고르고 브라우저에 기억해 방에 들어갈 때마다 보냄.
 // 기억한 색이 없으면 null이라 보내지 않고 서버가 들어온 순서로 줌
-const SAVED_CHARACTER = 'character'
-const SAVED_COLOR = 'color'
+const SAVED_CHARACTER = 'tqtsts.character'
+const SAVED_COLOR = 'tqtsts.color'
 let character = 0
 let color: number | null = null
 try {
