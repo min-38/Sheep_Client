@@ -163,7 +163,6 @@ export const ru: Copy = {
   },
   credits: {
     open: 'Титры',
-    support: 'Поддержать',
     title: 'Титры',
     hint: 'Нажмите, чтобы закрыть',
     entries: [
