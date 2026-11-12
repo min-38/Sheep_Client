@@ -1880,8 +1880,10 @@ function syncClock() {
   send({ type: 'clockSync', t0: performance.now() })
 }
 
+// 서버 주소는 빌드 설정. 없으면(개발 서버) 같은 호스트의 /ws. itch.io처럼 서버와 다른 곳에서 열리는 판은 주소가 있어야 붙음
+const SERVER_URL: string = import.meta.env.VITE_SERVER_URL || '/ws'
 function connect() {
-  ws = new WebSocket('/ws')
+  ws = new WebSocket(SERVER_URL)
   ws.addEventListener('open', () => {
     connected = true
     showStep()
